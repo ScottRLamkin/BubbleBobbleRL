@@ -1,0 +1,422 @@
+
+;===============
+;    GetMap
+;===============
+;Loads a new map
+;Input: A=New map
+GetMap:
+GetMapOnly:
+	call Findmap
+	ret c
+	ld a,(hl)
+	and 15
+	inc a
+	add a,a
+	add a,10
+	
+	ld c,a
+	ld b,0
+	add hl,bc
+	inc hl
+	jp DecompressMap
+NewLevel:
+#IFNDEF APP
+	cp levelcount
+	jp nc,Ending
+#ENDIF
+
+
+;	ld hl,DefaultBubTable
+;	ld de,SpriteTable
+;	ld bc,4
+;	ldir
+;	ld hl,spritetable+4
+;	inc de
+;	ld (hl),0
+;	ld bc,8*spritetotal-1+4
+;	ldir
+
+	ld hl,SpriteTable
+	ld de,SpriteTable+1
+	ld bc,EndOfSprites-SpriteTable-1
+	ld (hl),0
+	ldir
+	ld de,SpriteTable
+	ld hl,DefaultBubTable
+	ld bc,4
+	ldir
+#ifdef LINK
+	push af
+	ld a,(Linkgame)
+	or a
+	jr z,NoBob
+	ld de,SpriteTable+8
+	ld hl,DefaultBobTable
+	ld bc,4
+	ldir
+NoBob:
+	pop af
+#endif
+	
+	call FindMap
+	ret c
+	ld a,(hl)
+	and 15
+	inc a
+	ld (enemycount),a
+	ld a,(hl)
+	and %11110000
+	rra
+	rra
+	rra
+	rra
+	ld (ammo),a
+	inc hl
+	ld a,(hl)
+	ld (holes),a
+	inc hl
+
+	ld de,hurry
+	ldi
+	ldi
+	ld de,poptime
+	ldi
+
+	ex de,hl
+	call NewPattern
+	ex de,hl
+	
+	inc hl
+
+	ld a,(enemycount)
+	ld b,a
+	push bc
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	sla b
+	inc hl
+	ld a,item1
+	call CreateSprite
+	ld (ix+2),0
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	sla b
+	inc hl
+	ld a,item2
+	call CreateSprite
+	ld (ix+2),0
+	pop bc
+CreateEnemiesLoop:
+	push bc
+	ld a,(hl)
+	and $7F
+	ld c,a
+	ld a,(hl)
+	and $80
+	rlca
+	rlca
+	ld e,a
+	inc hl
+	ld a,(hl)
+	and $1F
+	add a,a
+	neg
+	ld b,a
+	ld a,(hl)
+	and $E0
+	rra
+	rra
+	add a,Enemies
+	add a,e
+	inc hl
+	call CreateSprite
+	ld (ix+3),FallingEnemy
+	pop bc
+	djnz CreateEnemiesLoop
+	push hl
+	call SpecialLevels
+	pop hl
+	jp DecompressMap
+
+
+;    Findmap - Seeks a map
+;Input: A=Map number
+;Output: HL=Compressed map pointer, carry flag set on failure
+FindMap:
+	ld hl,Maps
+	or a
+	ret z
+	ld b,a
+FMLoop1:
+	push bc
+	ld a,$FF
+	ld bc,384
+	cpir
+	pop bc
+	djnz FMLoop1
+	ret
+
+;    DecompressMap - Decompresses 5.3 bit RLE	
+;input: hl=pointer to compressed data
+DecompressMap:
+	;Destination = Level ram
+	ld de,Level
+DecompressLoop:
+	;Get the byte
+	ld a,(hl)
+	;Quit on $FF
+	cp $FF
+	jr z,ConvertMap
+	;Fliter off the length, increment, and store into b
+	and %00011111
+	inc a
+	ld b,a
+	;Get the byte again, and filter out the tile into a
+	ld a,(hl)
+	rlca
+	rlca
+	rlca
+	and %00000111
+DecompLoop2:
+	;Store a byte
+	ld (de),a
+	;Next byte to store...
+	inc de
+	;Repeat
+	djnz DecompLoop2
+	;Next byte
+	inc hl
+	;Repeat
+	jr DecompressLoop
+ConvertMap:
+	ld de,15*24+map+1
+	ld hl,15*24+map
+	ld bc,23
+	ld (hl),0
+	ldir
+	ld de,14*24+map
+	ld hl,13*22+map
+	ld b,14
+	xor a
+ConvertMapLoop:
+	push bc
+	ld bc,22
+	ld (de),a
+	inc de
+	ldir
+	ld (de),a
+	inc de
+	ld bc,-44
+	add hl,bc
+	ld bc,-48
+	ex de,hl
+	add hl,bc
+	ex de,hl
+	pop bc
+	djnz ConvertMapLoop
+	push de
+	pop hl
+	inc de
+	ld (hl),a
+	ld bc,23
+	ldir
+MakeHoles:
+	ld hl,holes
+	ld de,map +6+(0*24)
+	ld c,1
+	call MakeHole
+	ld de,map +14+(0*24)
+	call MakeHole
+	ld de,map +6+(15*24)
+	call MakeHole
+	ld de,map +14+(15*24)
+MakeHole:
+	ld a,(hl)
+	and c
+	jr z,NoUpHole
+	ld b,1
+NoUpHole:
+	sla c
+	ld a,(hl)
+	and c
+	jr z,NoDownHole
+	ld b,4
+NoDownHole:
+	sla c
+	ld a,b
+	ld b,4
+MakeHoleLoop:
+	ld (de),a
+	inc de
+	djnz MakeHoleLoop
+	ret
+
+SpecialLevels:
+	ld a,(onlevel)
+	cp 99
+	jr z,Setup100
+	ld a,(SuperGame)
+	or a
+	jr nz,SetupSuper
+	ret
+Setup100:
+	ld ix,SpriteTable
+	ld bc,8
+Setup100CrappyLoop:
+	add ix,bc
+	ld a,(ix+3)
+	cp item1
+	jr nz,Setup100CrappyLoop
+	ld a,ThunderPotion
+	ld (ix+3),a
+	ld (ix+2),a
+	add ix,bc
+	ld (ix+3),a
+	ld (ix+2),a
+	add ix,bc
+	ld (ix+0),40
+	ld (ix+1),-16
+	ld (ix+2),0
+	ld (ix+3),SuperDrunk
+	ret
+
+SetupSuper:
+	ld ix,SpriteTable
+	ld b,12
+SetupSuperLoop:
+	push bc
+	ld bc,8
+	add ix,bc
+	ld a,(ix+2)
+	sub $44
+	jr c,SetupSuperLoop2
+
+	ld b,a
+	and %00000010
+	ld c,a
+	ld a,b
+	srl a
+	srl a
+	srl a
+
+	ld hl,SuperRemapTable
+	ld e,a
+	ld d,0
+	add hl,de
+	ld a,(hl)
+	add a,a
+	add a,a
+	add a,a
+	add a,$44
+	add a,c
+	ld (ix+2),a
+	
+SetupSuperLoop2:
+	pop bc
+	djnz SetupSuperLoop
+	ret
+
+SuperRemapTable:
+	.db 6 ;buster    0 >Hidegonzu 6
+	.db 4 ;Beluga    1 >Balloon   4
+	.db 3 ;Stoner    2 >Drunk     3
+	.db 2 ;Drunk     3 >Stoner    2
+	.db 1 ;Balloon   4 >Beluga    1
+	.db 5 ;Banebou   5 >Banebou   5
+	.db 0 ;Hidegonzu 6 >Buster    0
+	.db 7 ;Invader   7 >Invader   7
+	
+	
+
+;=========================================
+;  NewPattern - Loads a new wall style
+;=========================================
+NewPattern:
+	ld hl,Tile
+	call NewPattern2
+	inc de
+NewPattern2:
+	ld a,(de)
+	and %11110000
+	ld c,a
+	rra
+	rra
+	rra
+	rra
+	or c
+	ld c,a
+	call NewPattern3
+	ld a,(de)
+	and %00001111
+	ld c,a
+	add a,a
+	add a,a
+	add a,a
+	add a,a
+	or c
+	ld c,a
+NewPattern3:
+	ld (hl),a
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	or %00001111
+	ld (hl),a
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	ld a,c
+	or %11110000
+	ld (hl),a
+	ld bc,-7
+	add hl,bc
+	ret
+
+#IFDEF APP
+;=======================
+;     CreateSprite
+;=======================
+;Creates a new sprite A at (C,B), ix = new offset  Carry set on failure
+CreateSprite:
+	;Save regs
+	push bc
+	or a
+	push af
+	push de
+	;Get spritetable entry 1
+	ld ix,SpriteTable+8
+	;Set up Incs and Count
+	ld de,8
+	ld b,SpriteTotal-1
+SeekLoop:
+	;Check if sprite is free
+	ld a,(ix+3)
+	or a
+	;If so, then create it.
+	jp z,CreateSprite2
+	;If not, try next and loop
+	add ix,de
+	djnz SeekLoop
+	;If no sprites found, Restore regs, set carry flag and quit.
+	pop de
+	pop af
+	pop bc
+	scf
+	ret
+CreateSprite2:
+	;Now make the sprite: Get paramaters
+	pop de
+	pop af
+	pop bc
+	;And store them.
+	ld (ix+0),c
+	ld (ix+1),b
+	ld (ix+2),a
+	ld (ix+3),a
+	;Done
+	ret
+#ENDIF

@@ -1,0 +1,116 @@
+Linkplay:
+
+Bub's Turn:
+-----------
+Send a packet:
+  * Request for control data
+  * Level Change
+  * Gameover
+  * Enemy Table
+  * Score
+  * Lives
+  * Big Sprite information
+  * Screen refresh
+
+
+Bob's turn:
+-----------
+Wait for link activity, do stuff based on what is recieved
+On clear, quit immediatly.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+When killing an enemy 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Bubble Bobble 83 Enemy AI Notes:
+
+IX Offsets:
+
+4 = Counter
+5 = XY Direction
+6 = Sequence
+7 = Flags
+
+
+General:
+
+Return every other cycle unless pissed
+
+State 0 (Falling):
+If in air, fall.  If hit ground, look in X direction of player.
+
+State 1 (Walking):
+  Dec delay counter, no nothing unless <=0
+  Move forward
+  Randomly check position of player.
+    If player above, set flag 3
+    If player to left or right locally, Change to that direction
+    If player below, set flag 4
+  If at edge of a hole and not flag 4, jump the pit (state 2)
+  If on air, go to state 0
+  If flag 3, and a non-obstucted, at least 2 wide, platform is above, jump up (state 5)
+
+State 2 (Jumping Forward 1):
+  Go forward
+  Go up
+  inc Counter, inc state when 4
+
+State 3 (Jumping Forward 2):
+  Go forward
+  inc Counter, inc state when 8
+
+State 4 (Jumping Forward 3):
+  Go forward
+  Go down
+  inc Counter, go to state 1 and reset couter and flags
+
+State 5 (Jumping Up):
+  Go up
+  Check if on platform, if so, state 1

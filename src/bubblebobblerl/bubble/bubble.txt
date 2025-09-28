@@ -1,0 +1,471 @@
+  ####HXH##;                                    X##               
+ #+        #$            $##+       /@##$      #$,/#              
+%H          #           #X:;H##=  ;#H:--H#    #=   #              
+#,  +###    #          $X     =##X#      ;#, #+    #              
+#.  #.H#  /#;:##M  .H###;       =#:       ,#%#    #+  :#####@     
+#  ;H #   H###: /#,#+:,XH  %##   $+   $$   ;#:   =#   #     ;#M   
+#  $/M;     :#$  H#X   :@ =#,#-  %%  @@#+   #    #-  #=       %#X 
+#= $M#        #  %#+   +$  #X#   #=  X##   %#    #  @X          MH
++@ :##,###.   %$ X#X   X/  #X   $#  %##  %##    @% =#    +=      #
+ #  M##/,$#=  ,M @H#   @= ##  =### /##  ####-  -#  #    ##M##/ -#M
+ XX  ######=  X$ $@#   #, ##%##/ #;%## ##  $+  #; ;@    %#= .H##; 
+  #          ;#   ##   #   ###+  =@ ####.  X/  ####%     -M#%     
+  #@       .##    .    #:        :@  :,    H;     ;#.       M#    
+   ###@H@###$#        .####.     #/        ##=     ,#  ##%  =#    
+     -:::-   ;#       #:  /##$X##H##/     X#=##$    #--#;H###,    
+              %#H/=;X#+     -/;.   #######M    $#M:/#  X##$       
+         +M##H- /X@HH-     %##H/  #M    /#       :@#@    .@#      
+       ;#H=  /##  =#####M/#H..=X##H      ;@         ##=    ;#     
+       #       /###-    $#=      :#   #H  #          -##/  X@     
+       #   ##H  #-       +#       M; HH#  ####M        .X###      
+      :M   ###  #   ###   #  -#;  X/ $#M  #   #: +######M%        
+      @+  ;##  %#   #M#   #, ##H  #, XM  +#=  /##H     .=X#,      
+      #  ##,  M###.  +   :#  #M  -#  #  +#/#  ;#          ,#      
+     +@ -#   ###//#:     #  /#   ##  @###  #  /X           #      
+     #=  #: %##    #   =#- @#   #+H@       #  +$   H##%  ,#%      
+     #,  ,###:     #####, .#= +#;  #       #  $#   =######+       
+     %H          ,#;   #   @##M    #H/;;+X##  ##       .+#        
+      #+        %#-    MH          #+XX##/.  ###         #        
+       ##;    /##       ##.       %#   #.   @$.#   :///$##        
+        -H####X.         /#########    #    #X%#-  $#####$        
+                                       #     $@@##      .@#       
+                                       MM        #.       #       
+Version 0.995  (23022 bytes)            H#/     ,##+:---:#X       
+                                          @######+:$@###@:        
+ By Dan Weiss - bubble1@dwedit.cjb.net
+    (old email address bubblebobble@dwedit.cjb.net was nuked)
+
+ http://bubblebobble.dwedit.cjb.net/
+ http://bub83.tk/
+ Non-redirected link: http://home.attbi.com/~alanweiss3/dwedit/bubblebobble/
+
+Secret: In the flashapp version, you can play IceClimb by pressing "I"
+at the title screen.
+
+
+Introduction
+------------
+
+This is a clone of the classic video game Bubble Bobble for the TI82,
+TI83 and TI83+ graphing calculators.  You control a bubble dragon named
+Bub.  You shoot magic bubbles at the enemies to trap them inside, then
+pop the bubbles with the enemies inside.  You get more points for popping
+more bubbles at the same time.  When you kill an enemy, it leaves
+behind fruit, which you can collect for even more points.
+
+
+Newbies:
+--------
+You can't type this program onto the calc, you will need to buy a TI-Graphlink
+cable to connect your computer to the calculator.
+
+
+
+For TI83+ users:
+----------------
+
+If you use the TI-Graphlink Software (NOT TI-Connect), use the
+"Link > Send Flash Software > Applications and Certificates..." menu
+to send the application to your calc. The file to send is named "Bubapp.8xk".
+
+If you use TI-Connect, first open the folder containing "Bubapp.8xk" in
+Windows Explorer or something.  Right click on the file "Bubapp.8xk", and
+select "Send To > Connected TI Device"  This should send the flash application
+Bubble to your TI83+.
+
+Use the APPS button to run Bubble Bobble.
+
+
+NOTE: The TI83+ Ion version of Bubble Bobble is VERY out of date.  Don't use it.
+
+
+
+For TI83 users:  (Not TI83+)
+---------------
+
+Use the "Link > Send" menu to send the file to your TI83.
+If you use ION, send "Bubble.83p".  Do not run prgmBUBBLE from the home
+screen, run prgmA to start Ion.  You can get ION at
+http://www.ticalc.org/archives/files/fileinfo/130/13059.html
+
+I recommend that you use Venus 2.1 instead of ION, it's smaller and lets
+you run Venus programs from the home screen, as well as Ion programs from
+the prgmA shell. Get Venus 2.1 at
+http://www.ticalc.org/archives/files/fileinfo/171/17170.html
+If you use Venus, send "BubbleV.83p" instead of "Bubble.83p", and then you
+can run it from the homescreen.  You can delete prgmA now if you don't need
+to run any ION programs.
+
+
+NOTE: Do not "File > Open" the "Bubble.83p" file in the graphlink software.
+The graphlink software crashes if you open programs that big, and the
+TI-Basic editor also corrupts the file anyway.
+
+
+
+For TI82 users:
+---------------
+
+If you don't have a shell installed on your TI82, first download either
+the ACE or CrASH shell.  If you have a newer TI82 with a rounded case and
+big number buttons, then you have to use ACE.  If you have an older TI82 with
+blue pixels on the screen, you can use either shell.  You can get the shells at:
+http://www.ticalc.org/archives/files/fileinfo/226/22691.html (ACE)
+http://www.ticalc.org/archives/files/fileinfo/87/8772.html (CrASH)
+
+To send the shell on to the calc, First, get the calculator into Recieve mode.
+(Press 2nd + link (X,T,0)), select Receive, press enter)
+Then use the "Link > Send" command to send either "Crash.82b" or "Acebeta.82b" to
+your calc.  You should delete some of the built in programs included with ACE,
+such as anything beginning with a lowercase inverted alpha.
+
+After installing the shell, use the "Link > Send" menu to send the game on.
+Send "Bubble.82p" if you're using CrASH, or "BubbleA.82p" if you're using ACE.
+Don't forget to put the TI82 in recieve mode first.
+
+
+NOTE: If you have the USB cable, you can't use the TI-Graphlink software,
+and TI-Connect does NOT support the TI82.  You may have to use a program called
+TiLP to send the files over using the USB cable.  You can find TiLP at:
+http://tilp.sourceforge.net/
+
+
+
+Controls
+--------
+
+The arrow keys move Bub left or right.  The Up arrow or Alpha key makes
+Bub jump.  The 2nd key makes Bub shoot a magic bubble.  If you hold down
+a jump button while falling on a bubble, you will bounce up on it.  Use
+this trick to reach high places!
+
+Clear saves and quits, Math turns off the power mid-game.
+
+
+Heroes
+------
+   @@       Bub  (Bubblun)
+@@  @@@     
+ @ @ @ @    This is the hero of the game.  He was once
+ @ @ @ @    a boy, until SuperDrunk transformed him into
+@@ @ @ @    a magic bubble dragon and kidnapped his
+ @  @@@     girlfriend!  He is on a journey to save her
+ @ @        from the cave of monsters.
+@ @@@ @@    
+
+        Bob  (Bobblun)                        @ @@  
+                                             @@@  @@
+        Bob is Bub's brother, he only       @ @ @ @ 
+        appears in 2 player games.          @ @ @   
+                                            @ @ @ @@
+        Select LINK from the main menu       @@@  @ 
+        for Linkplay!                       @@@ @@@@
+                                                  @@ 
+
+
+
+
+Enemies
+-------
+ @@@@@@     Bubble Buster (Zen Chan)
+@@@@@@@@    
+@ @@ @ @    A mean wind up toaster.  It moves around,
+ @ @ @ @    and jumps.  Trap them inside bubbles then
+   @@@@@    pop them!
+@@@         
+ @@ @@@     
+    @@@@    
+
+      Stoner (Mighta)                         @@@@ @
+                                             @@@@@@@
+      This monster looks like a Wizrobe.    @@   @@@
+      Wizrobe.  When it gets angry, it      @ @ @ @ 
+      throws rocks, so watch out!           @    @ @
+                                             @ @@@@@
+                                            @ @@   @
+                                             @@ @@@ 
+
+  @@@@@     Beluga (Monsta)
+ @ @@@@@    
+ @  @@@@    A purple floating whale.  It floats
+@@@@@  @    around aimlessly, turning 90 degrees
+@@@         at every obstacle.  It only moves
+@@    @@    diagonally.
+@@@@@@@     
+ @@@ @@     
+
+      Hullaballoon (Pulpul)                    @@   
+                                              @@ @  
+      This monster is a cross between a     @@@ @@@@
+      helicopter and a pig.  It floats      @@@@@@@@
+      around, faster than the Beluga.        @ @@ @ 
+                                             @ @@ @ 
+                                            @@@@@@@@
+                                            @@    @@
+
+ @@@@@      Banebou (Colley)
+@@ @ @@     
+@@ @ @@     A coiled up monster on a spring.
+ @@@@@      It bounces around endlessly, only
+@           turning when hitting a wall.
+ @@@@@      
+@           
+ @@@@@      
+
+      Hidegonsu (Incendo)                    @ @  @ 
+                                              @@@@  
+      A furry monster that can spit out      @ @ @@ 
+      fireballs.  These fireballs move       @ @    
+      much faster than the Stoner's rocks.       @@ 
+      This one is dangerous!                  @@@  @
+                                            @@ @@ @@
+                                             @@   @ 
+
+  @@@@@     Drunk (Willy Whistle)
+ @@    @    
+@@  @ @     A grumpy old alcoholic elf. 
+@ @    @    It can throw its beer mug at
+@@@  @ @    you, and it will ricochet back!
+  @@@@@     
+@ @@@  @    
+ @ @ @@     
+
+      Invader (Socket)                       @    @ 
+                                              @  @  
+      These space invaders first attacked   @  @@  @
+      Earth in 1979, and seem to be         @ @@@@ @
+      appearing in many different games as  @@ @@ @@
+      well.  They move left and right, and   @@@@@@ 
+      drop lasers below, and they move        @  @  
+      FAST!                                 @@@  @@@
+
+
+Tips
+----
+
+Score Trick
+If you beat a level, and the hundred's and ten's digits of your score are
+the same, like 67220, then all the bubbles turn into 700 point bonus items!
+
+Hiding by a wall
+If you stand next to and face a wall, and blow bubbles rapidly, you can be
+safe from any enemies that don't shoot projectile weapons at you.
+
+
+
+Version History
+---------------
+Version 0.995
+5/23/03
+  Fixed Linkplay!
+
+Version 0.993
+4/23/03
+  Changed:
+    Now all the #defines are at the beginning of the program, so if
+    you like changing compile time options, have fun!
+  Fixed:
+    Disabled TI83+SE Link assist, so linkplay should work this time.
+
+Version 0.992
+1/7/03
+  Changed:
+    New Title screen!
+    Belugas and Hullabaloons are less likely to get stuck in walls.
+    Hopefully fixed linkplay...again
+  Fixed:
+    Linklay...Again
+    Now has the correct version number for TI83+ version!  All the
+     older versions incorrectly reported themselves as version .980
+     (this is the LINKPLAY version number, not the one on the INFO
+     screen)
+
+Version 0.991
+1/6/03
+  I forgot what I changed, but linkplay bugs are probably fixed
+   also there's a new title screen.  I'm sure I changed a few of the
+   levels.
+
+
+Version 0.990
+10/25/02
+  Added:
+    Lots of text has been added to the game, especially
+    an the Info screen and link games.
+  Changed:
+    Fixed linkplay bugs involving Super Bubble Bobble
+    Fixed linkplay bugs involving High Scores
+    Removed ZOOM and + cheats from the included binaries.
+    Many levels have been revised.
+    Updated the .SWF documentation.
+
+Version 0.980
+5/25/02
+  Added:
+    New Main Menu
+    Info screen
+  Changed:
+    Moved Linkplay and Highscore options to the main menu
+
+
+Version 0.963
+5/25/02
+  Added:
+    Super Game!  Harder enemies when enabled.  Beat the game to
+    access the feature.
+  Changed:
+    It is easier to spell extend, the game now has a lower chance
+    of giving you extend letters you already have.
+    AI doesn't get stuck repeatedly jumping as often, also now
+    slightly smarter in general.
+    Thunder Potion on level 100 never expires in linkgames when a
+    player dies.
+  Fixed:
+    Hidegonzu Fireball bug fixed, now it cuts off properly at the
+    right edge of the screen, rather than pixel 64.
+
+Version 0.962
+4/6/02
+  Flash Application!
+  Added:
+    Flower Potion  (Bonus doors now act as flower potions)
+    High scores!  Press Graph at the title screen to view them
+  Fixed:
+    Bub now animates properly when he has the shoes
+  more...
+
+Version 0.960
+  Added:
+    Drunk
+    All collisions added to linkplay
+    Now you can resume link games, even when a link error occurs!
+  Fixed:
+    Linkplay bug where player 1 got bonus doors and player 2 got something else
+
+Version 0.959
+  Fixed:
+    Fixed the linkplay bugs involving Extend Letters and Player 1 having
+    difficulty jumping.
+  Added:
+    Counter at top middle of screen tells you what level you're on
+  Changed:
+    Updated the .SWF manual
+
+Version 0.958
+  Added:
+    Almost Complete Linkplay!  Press X,T,theta at title screen for linkplay
+  Changed:
+    New lives counter
+
+Version 0.957
+  LINKPLAY TEST VERSION!  2 Players, but player 2 is invincible
+  Press X,T,theta at title screen for linkplay
+
+Version 0.956
+  Added:
+    Finally added Banebou!
+
+Version 0.954 ALPHA
+  Fixed:
+    Fixed a MAJOR BUG involving the candy cane
+
+Version 0.952 ALPHA
+12/15/01
+  Fixed:
+    No more invisible rocks killing you when you beat levels!
+    (bug from last alpha)
+
+Version 0.951 ALPHA
+  Added:
+    Water now sweeps player away
+    Added the huge item from the cane!
+    End boss now killable, still no ending
+  Fixed:
+    Top of screen collision bugs
+    More bugs...
+  Size:
+    TI-82  19233
+    TI-83  18803
+    TI-83+ 18877
+
+Version 0.940 ALPHA
+  Added:
+    All 100 levels and End boss
+    Venus and SOS ports included
+    Fire Bubbles
+    New bubble popping system
+  Changed:
+    Altered levels
+    more...
+  Size:
+    TI-82  18785
+    TI-83  18355
+    TI-83+ 18429
+
+Version 0.801
+10/1/01
+  Added:
+    How has 90 levels!
+    New title screen and menu!  (tile screen based on Shawn Pero's fanart)
+    Round select feature, get far in the game and you can start later on!
+    Time bonus fruits
+    More enemies supported
+  Changes:
+    All new enemy AI!
+    You now have 5 credits to continue.
+    more...
+  Size:
+    TI-82  17097
+    TI-83  16667
+    TI-83+ 16741
+
+Version 0.629:
+6/30/01
+  Added:
+    21 more levels   (41 total)
+    Existing levels revised
+    Shoes Item
+    Extend Letters
+    Water and Thunder Bubbles
+    Continue Feature  (3 credits)
+    more...
+  Fixed:
+    Crash bug when resuming a saved game fixed
+    more...
+  Changes:
+    Collision Detection nicer against enemies
+    more...
+
+Version 0.602:
+  Added:
+    10 extra levels  (20 total)
+    Revised first 10 levels
+    Added code for Stoners and Belugas, now they aren't the same as the first enemy. :)
+  Fixed:
+    Bubble Movement bugs fixed!
+  Changes:
+    Now have 5 lives instead of 3
+
+
+To be added later Checklist:
+----------------------------
+ _ Bonus Lives
+ _ Fancy EXTEND Animation
+ _ The Baron who appears when you take too long
+
+
+Misc Notes:
+-----------
+This game's title screen art is based on Shawn Pero's fanart from
+http://www.bubandbob.com/fanart/shawn_pero/bub2.jpg
+Several pieces of code were borrowed from other programmers:
+  *TCPA's Tilemapping routine. (modified)
+  *CrASH Man's SprClip routine (modified)
+  *Kirk Meyer's routine to display long integers (modified)
+  *CrASH Man's random routine
+
+
+-------------------------------------------------------------------------------------
+Bubble Bobble 83 (C) 2002 Dan Weiss
+
+Bub, Bob, Bubble Bobble and other related names are trademarks of Taito corporation

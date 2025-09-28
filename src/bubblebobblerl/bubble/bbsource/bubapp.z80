@@ -1,0 +1,373 @@
+;Bubble Bobble 83+  APP
+;
+; By Dwedit (Dan Weiss)
+;    bubblebobble@dwedit.cjb.net
+;
+; http://bubblebobble.dwedit.cjb.net/
+;
+
+;TODO:
+;      Fix the bubble bounce bug at top and bottom of screen
+;      EXTERNAL LEVELS!!!
+
+LINKVER = 95
+#DEFINE GAMEVERSION "v0.995"
+
+#define SYNCSEED    ;Sync the random number seed each frame
+;#define LOUDSEED    ;Display the random number seed
+;#define SUPPRESS    ;Suppress Link Errors
+;#define CHEAT       ;Enable cheats
+#define LINK        ;Enable linkplay
+#define SOFTQUIT    ;Quitting the game returns to the title screen
+;#define ENDING      ;Enable ending  NOT FINISHED YET!
+#define HUNT        ;Enemies target the closest player
+#define NEWMAINMENU ;Main menu has more options than just Play and New
+#define HIGHSCORE   ;Enables Highscores
+;#define GRAYTITLE   ;Flickery Grayscale title
+;#define SLOWSHOES   ;Enables Slow Shoes, only 1.5x speed vs double speed
+;#define NOINFO      ;Removes the Info screen to save ram.
+;#define LESSTEXT    ;Lots of game text about how to link up is removed
+
+
+#DEFINE disp(xxxx) ld hl,xxxx \ call AppPuts
+#DEFINE puts call AppPuts
+#DEFINE vputs call AppVPuts
+#DEFINE vputsj jp AppVPuts
+
+
+#DEFINE APPNAME "Bubble  "
+#DEFINE APPPAGES 2
+
+#include "dwedit.inc"
+
+;============
+;  Equates!
+;============
+SpriteTotal = 64
+SpriteCount = SpriteTotal
+numSprite = SpriteTotal
+
+DefaultXSpriteHeight = 8
+
+#include "bub_appd.inc"
+
+;===============
+;  Game Code!
+;===============
+AppStart:
+#ifdef TI73
+	AppOffErr 
+	b_call _DisableAPI 
+	ld hl,DummyReturn 
+	ld (AppRawKeyHandle),hl 
+	getcurrentpage
+	ld (AppPage),a 
+#endif
+
+	call LoadAppvar
+#IFDEF LINK
+	call KillLinkAssist  ;make a TI83+SE act like a TI83+
+#ENDIF
+
+	set textinverse,(iy+textflags)
+	set textwrite,(iy+sgrflags)
+
+	ld (backupsp),sp              ;Save Stack Pointer
+
+RestartGame:
+	call initalize                ;Set up game
+	jp GameLoop                   ;Play!
+SaveAndQuit:
+	ld a,1
+	ld (SavedFlag),a
+Quit:
+#IFDEF SOFTQUIT
+	ld sp,(backupSP)
+	call SwapAPD
+	ld hl,TitlePic
+	ld de,plotsscreen
+	ld bc,768
+	call DispRLE
+	call SwapAPD
+	call Scrollup
+	jr RestartGame
+Quit2:
+	ld sp,(backupSP)
+	call SaveAppvar
+#ELSE
+Quit2:
+	ld sp,(backupSP)
+	call SaveAppvar
+#ENDIF
+	res oninterrupt, (iy+onflags)
+	res textinverse,(iy+textflags)
+	res textwrite,(iy+sgrflags)
+
+#IFDEF LINK
+	call RestoreLinkAssist
+#ENDIF
+
+	bjump(_JForceCmdNoChar)
+DummyReturn:
+	ret
+
+
+;======================
+;         Code
+;======================
+#include "bub_main.z80"
+#include "bub_ai.z80"
+#include "bub_draw.z80"
+#include "bub_end.z80"
+
+#IFDEF LINK
+
+#IFDEF TI83P
+;#DEFINE ROMLINK
+#ENDIF
+
+#include "zrec8x.z80"
+#include "zsend8x.z80"
+
+#include "bub_link.z80"
+
+#ENDIF
+
+;======================
+;         Data
+;======================
+#include "bub_gfx.h"
+#include "bub_tabl.h"
+levelcount = 100
+
+#include "bub_data.h"
+
+;Sprite Routine
+#include "spr21app.inc"
+PutSprClpAND = Tile+AppVarLen
+
+;AppPutSprClpAND
+
+
+ionfastcopy:
+#include "fastcopy.h"
+
+ionLargeSprite:
+#include "largespr.h"
+
+AppPuts:
+	ld de,op1
+	b_call _strcopy
+	ld hl,op1
+	b_call _puts
+	ret
+
+AppVPuts:
+	ld de,op1
+	b_call _strcopy
+	ld hl,op1
+	b_call _vputs
+	ret
+
+SaveAppVar:
+	ld hl,AppVarName
+	rst 20h
+	b_call _chkfindsym
+	
+	inc de
+	inc de
+	ld hl,Tile
+	ld bc,AppVarLen
+	ldir
+
+	ld hl,Tile
+	ld de,AppVarLen+500
+	b_call _delMem
+
+	ld hl,AppVarName
+	rst 20h
+	b_call _arc_unarc
+	ret
+
+LoadAppVar:
+	call CreateAppVar
+
+	ld hl,AppVarLen+500
+	b_call _enoughmem
+	jp c,MemError
+	
+	ld de,Tile
+	ld hl,AppVarLen+500
+	b_call _InsertMem
+	
+	ld hl,AppVarName
+	rst 20h
+	b_call _chkfindsym
+	
+	ex de,hl
+	inc hl
+	inc hl
+	ld de,Tile
+	ld bc,AppVarLen
+	ldir
+	
+	ld hl,AppPutSprClpAND
+	ld de,PutSprClpAND
+	ld bc,140
+	ldir
+	
+	ld hl,AppBubRandom
+	ld de,BubRandom
+	ld bc,34
+	ldir
+
+	ld hl,AppAnimate
+	ld de,Animate
+	ld bc,25
+	ldir
+	
+	ld hl,AppParallelUniverse
+	ld de,ParallelUniverse
+	ld bc,16
+	ldir
+	
+SetAHL = ParallelUniverse + 17
+	ld hl,AppSetAHL
+	ld de,SetAHL
+	ld bc,11
+	ldir
+
+BackupSp = SetAHL+12 ;Pointer
+
+Dispscore2_Mod = BackupSP+2
+	ld hl,AppDispscore2_Mod
+	ld de,Dispscore2_Mod
+	ld bc,18
+	ldir
+
+	
+	
+	
+	ret
+	
+
+
+CreateAppVar:
+	ld hl,AppVarName
+	rst 20h
+	b_call _chkfindsym
+#IFDEF TI73
+	ld b,0
+#ENDIF
+
+	jr c,AppVarNotFound
+	
+	ld a,b
+	or a
+	jr z,AppvarNotArchived
+	b_call _arc_unarc
+	jr CreateAppVar
+AppvarNotArchived:
+	ex de,hl
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	ld hl,AppVarLen
+	or a
+	sbc hl,de
+
+	jp z,DoneWithAppvar
+	ld hl,AppVarName
+	rst 20h
+	b_call _chkfindsym
+	b_call _delvar
+	jr CreateAppVar
+	
+AppVarNotFound:
+	ld hl,AppVarLen+17
+	b_call _enoughmem
+	jr nc,EnoughRam
+
+MemError:
+	call BlackScreen
+	call ionFastCopy
+	ld hl,0
+	ld (currow),hl
+	disp(tMemError)
+	call WaitKey
+	b_call _clrlcdfull
+	bjump(_JForceCmdNoChar)
+
+tMemError:
+;     "0123456789ABCDEF"
+	.db "Memory Error!   "
+	.db "Not enough RAM. "
+	.db "Delete or       "
+	.db "Archive some    "
+	.db "programs.       ",0
+	
+EnoughRam:
+	ld hl,AppVarLen
+	b_call _createappvar
+
+InitalizeAppvar:
+	ld hl,AppVarName
+	rst 20h
+	
+	b_call _chkfindsym
+	inc de
+	inc de
+
+	push de
+	
+	push de
+	pop hl
+	inc de
+	ld (hl),255
+	ld bc,65
+	ldir
+	ld bc,AppVarLen-65
+	ld (hl),0
+	ldir
+	
+	pop de
+	ld hl,HighScoreTable-Tile
+	add hl,de
+	ex de,hl
+	
+	ld hl,DefaultHighscoreTable
+	ld bc,60
+	ldir
+	
+	jp DoneWithAppvar
+DoneWithAppvar:
+	ret
+	
+	
+AppVarName:
+	.db $15,"Bubble",0,0
+
+PlayIceClimb:
+	call copy2apd
+	call swapapd
+	ld hl,saferam1
+	ld de,saferam1+1
+	ld bc,767
+	ld (hl),0
+	ldir
+	call Scrollup
+	
+	b_call _PlayIceClimb
+	jp Quit
+
+_PlayIceClimb = $ - $4000
+	.dw $4000+(0*3)
+	.db 1
+
+_NewLevel = $ - $4000
+	.dw $4000+(1*3)
+	.db 1
+
+_GetMapOnly = $ - $4000
+	.dw $4000+(2*3)
+	.db 1

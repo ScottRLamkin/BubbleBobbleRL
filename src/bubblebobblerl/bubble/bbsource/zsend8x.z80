@@ -1,0 +1,90 @@
+;============================================================================
+;
+; Venus Routine: vnSendByte (by Tijl Coosemans, tijlc@hotmail.com)
+; ~~~~~~~~~~~~~~~~~~~~~~~~~
+;================================== version 1.1 == 06/21/2001 (MM/DD/YYYY) ==
+;
+;  description:	Sends a byte using TI bit protocol
+;  input:	a = byte to send
+;  output:	zero flag set (and hl = 0) when error occured during
+;		link communication
+; (registers used: af, bc, hl)
+;
+;  example (tasm source code file)
+;  -------
+;	.nolist				; in this example of a Venus
+;	vnSendByte =$FE6F		; program the vnSendByte routine
+;	.list				; pointer will be located at $FE6F
+;					; on startup
+;	.org 932Ch			;
+;					;
+;		.db	$E7,"9_[?"	;
+;		.db	0,1,1		;
+;		.db	2		;
+;		.db	5,"~SEND",$ff	;
+;					;
+;		ld	a,5		;
+;		jp	vnSendByte	;
+;
+;	.end
+;
+;============================================================================
+
+SendByte:
+;#IFDEF TI83P
+;	push af
+;	in a,(2)
+;	and 128
+;	jr z,SendBytev
+;	pop af
+;
+;  AppOnErr(SendByteError)
+;  bcall(_Sendabyte)
+;  AppOffErr
+;  or a
+;  ret
+;SendByteError:
+;  scf
+;  ret
+;
+;SendByteV:
+;	pop af
+;#ENDIF
+	ld	b,8
+	ld	c,a
+vnSendByteLoop:
+	rr	c
+vnSendBit0:
+	ld	a,linkD4
+	jr	nc,vnSendBit
+vnSendBit1:
+	ld  a,linkE8
+vnSendBit:
+	ld	hl,0
+	out	(0),a
+vnSendBitLoop1:
+	dec	hl
+	ld	a,l
+	or	h
+	jr	z,vnSendQuit
+	in	a,(0)
+	and	link3
+	jr	nz,vnSendBitLoop1
+	ld	l,a
+vnSendQuit:
+	or	h
+	ld	a,linkC0
+	out	(0),a
+	ret	z
+	ld	h,l
+vnSendBitLoop2:
+	dec	hl
+	ld	a,h
+	or	l
+	ret	z
+	in	a,(0)
+	and	link3
+	cp	link3
+	jr	nz,vnSendBitLoop2
+	djnz	vnSendByteLoop
+	ret

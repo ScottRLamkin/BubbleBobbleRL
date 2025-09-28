@@ -1,0 +1,467 @@
+icepos = saferam3
+icelevel = SafeRam3+2
+
+mapram = savesscreen
+
+
+lblStart:
+	ld a,0
+	ld (icelevel),a
+	jp geticelevel
+PlayGame:
+	call frame
+	call waitkey
+	ld hl,(icepos)
+	ld c,12
+	cp gLeft
+	jr z,moveLeft
+	cp gRight
+	jr z,moveRight
+	cp gUp
+	jr z,moveUp
+	cp gDown
+	jr z,moveDown
+	cp gClear
+  jp z,Quit
+	cp g2nd
+	jp z,JumpLeft
+	cp gMode
+	jp z,JumpRight
+	cp gAdd
+	jp z,Nexticelevel
+	jr PlayGame
+moveLeft:
+	dec hl
+AfterMoveStd:
+	ld a,(hl)
+	dec a
+	jp z,PlayGame
+	ld (icepos),hl
+Fall:
+	ld b,0
+	ld hl,(icepos)
+	add hl,bc
+	ld a,(hl)
+	or a
+	jp nz,PlayGame
+FallLoop:
+	call frame
+	ld (icepos),hl
+	add hl,bc
+	ld a,(hl)
+	or a
+	jr z,FallLoop
+	cp 4
+	jr z,FallLoop
+	cp 2
+	jr nz,PlayGame
+Death:
+	call RenderScreen
+	ld b,10
+Death2:
+	push bc
+	ei
+Delay2:
+	halt
+	djnz Delay2
+	call InvertScreen
+	pop bc
+	djnz Death2
+	jp reicepos
+moveRight:
+	inc hl
+	jr AfterMoveStd
+moveUp:
+	ld a,(hl)
+	cp 6
+	jp z,Nexticelevel
+	cp 3
+	jp nz,PlayGame
+	sbc hl,bc
+	jr AfterMoveStd
+moveDown:
+	add hl,bc
+	ld a,(hl)
+	cp 3
+	jp c,PlayGame
+	jr AfterMoveStd
+JumpStd:
+	sbc hl,bc
+	ld a,(hl)
+	dec a
+	jp z,PlayGame
+	ld (icepos),hl
+	call frame
+	sbc hl,bc
+	ld a,(hl)
+	dec a
+	jr z,Fall
+	ld (icepos),hl
+	ld b,3
+JumpStdLoop:
+	call frame
+	add hl,de
+	ld a,(hl)
+	dec a
+	jr z,Fall
+	ld (icepos),hl
+	djnz JumpStdLoop
+	jr fall
+JumpLeft:
+	ld de,-1
+	jr JumpStd
+
+JumpRight:
+	ld de,1
+	jr JumpStd
+
+Frame:
+	push bc
+	push de
+	push hl
+	call RenderScreen
+
+	ei
+  halt
+  halt
+  halt
+  pop hl
+  pop de
+  pop bc
+  ret
+
+RenderScreen:
+DisplayTileMap:
+	ld hl,(icepos)
+	ld bc, 65
+	or a
+	sbc hl,bc
+	ex de, hl
+	ld hl, plotsscreen
+	ld bc, 8*256+0
+DrawmapLoop:
+	ld a, (de)
+	push de
+	push hl
+	ld l, a
+	ld h, 0
+	add hl, hl
+	add hl, hl
+	add hl, hl
+	ld de, icesprites
+	add hl, de
+	ex de, hl
+	pop hl
+	push bc
+	ld b, 8
+	push hl
+DrawmapLoop2:
+	ld a, (de)
+	ld (hl),a
+	inc de
+	push bc
+	ld bc, 12
+	add hl, bc
+	pop bc
+	djnz DrawmapLoop2
+	pop hl
+	pop bc
+	pop de
+	inc de
+	inc hl
+	inc c
+	ld a, c
+	cp 12
+	jr nz, Drawmaploop
+	ld c,0
+	push de
+	ld de, 7*12
+	add hl, de
+	pop de
+	djnz Drawmaploop
+
+	call DrawPenguin
+	jp ionfastcopy
+
+waitkey:
+  ei
+WKA_loop:
+  HALT
+	icall(_getcsc)
+  or a
+  jr z, WKA_loop
+  ret
+
+Victoly:
+	bcall(_ClrLCDFull)
+	ld hl,0
+	ld (currow),hl
+	ld hl,tVictoly
+#ifdef APP
+	ld de,op1
+	bcall(_strcopy)
+	ld hl,op1
+#ENDIF
+	
+	bcall(_PutS)
+	call waitkey
+	
+#IFDEF APP
+	jp Quit
+#ELSE
+	ret
+#ENDIF
+Nexticelevel:
+	ld a,(icelevel)
+	inc a
+	ld (icelevel),a
+	cp 5
+	jr z,victoly
+Geticelevel:
+	ld bc,(icelevel)
+	sla c
+	ld b,0
+	ld hl,icemaps
+	add hl,bc
+	icall(_ldhlind)
+	;======================================
+	;  Step 3: Do the real decompression!
+	;======================================
+	;
+	;Prepare for loop
+	ld de,mapram
+	;Start a loop
+rleloop1:
+	;Get the byte at hl
+	ld a,(hl)
+	;Exit on FF
+	cp 255
+	jr z, Reicepos
+	;A=tile, B=length of run
+	ld c,a
+	rlca
+	rlca
+	rlca
+	rlca
+	and 15
+	inc a
+	ld b,a
+	ld a,c
+	and 15
+	
+	
+	
+;	;Copy that to b
+;	ld b,a
+;	;move top nib of b to bottom
+;	srl b
+;	srl b
+;	srl b
+;	srl b
+;	;Increment b
+;	inc b
+;	;Remove first 4 bits from a
+;	and 15
+	;Start a loop
+rleloop2:
+	;Store the data
+	ld (de),a
+	;Increase the destination address
+	inc de
+	;repeat b times
+	djnz rleloop2
+	;Increase source offset
+	inc hl
+	;Do it again
+	jr rleloop1
+Reicepos:
+	ld bc,(icelevel)
+	sla c
+	ld b,0
+	ld hl,starts
+	add hl,bc
+	icall(_ldhlind)
+	ld (icepos),hl
+	jp PlayGame
+
+InvertScreen:
+	ld hl,plotsscreen
+	ld bc,3
+InvertLoop:
+	ld a,(hl)
+	cpl
+	ld (hl),a
+	inc hl
+	djnz InvertLoop
+	dec c
+	jr nz,InvertLoop
+ 	jp ionfastcopy
+
+#IFDEF APP
+DrawPenguin:
+    ;================
+    ;  Draw Mask
+    ;================
+    ld de,485+plotsscreen         ;Penguin at 40,40
+    push de
+    ld hl,iceplayer                  ;Penguin Mask
+    ld b,8                        ;8 pixels high
+DrawPengLoop:
+    push bc
+    ld bc,12
+    ld a,(de)
+    and (hl)
+    ld (de),a
+    ex de,hl
+    add hl,bc
+    ex de,hl
+    inc hl
+    pop bc
+    djnz DrawPengLoop
+		pop de
+    ld hl,iceplayer+8                ;Penguin Sprite
+    ld b,8                        ;8 pixels high
+
+DrawPengLoop2:
+    push bc
+    ld bc,12
+    ld a,(de)
+    or (hl)
+    ld (de),a
+    ex de,hl
+    add hl,bc
+    ex de,hl
+    inc hl
+    pop bc
+    djnz DrawPengLoop2
+
+	 ret
+	 
+Quit:
+	ret
+
+#ELSe
+;AE=xor A6=and
+DrawPenguin:
+	;================
+	;  Draw Mask
+	;================
+	ld a,$A6                      ;Self modify code, And (hl) = $A6
+	ld (ModifyPeng),a             ;Change the code
+	ld de,485+plotsscreen         ;Penguin at 40,40
+	ld hl,iceplayer                  ;Penguin Mask
+	ld b,8                        ;8 pixels high
+	call DrawPengLoop             ;blit the mask
+	;================
+	;  Draw Pengiun
+	;================
+	ld a,$AE                      ;Self modify code, Xor (hl) = $AE
+	ld (ModifyPeng),a             ;Change the code
+	ld de,485+plotsscreen         ;Penguin at 40,40
+	ld hl,iceplayer+8                ;Penguin Sprite
+	ld b,8                        ;8 pixels high
+DrawPengLoop:
+	push bc
+	ld bc,12
+	ld a,(de)
+ModifyPeng:
+	and (hl)
+	ld (de),a
+	ex de,hl
+	add hl,bc
+	ex de,hl
+	inc hl
+	pop bc
+	djnz DrawPengLoop
+	ret
+#ENDIF
+
+iceplayer:
+	.db %11100011
+	.db %11000001
+	.db %11000001
+	.db %11000001
+	.db %11000001
+	.db %10000000
+	.db %11000001
+	.db %11001001
+	
+	.db %00011100
+	.db %00101010
+	.db %00110110
+	.db %00111110
+	.db %01110111
+	.db %00100010
+	.db %00111110
+	.db %00110110
+
+icesprites:
+
+	.db %00000000
+	.db %00000000
+	.db %00000000
+	.db %00000000
+	.db %00000000
+	.db %00000000
+	.db %00000000
+	.db %00000000
+
+	.db %11111111
+	.db %10100111
+	.db %11001101
+	.db %10011001
+	.db %10110001
+	.db %11100001
+	.db %11000011
+	.db %11111111
+
+	.db %01000100
+	.db %01000100
+	.db %01000100
+	.db %01100110
+	.db %11101110
+	.db %11101110
+	.db %11101110
+	.db %11111111
+
+	.db %11000011
+	.db %11000011
+	.db %11111111
+	.db %11000011
+	.db %11000011
+	.db %11000011
+	.db %11111111
+	.db %11000011
+
+	.db %11111111
+	.db %00100110
+	.db %01001101
+	.db %11111111
+	.db %00000000
+	.db %00000000
+	.db %00000000
+	.db %00000000
+
+	.db %11111111
+	.db %10011101
+	.db %10111001
+	.db %11111111
+	.db %00000000
+	.db %00000000
+	.db %00000000
+	.db %00000000
+
+	.db %11111111
+	.db %11000011
+	.db %10000001
+	.db %10000001
+	.db %10000101
+	.db %10000101
+	.db %10000001
+	.db %10000001
+
+
+      ;0123456789ABCDEF
+tVictoly:
+	.db "A winner is you!"
+	.db "    VICTOLY!"    ,0

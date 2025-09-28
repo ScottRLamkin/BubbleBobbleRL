@@ -1,0 +1,343 @@
+#IFDEF GRAYTITLE
+SafeFastCopy:
+	push bc
+	call ionfastcopy
+	pop bc
+	ret
+#ENDIF
+
+DrawSprites:
+	ld hl,SpriteTable
+	ld b,SpriteTotal
+DrawSpritesLoop:
+	;Get Sprite
+	push bc
+	xor a
+	ld b,(hl)
+	inc hl
+	ld c,(hl)
+	inc hl
+	push hl
+	ld l,(hl)
+	ld h,a
+	or l
+	jp z,SkipDisp
+	cp $80
+	jp nc,SkipDisp
+	add hl,hl   ;mult by 8
+	add hl,hl
+	add hl,hl
+	ld de,Player
+	add hl,de
+	call PutSprClpAnd
+SkipDisp:
+	pop hl
+	ld bc,6
+	add hl,bc
+	pop bc
+	djnz DrawSpritesLoop
+	ret
+	
+DrawMap:
+	ld de, level
+	ld hl, plotsscreen
+	ld bc, 16*256+0
+DrawmapLoop:
+	ex de,hl
+	push de
+	xor a
+	ld e,(hl)
+	or e
+	jp z,DrawMapSkip1
+	ld e,2
+DrawMapSkip1:
+	inc hl
+	ld a,(hl)
+	or a
+	jp z,DrawMapSkip2
+	ld a,1
+DrawMapSkip2:
+	or e
+	pop de
+	ex de,hl
+	push de
+	push hl
+	ld l, a
+	ld h, 0
+	add hl, hl
+	add hl, hl
+	ld de, Tile
+	add hl, de
+	ex de, hl
+	pop hl
+	push bc
+	ld b, 4
+	push hl
+DrawmapLoop2:
+	ld a, (de)
+	ld (hl),a
+	inc de
+	push bc
+	ld bc, 12
+	add hl, bc
+	pop bc
+	djnz DrawmapLoop2
+	pop hl
+	pop bc
+	pop de
+	inc de
+	inc hl
+	inc c
+	ld a, c
+	cp 12
+	jr nz, Drawmaploop
+	ld c,0
+	push de
+	ld de, 3*12
+	add hl, de
+	pop de
+	djnz Drawmaploop
+	ret
+
+SwapApd:
+	ld hl,graph_mem
+	ld de,saferam1
+	ld bc,768
+SwapMem:
+	ld a,(de)
+	ldi
+	dec hl
+	ld (hl),a
+	inc hl
+	jp pe,SwapMem
+	ret
+Copy2APD:
+	ld bc,768
+	ld de,saferam1
+	ld hl,graph_mem
+	ldir
+	ret
+CopyAPD:
+	ld bc,768
+	ld de,graph_mem
+	ld hl,saferam1
+	ldir
+	ret
+BlackScreen:
+	ld hl,plotsscreen
+	ld de,plotsscreen+1
+	ld bc,767
+	ld (hl),$FF
+	ldir
+	ret
+
+
+PowerOff:
+	push hl
+  ld a, 2
+  out ($10), a          ; display off
+  ld a, 1
+  out (3), a            ; enable only [on] int, and turn lcd driver into standby mode
+	ei
+  halt                  ; wait 'til [on] keypress
+  di
+  ld a, %1011
+  out (3), a            ; enable [on] int, and periodic int. Turn on LCD driver
+  ld a, 3
+  out ($10), a          ; display on
+  di
+  pop hl
+  ret
+
+SwapScroll:
+	call swapapd
+ScrollUp:
+	call ionfastcopy
+	ld b,64
+	ld hl,0
+ScrollUpLoop:
+	push bc
+	push hl
+	ld de,plotsscreen
+	ld hl,plotsscreen+12
+	ld bc,756
+	ldir
+	pop hl
+	push hl
+	ld bc,saferam1
+	add hl,bc
+	ld de,plotsscreen+756
+	ld bc,12
+	ldir
+	pop hl
+	ld bc,12
+	add hl,bc
+	push hl
+	call ionfastcopy
+	pop hl
+	pop bc
+	djnz ScrollUpLoop
+	ret
+
+DispRLE:
+    ld a, (hl)
+    cp $91
+    jr z, DispRLERun
+    ldi
+DispRLEC:
+    ret po
+    jr DispRLE
+DispRLERun:
+    inc hl
+    inc hl
+    ld a, (hl)
+DispRLERunL:
+    dec hl
+    dec a
+    ldi
+    ret po
+    jr nz, DispRLERunL
+    inc hl
+    jr DispRLEC
+
+;==========================================================
+;   Stretch:  Stretches an 8x8 sprite to a 16x16 sprite
+;==========================================================
+;Input: (hl)=sprite to stretch   (de)=output (32 bytes)
+;Column aligned version
+Stretch:
+	ld de,Bigsprite
+	ld b,8          ;8 Rows to stretch
+StretchMainLoop:	;Begin a loop
+	push bc         ;Save row count
+	ld c,(hl)       ;Get data from sprite
+	push hl					;Save source offset
+	push de					;Save destination offset
+	ld h,%10000000	;Load in the masks, first one is for source pixel
+	ld l,%11000000  ;Second one is for destination pixel, this is a wide pixel
+	call StretchIt	;Stretch the left half
+	ld e,d					;Save the result byte
+	call StretchIt	;Stretch the right half
+	pop hl					;Get destination offset
+	ld bc,15        ;Set addition offset  
+	ld (hl),e				;Write 2 new bytes...
+	inc hl
+	ld (hl),e
+	add hl,bc       ;Add 15 to offset...
+	ld (hl),d       ;Write 2 new bytes...
+	inc hl
+	ld (hl),d 
+	sbc hl,bc
+	ex de,hl				;Restore destination back to de
+	pop hl					;Get source offset
+	inc hl					;Increment source offset
+	pop bc					;Get row count
+	djnz StretchMainLoop	;Loop back 8 times
+	ret							;Return
+StretchIt:
+  ld d,0					;Clear the destination byte
+  ld b,4					;4 big pixels
+StretchLoop:			;Begin a loop
+	ld a,c					;Check the pixel by anding the
+	and h						; source byte with the pixel mask
+	jp z,St_nopixel	;Skip ahead if no pixel
+	ld a,d					;Set the new big pixel
+	or l						; by oring the new byte with
+	ld d,a					; the destination pixel mask
+st_nopixel:				;
+	rrc h						;Shift the masks around for the next pixel
+	rrc l						;
+	rrc l						;
+	djnz StretchLoop;Loop 4 times
+	ret							;Return
+
+
+;========================================================================
+;  Disp16Sprite  - Draws a 16x16 AND sprite using crashman's routine
+;========================================================================
+Disp16Sprite:
+	ld a,16
+	call SetHeightAND
+	ld bc,(BigSpriteY)
+	ld hl,BigSprite
+	call PutSprClpAND
+	ld hl,(BigSpriteY)
+	ld bc,$0800
+	add hl,bc
+	push hl
+	pop bc
+	ld hl,BigSprite+16
+	call PutSprClpAND
+	ld a,8
+	jp SetHeightAND
+
+;=================================================
+;  RepSpr - Draws an aligned 8x8 replace sprite
+;=================================================
+;hl = source, b = x, c = y, a = height
+RepSpr:
+	push hl
+	push af
+	ld a,b
+	and %01111000
+	rra
+	rra
+	rra
+	ld e,a
+	xor a
+	ld d,a
+	ld b,a
+	ld h,a
+	ld l,c
+	add hl,bc
+	add hl,bc
+	add hl,hl
+	add hl,hl
+	add hl,de
+	ld de,plotsscreen
+	add hl,de
+
+	pop af
+	ld b,a
+
+	ex de,hl
+	pop hl
+RepSprLoop:
+	push bc
+	ldi
+	ld bc,11
+	ex de,hl
+	add hl,bc
+	ex de,hl
+	pop bc
+	djnz RepSprLoop
+	ret
+
+;==========================================
+;  VDispA - Displays A in the small font
+;==========================================
+vDispA:
+	ld h,0
+	ld l,a
+;===========================================
+;  VDispHL - Displays hl in the small font
+;===========================================
+vDispHL:
+	push de
+	push hl
+	ld de,op1+5
+	xor a
+	ld (de),a
+vdhlRepeat:
+	icall(_divhlby10)
+	add a,'0'
+	dec de
+	ld (de),a
+	ld a,h
+	or l
+	jr nz,vdhlRepeat
+	ex de,hl
+	bcall(_vputs)
+	pop hl
+	pop de
+	ret
