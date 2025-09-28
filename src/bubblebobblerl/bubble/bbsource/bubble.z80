@@ -7,31 +7,64 @@
 ;
 
 ;TODO:
-;      Fix the bubble bounce bug at top and bottom of screen
-;      EXTERNAL LEVELS!!!
+;      reset high scores button
+;      Ending?
+;      Extend animation?
+;			 Fix Linkplay
 
-LINKVER = 95
-#DEFINE GAMEVERSION "v0.995"
+LINKVER = 10
+#DEFINE GAMEVERSION "v1.0 beta"
 
-#define SYNCSEED    ;Sync the random number seed each frame
-;#define LOUDSEED    ;Display the random number seed
+;#DEFINE BOUNDCHECKING ;level loader can't corrupt memory
+#DEFINE WIDESCORES  ;high scores 11 letters wide
+#define SKEL_HURRY  ;add the baron
+#define NEWRANDOM   ;use new random number generator
+#define EXTERNAL    ;External levels
+#define SENDLEVELS  ;send levels even if not external
+;#define LOUDSEED    ;Display the random number seed and spritetable checksum
 ;#define SUPPRESS    ;Suppress Link Errors
-;#define CHEAT       ;Enable cheats
+#define CHEAT       ;Enable cheats
 #define LINK        ;Enable linkplay
 #define SOFTQUIT    ;Quitting the game returns to the title screen
 ;#define ENDING      ;Enable ending  NOT FINISHED YET!
 #define HUNT        ;Enemies target the closest player
 #define NEWMAINMENU ;Main menu has more options than just Play and New
 #define HIGHSCORE   ;Enables Highscores
-;#define GRAYTITLE   ;Flickery Grayscale title
 ;#define SLOWSHOES   ;Enables Slow Shoes, only 1.5x speed vs double speed
 ;#define NOINFO      ;Removes the Info screen to save ram.
 ;#define LESSTEXT    ;Lots of game text about how to link up is removed
+;#define GRAY        ;Grayscale graphics!  Woot
+;#define GRAYGFX
+;#define ALTGRAY
+;#define TRACEOK
+;#define EDITOR      ;add level editor
+
+#ifdef TI85
+#define WIDE16
+#endif
+
+#ifdef TI86
+#define WIDE16
+#endif
+
+#ifdef WIDE16
+screenwidth = 16
+screensize = 1024
+#else
+screenwidth = 12
+screensize = 768
+#endif
+
+
 
 #DEFINE disp(xxxx) ld hl,xxxx \ bcall(_puts)
 #DEFINE puts bcall(_puts)
 #DEFINE vputs bcall(_vputs)
 #DEFINE vputsj bjp(_vputs)
+#define vputsram bcall(_vputs)
+#define vputsjram bjp(_vputs)
+#define vputmap bcall(_vputmap)
+
 
 #define LIB
 #define NOIONLIB
@@ -42,6 +75,10 @@ LINKVER = 95
 SpriteTotal = 64
 SpriteCount = SpriteTotal
 numSprite = SpriteTotal
+
+TopRow = -16
+BottomRow = 76
+PlayHeight = bottomrow - toprow
 
 DefaultXSpriteHeight = 8
 
@@ -73,8 +110,8 @@ tTitle: .db "Bubble Bobble ",GAMEVERSION,0
 #IFDEF CHEAT
 #ifdef ION
   .db "BREAKD"
-  .dw ReadKeys
-  .dw Player + 8
+  .dw HandleWater
+;  .dw Player + 8
 #endif
 #ENDIF
 
@@ -82,11 +119,22 @@ tTitle: .db "Bubble Bobble ",GAMEVERSION,0
 ;  Game Code!
 ;===============
 lblStart:
+	
+	
 #ifdef TI83 \	res statsvalid,(iy+statflags) \#endif ;Invalidate Stats (TI83)
 	set textinverse,(iy+textflags)
 	set textwrite,(iy+sgrflags)
 	ld (backupsp),sp              ;Save Stack Pointer
+
 RestartGame:
+
+#ifdef GRAY
+	call InstallGrayscale
+;	call DrawTitleScreen
+;	call GrayCopy
+;	call gsSetFreq
+#endif
+
 	call initalize                ;Set up game
 	jp GameLoop                   ;Play!
 SaveAndQuit:
@@ -96,10 +144,11 @@ Quit:
 #IFDEF SOFTQUIT
 	ld sp,0         ;Self modify code
 	call SwapAPD
-	ld hl,TitlePic
-	ld de,plotsscreen
-	ld bc,768
-	call DispRLE
+	call DrawTitleScreen
+;	ld hl,TitlePic
+;	ld de,plotsscreen
+;	ld bc,768
+;	call DispRLE
 	call SwapAPD
 	call Scrollup
 	jr RestartGame
@@ -112,6 +161,10 @@ Quit2:
 	res oninterrupt, (iy+onflags)
 	res textinverse,(iy+textflags)
 	res textwrite,(iy+sgrflags)
+#ifdef GRAY
+	im 1
+#endif
+	
 BackupSp = Quit+1 ;Pointer
 #ifdef VENUS
 	bcall(_clrlcdfull)
@@ -121,26 +174,91 @@ BackupSp = Quit+1 ;Pointer
 	ret             ;Done!
 
 
+#define SIZEMARK1(xxxx) xxxx: .export xxxx
+#define SIZEMARK(xxxx,yyyy) xxxx: .export xxxx ;yyyy
+;#define SIZEMARK1(xxxx) xxxx: .export xxxx \#define _LAST_ xxxx
+;;#define SIZEMARK(xxxx) xxxx: .export xxxx \size.xxxx = xxxx-_LAST_\ .export size.xxxx\#undef _LAST_\#define _LAST_ xxxx
+;#define SIZEMARK(xxxx,yyyy) xxxx: .export xxxx \yyyy = xxxx-_LAST_\ .export yyyy\#undef _LAST_\#define _LAST_ xxxx
+
+
+SIZEMARK(__BASE)
+
 ;======================
 ;         Code
 ;======================
 #include "bub_main.z80"
+SIZEMARK(__MAIN,__MAINSIZE)
 #include "bub_lev.z80"
+SIZEMARK(__LEV,__LEVSIZE
 #include "bub_ai.z80"
+SIZEMARK(__AI,__AISIZE)
 #include "bub_draw.z80"
+SIZEMARK(__DRAW,__DRAWSIZE)
 #include "bub_end.z80"
+SIZEMARK(__END,__ENDSIZE)
+
+#ifdef TRACEOK
+#define TRACE(xxxx) call Trace \ .db xxxx,0
+Trace:
+	ex (sp),hl
+	push de
+		push af
+			push bc
+				ld bc,0
+				ld (currow),bc
+				call appputs
+			pop bc
+		pop af
+	pop de
+	ex (sp),hl
+	ret
+AppPuts:
+	push af
+		push bc
+			push de
+AppPutsLoop:
+				ld a,(hl)
+				push hl
+					push af
+						bcall(_putc)
+					pop af
+				pop hl
+				inc hl
+				ld a,(hl)
+				or a
+				jr nz, AppPutsLoop
+			pop de
+		pop bc
+	pop af
+	inc hl
+	ret
+
+#endif
+
 
 #IFDEF LINK
 
+;#ifdef TI82
 #include "zrec8x.z80"
 #include "zsend8x.z80"
+;#else
+;#include "bub_nlnk.z80"
+;#endif
+
 
 #include "bub_link.z80"
+SIZEMARK(__LINK,__LINKSIZE)
 
 #ENDIF
 
 #IFNDEF ION
 #include "largespr.h"
+#IFDEF TI83
+#IFDEF EXTERNAL
+#include "detect.h"
+iondetect = detect
+#ENDIF
+#ENDIF
 ionlargesprite = LargeSprite
 #ENDIF
 
@@ -152,6 +270,8 @@ ionlargesprite = LargeSprite
 ionfastcopy = fastcopy
 #include "largespr.h"
 ionlargesprite = LargeSprite
+#include "detect.h"
+iondetect = Detect
 #endif
 #endif
 
@@ -164,11 +284,32 @@ ionfastcopy = vector1
  .db $FF
 #endif
 
+SIZEMARK(__ROUTINES,__ROUTINESSIZE)
+
 ;======================
 ;         Data
 ;======================
 #include "bub_gfx.h"
+SIZEMARK(__GFX,__GFXSIZE)
 #include "bub_tabl.h"
+SIZEMARK(__TABL,__TABLSIZE)
+#IFNDEF EXTERNAL
 #include "bub_map.h"
+#ENDIF
 #include "bub_data.h"
+SIZEMARK(__DATA,__DATASIZE)
 
+#ifdef GRAY
+GBuf3:
+	.ds 768
+GBuf4:
+	.ds 768
+	nop
+
+gActiveBuf1 = gbuf3
+gActiveBuf2 = gbuf4
+gbuf1 = plotsscreen
+gbuf2 = saferam1
+#endif
+
+.end

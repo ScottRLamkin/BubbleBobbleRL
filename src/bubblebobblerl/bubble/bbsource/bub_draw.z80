@@ -1,12 +1,47 @@
-#IFDEF GRAYTITLE
-SafeFastCopy:
-	push bc
-	call ionfastcopy
-	pop bc
-	ret
-#ENDIF
+;#IFDEF GRAYTITLE
+;SafeFastCopy:
+;	push af
+;	push bc
+;	push hl
+;	push de
+;	call ionfastcopy
+;	pop de
+;	pop hl
+;	pop bc
+;	pop af
+;	ret
+;#ENDIF
 
 DrawSprites:
+#ifdef ALTGRAY
+graycount = saferam2+390
+	ld hl,graycount
+	ld a,(hl)
+	inc a
+	ld (hl),a
+	cp 3
+	jr nc, drawplane2
+	ld de,PlayerPlane1
+	jr SetGrayPlane
+DrawPlane2:
+	ld (hl),0
+	ld de,PlayerPlane2
+SetGrayPlane:
+	ld (CurrentSpritePlane),de
+#endif
+
+#ifdef GRAY
+	ld de,plotsscreen
+	ld (crash_gbuf),de
+	ld de,PlayerPlane1
+	ld (CurrentSpritePlane),de
+	call drawsprites2
+	ld de,saferam1
+	ld (crash_gbuf),de
+	ld de,PlayerPlane2
+	ld (CurrentSpritePlane),de
+DrawSprites2:
+#endif
 	ld hl,SpriteTable
 	ld b,SpriteTotal
 DrawSpritesLoop:
@@ -27,6 +62,7 @@ DrawSpritesLoop:
 	add hl,hl   ;mult by 8
 	add hl,hl
 	add hl,hl
+CurrentSpritePlane = $ + 1
 	ld de,Player
 	add hl,de
 	call PutSprClpAnd
@@ -78,7 +114,7 @@ DrawmapLoop2:
 	ld (hl),a
 	inc de
 	push bc
-	ld bc, 12
+	ld bc, screenwidth
 	add hl, bc
 	pop bc
 	djnz DrawmapLoop2
@@ -93,7 +129,11 @@ DrawmapLoop2:
 	jr nz, Drawmaploop
 	ld c,0
 	push de
-	ld de, 3*12
+#ifdef WIDE16
+	ld de, 3 * screenwidth + 4
+#else
+	ld de, 3 * screenwidth
+#endif
 	add hl, de
 	pop de
 	djnz Drawmaploop
@@ -102,7 +142,7 @@ DrawmapLoop2:
 SwapApd:
 	ld hl,graph_mem
 	ld de,saferam1
-	ld bc,768
+	ld bc,screensize
 SwapMem:
 	ld a,(de)
 	ldi
@@ -112,13 +152,13 @@ SwapMem:
 	jp pe,SwapMem
 	ret
 Copy2APD:
-	ld bc,768
+	ld bc,screensize
 	ld de,saferam1
 	ld hl,graph_mem
 	ldir
 	ret
 CopyAPD:
-	ld bc,768
+	ld bc,screensize
 	ld de,graph_mem
 	ld hl,saferam1
 	ldir
@@ -126,13 +166,16 @@ CopyAPD:
 BlackScreen:
 	ld hl,plotsscreen
 	ld de,plotsscreen+1
-	ld bc,767
+	ld bc,screensize-1
 	ld (hl),$FF
 	ldir
 	ret
 
 
 PowerOff:
+
+#IFNDEF TI85
+#ifndef TI86
 	push hl
   ld a, 2
   out ($10), a          ; display off
@@ -148,7 +191,119 @@ PowerOff:
   di
   pop hl
   ret
+#endif
+#endif
 
+#ifdef TI85
+    ld a,1
+    out (3),a
+    ei
+    halt
+    ld a,11
+    out (3),a        
+    ret
+#endif
+#ifdef TI86
+    ld a,1
+    out (3),a
+    ei
+    halt
+    ld a,11
+    out (3),a        
+    res onInterrupt,(iy+onflags)
+    ret
+#endif
+
+
+
+
+;#ifdef WIDE16
+;SwapScrollLeft:
+;	call swapapd
+;ScrollUpLeft:
+;	call ionfastcopy
+;	ld b,64
+;	ld hl,0
+;ScrollUpLoopLeft:
+;	push bc
+;	push hl
+;	ld de,plotsscreen
+;	ld hl,plotsscreen+screenwidth
+;	ld bc,screensize-screenwidth-4
+;	ldir
+;	pop hl
+;	push hl
+;	ld bc,saferam1
+;	add hl,bc
+;	ld de,plotsscreen+screensize-screenwidth
+;	ld bc,screenwidth
+;	ldir
+;	pop hl
+;	ld bc,screenwidth
+;	add hl,bc
+;	push hl
+;	call ionfastcopy
+;	pop hl
+;	pop bc
+;	djnz ScrollUpLoopLeft
+;	ret
+;#endif
+
+SwapScroll2:
+#IFDEF WIDE16
+	call swapapd
+	ld b,64
+	ld hl,saferam1+12
+	ld de,plotsscreen+12
+sw_loop3:
+	push bc
+		ld bc,4
+		ldir
+		ld bc,12
+		add hl,bc
+		ex de,hl
+		add hl,bc
+		ex de,hl
+	pop bc
+	djnz sw_loop3
+	
+	
+	
+	call ionfastcopy
+	ld b,64
+	ld hl,saferam1
+sw_loop:
+	push bc
+		push hl
+			ld hl,plotsscreen+screenwidth
+			ld de,plotsscreen
+			ld b,63
+sw_loop2:
+			push bc
+				ld bc,12
+				ldir
+				ld bc,4
+				add hl,bc
+				ex de,hl
+				add hl,bc
+				ex de,hl
+			pop bc
+			djnz sw_loop2
+		pop hl
+		ld bc,12
+		ldir
+		ld bc,4
+		add hl,bc
+		push hl
+			call ionfastcopy
+		pop hl
+	pop bc
+	djnz sw_loop
+	ret
+		
+	
+	
+#endif
 SwapScroll:
 	call swapapd
 ScrollUp:
@@ -159,21 +314,22 @@ ScrollUpLoop:
 	push bc
 	push hl
 	ld de,plotsscreen
-	ld hl,plotsscreen+12
-	ld bc,756
+	ld hl,plotsscreen+screenwidth
+	ld bc,screensize-screenwidth
 	ldir
 	pop hl
 	push hl
 	ld bc,saferam1
 	add hl,bc
-	ld de,plotsscreen+756
-	ld bc,12
+	ld de,plotsscreen+screensize-screenwidth   
+	ld bc,screenwidth
 	ldir
 	pop hl
-	ld bc,12
+	ld bc,screenwidth
 	add hl,bc
 	push hl
-	call ionfastcopy
+
+		call ionfastcopy
 	pop hl
 	pop bc
 	djnz ScrollUpLoop
@@ -289,11 +445,21 @@ RepSpr:
 	ld b,a
 	ld h,a
 	ld l,c
+#ifndef WIDE16
 	add hl,bc
 	add hl,bc
 	add hl,hl
 	add hl,hl
 	add hl,de
+#else
+	add hl,hl
+	add hl,hl
+	add hl,hl
+	add hl,hl
+	add hl,de
+#endif
+
+RepSprPlane = $ +1
 	ld de,plotsscreen
 	add hl,de
 
@@ -305,7 +471,7 @@ RepSpr:
 RepSprLoop:
 	push bc
 	ldi
-	ld bc,11
+	ld bc,screenwidth-1
 	ex de,hl
 	add hl,bc
 	ex de,hl
@@ -337,7 +503,433 @@ vdhlRepeat:
 	or l
 	jr nz,vdhlRepeat
 	ex de,hl
-	bcall(_vputs)
+	vputsram
 	pop hl
 	pop de
 	ret
+
+#IFDEF LOUDSEED
+vDispAHex:
+	ld h,0
+	ld l,a
+vDispHLHex:
+	push hl
+	push de
+	ld de,op1
+	call Num2Hex
+	xor a
+	ld (de),a
+	ld hl,op1
+	vputsram
+	pop de
+	pop hl
+	ret
+
+Num2Hex	ld	a,h
+	call	Num1
+	ld	a,h
+	call	Num2
+	ld	a,l
+	call	Num1
+	ld	a,l
+	jr	Num2
+
+Num1	rra
+	rra
+	rra
+	rra
+Num2	or	$F0
+	daa
+	add	a,$A0
+	adc	a,$40
+
+	ld	(de),a
+	inc	de
+	ret
+#ENDIF
+
+#ifdef HIGHSCORE
+DrawHiscorePic5:
+	call BlackScreen
+	ld l,5
+DrawHiscorePic:  ;L = Y coordinate
+	ld ix,hiscorepic
+	ld bc,$0F0A
+	#ifndef WIDE16
+		ld a,8
+	#else ;wide16
+		ld a,24
+	#endif ;wide16
+	jp ionLargeSprite
+
+;#ifndef GRAY
+;#IFDEF ALTGRAY
+;	ld hl,HiscorePic1
+;;	ld de,plotsscreen
+;;	ld bc,HiscorePicSize
+;	jp DispRLE
+;#ELSE
+;;	ld hl,HiscorePic
+;;	ld de,plotsscreen
+;	ld bc,HiscorePicSize
+;	jp DispRLE
+;#ENDIF
+;#else
+;;	ld hl,TitlePic1
+;;	ld de,plotsscreen
+;;	ld bc,768
+;;	push bc
+;;	call DispRLE
+;;	ld de,saferam1
+;;	pop bc
+;;	jp DispRLE
+;#endif
+#else ;highscore
+DrawHiscorePic5 = BlackScreen
+#endif ;highscore
+
+DrawTitleScreen:
+;#ifndef GRAY
+;#IFNDEF ALTGRAY
+	ld hl,TitlePic
+	ld de,plotsscreen
+	ld bc,screensize
+	jp DispRLE
+;#ELSE
+;	ld hl,TitlePic1
+;	ld de,plotsscreen
+;	ld bc,768
+;	jp DispRLE
+;
+;#ENDIF
+;#else
+;	ld hl,TitlePic1
+;	ld de,plotsscreen
+;	ld bc,768
+;	call DispRLE
+;	ld hl,TitlePic2
+;	ld de,saferam1
+;	ld bc,768
+;	jp DispRLE
+;#endif
+
+#IFDEF EXTERNAL
+	
+DrawShiftedTitleScreen:
+	call DrawTitleScreen
+	
+	;shift it 32 pixels to the right
+	ld hl,plotsscreen+screensize-1-4
+	ld de,plotsscreen+screensize-1
+	ld bc,screensize-4
+	lddr
+	;make first 4 bytes of each line black
+	ld hl,plotsscreen
+	ld de,screenwidth-3
+	ld bc,(64*256)+255
+Left32PixelsBlackLoop:
+	ld (hl),c
+	inc hl
+	ld (hl),c
+	inc hl
+	ld (hl),c
+	inc hl
+	ld (hl),c
+	add hl,de
+	djnz Left32PixelsBlackLoop
+	ret
+	
+	
+	
+	
+;	jp ionfastcopy
+
+	
+	
+	
+#ENDIF
+
+
+DrawText:
+	ex (sp),hl
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	inc hl
+	ex (sp),hl
+	ex de,hl
+	;now loop...
+DrawTextLoop:
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	inc hl
+	ld (pencol),de
+	vputs
+	ld a,(hl)
+	inc a
+	jr nz,DrawTextLoop
+	ret
+	
+#IFDEF EXTERNAL
+
+ScrollRight:
+	ld b,64
+	ld hl,plotsscreen
+ScrollRight2:
+	scf
+	push bc
+	ld b,screenwidth
+ScrollRight3:
+	rr (hl)
+	inc hl
+	djnz ScrollRight3
+	pop bc
+	djnz ScrollRight2
+	ret
+
+ScrollRight32:
+	ld b,32
+ScrollRight32Loop
+	push bc
+	call scrollright
+	call ionfastcopy
+	ei \ halt
+	pop bc
+	djnz ScrollRight32Loop
+	ret
+	
+#ENDIF
+
+
+
+
+#IFDEF GRAY
+InstallGrayscale:
+#ifdef TI83
+	ld hl,8600h
+	ld de,8600h+1
+	ld bc,256
+	ld (hl),87h
+	ldir
+
+	ld hl,int_start
+	ld de,8787h
+	ld bc,int_end-int_start
+	ldir
+	
+	ld a,86h
+	ld i,a
+
+	im 2
+	ei
+	ret
+#endif ;ti83
+
+;RemoveGrayScale:
+;	im 1
+;	ret
+
+int_Start:
+	jp DoGrayScale
+int_End:
+
+IntCounter:
+	.dw 0
+Graycount:
+	.db 0
+SysInterrupt:
+	.db 1
+InterFrequency:	.db 2
+
+
+GrayCopy:
+;	di
+	ld hl,plotsscreen
+	ld de,Gbuf3
+	ld bc,768
+	ldir
+
+	ld hl,saferam1
+	ld de,Gbuf4
+	ld bc,768
+	ldir
+;	ei
+	ret
+	
+
+
+DoGrayScale:
+	di
+	push af
+		ld a,(sysInterrupt)
+		or a
+		call nz, 38h
+		push bc
+			push de
+				push hl
+					ld hl,(intcounter)
+					inc hl
+					ld (intcounter),hl
+					ld a,(intcounter)
+					and 3
+					jr nz,GrayDone
+					
+					ld hl,graycount
+					ld a,(hl)
+					inc a
+					ld (hl),a
+					cp 3
+					jr nc, drawplane2
+DrawPlane1:
+					ld hl,gbuf3
+					call HLFastCopy
+GrayDone:
+				pop hl
+			pop de
+		pop bc
+	pop af
+	ei
+	ret
+DrawPlane2:
+					ld (hl),0
+					ld hl,gbuf4
+					call HLFastCopy
+					jr GrayDone
+
+;-----> Copy the gbuf to the screen (fast)
+;Input:	nothing
+;Output:graph buffer is copied to the screen
+HLFastCopy:
+	di
+	ld	a,$80				; 7
+	out	($10),a				; 11
+	ld de,755
+	add hl,de
+;	ld	hl,gbuf-12-(-(12*64)+1)		; 10
+	ld	a,$20				; 7
+	ld	c,a				; 4
+	inc	hl				; 6 waste
+	dec	hl				; 6 waste
+fastCopyAgain:
+	ld	b,64				; 7
+	inc	c				; 4
+	ld	de,-(12*64)+1			; 10
+	nop \ nop \ nop   ;TI83 1.10 fix
+	out	($10),a				; 11
+	add	hl,de				; 11
+	ld	de,10				; 10
+fastCopyLoop:
+	add	hl,de				; 11
+	inc	hl				; 6 waste
+	inc	hl				; 6 waste
+	inc	de				; 6
+	ld	a,(hl)				; 7
+	nop \ nop \ nop   ;TI83 1.10 fix
+	out	($11),a				; 11
+	dec	de				; 6
+	djnz	fastCopyLoop			; 13/8
+	ld	a,c				; 4
+	cp	$2B+1				; 7
+	jr	nz,fastCopyAgain		; 10/1
+	ret					; 10
+; Critical timings:
+;	command->command: 65
+;	command->value  : 68
+;	value  ->value  : 66
+;	value  ->command: 67
+
+#endif ;grayscale
+
+
+#ifdef WIDE16
+;IonLargeSprite - TI86 Edition:
+;-----> Draw a picture
+;Input:	ix->sprite
+;	a=x
+;	l=y
+;	b=height	(in pixels)
+;	c=width		(in bytes, e.g. 2 would be 16)
+;Output: nothing
+; All registers are destroyed except bc', de', hl'
+largeSprite:
+	di
+	ex	af,af'
+	ld	a,c
+	push	af
+	ex	af,af'
+;	ld	e,l
+	ld	h,$00
+	ld	d,h
+;	add	hl,de
+;	add	hl,de
+	add	hl,hl
+	add	hl,hl
+	add	hl,hl
+	add	hl,hl
+	ld	e,a
+	and	$07
+	ld	c,a
+	srl	e
+	srl	e
+	srl	e
+	add	hl,de
+	ld	de,graph_mem
+	add	hl,de
+largeSpriteLoop1:
+	push	hl
+largeSpriteLoop2:
+	ld	d,(ix)
+	ld	e,$00
+	ld	a,c
+	or	a
+	jr	z,largeSpriteSkip1
+largeSpriteLoop3:
+	srl	d
+	rr	e
+	dec	a
+	jr	nz,largeSpriteLoop3
+largeSpriteSkip1:
+	ld	a,(hl)
+	xor	d
+	ld	(hl),a
+	inc	hl
+	ld	a,(hl)
+	xor	e
+	ld	(hl),a
+	inc	ix
+	ex	af,af'
+	dec	a
+	push	af
+	ex	af,af'
+	pop	af
+	jr	nz,largeSpriteLoop2
+	pop	hl
+	pop	af
+	push	af
+	ex	af,af'
+	ld	de,screenwidth
+	add	hl,de
+	djnz	largeSpriteLoop1
+	pop	af
+	ret
+
+#endif ;wide16
+
+#ifdef WIDE16
+MakeBlackRight:
+	ld hl,plotsscreen+12
+	ld a,255
+	ld c,64
+	ld de,12
+MakeBlackRightLoop1:
+	ld b,4
+MakeBlackRightLoop2:
+	ld (hl),a
+	inc hl
+	djnz MakeBlackRightLoop2
+	add hl,de
+	dec c
+	jr nz,MakeBlackRightLoop1
+	ret
+#endif ;wide16

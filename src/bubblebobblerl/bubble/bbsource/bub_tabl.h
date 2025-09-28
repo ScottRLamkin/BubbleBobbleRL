@@ -77,6 +77,7 @@ ExpTable:
 	.db %01000000
 	.db %10000000
 
+#ifndef WIDE16
 Keytable:
 	.db "dlru...." ;dn,lf,rt,up,__,__,__,__
 	.db "E+wrmhC." ;en,+ ,- ,* ,/ ,^ ,cl,__
@@ -95,6 +96,26 @@ Keytable:
 	.db " YTOJEBX" ;0 ,1 ,4 ,7 ,, ,si,mx,xt
 	.db ".XSNIDAa" ;__,> ,ln,lg,x2,x1,mt,AL
 	.db "098762^d" ;gr,tr,zo,wi,Y=,2n,mo,de
+#else ;ti85
+Keytable:
+	.db "dlru...." ;dn,lf,rt,up,__,__,__,__
+	.db "ExtojeC." ;en,+ ,- ,* ,/ ,^ ,cl,__
+	.db " wsnid!." ; -,3 ,6 ,9 ,) ,ta,va,__
+	.db "zvrmhc!." ;. ,2 ,5 ,8 ,( ,co,pr,st
+	.db "yuqlgb!x" ;0 ,1 ,4 ,7 ,, ,si,mx,xt
+	.db ".=pkfa!A" ;__,> ,ln,lg,x2,x1,mt,AL
+	.db "543212^D" ;gr,tr,zo,wi,Y=,2n,mo,de
+;ALPHA table
+	.db "DLRU...." ;dn,lf,rt,up,__,__,__,__
+	.db "eXTOJEc." ;en,+ ,- ,* ,/ ,^ ,cl,__
+	.db " WSNID!." ; -,3 ,6 ,9 ,) ,ta,va,__
+	.db "ZVRMHC!d" ;. ,2 ,5 ,8 ,( ,co,pr,st
+	.db "YUQLGB!X" ;0 ,1 ,4 ,7 ,, ,si,mx,xt
+	.db ".=PKFA!a" ;__,> ,ln,lg,x2,x1,mt,AL
+	.db "098762^." ;gr,tr,zo,wi,Y=,2n,mo,de
+#endif
+
+
 
 #IFDEF ENDING
 TrappedGrilCircleTable:
@@ -134,3 +155,22 @@ TrappedGrilCircleTable2:
 	.db -1,-1
 
 #ENDIF
+
+#IFDEF EXPORT
+.export BonusScoreTable
+.export DefaultBobTable
+.export DefaultBubTable
+.export ExpTable
+.export HugeItemScoreTable
+.export Keytable
+.export PopScoreTable
+.export ScoreTable
+.export SpecialItemScoreTable
+.export TimeScoreTable
+
+#IFDEF ENDING
+.export TrappedGrilCircleTable
+.export TrappedGrilCircleTable2
+#ENDIF
+
+#endif ;export

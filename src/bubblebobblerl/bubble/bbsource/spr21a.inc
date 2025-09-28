@@ -64,11 +64,17 @@ _SCX_ClpModify: LD   (HL), D
 _SCX_ClpDone:   LD   B, D
                 LD   H, B
                 LD   L, C
+#ifndef WIDE16
                 ADD  HL, BC                       ; HL = Y * 12
                 ADD  HL, BC
                 ADD  HL, HL
                 ADD  HL, HL
-
+#else
+                ADD  HL, HL                       ; HL = Y * 16
+                ADD  HL, HL
+                ADD  HL, HL
+                ADD  HL, HL
+#endif
                 LD   C, A                         ; HL = Y*12 + X/8
                 SRA  C
                 SRA  C
@@ -88,7 +94,7 @@ _SCX_ClpDone:   LD   B, D
                 ADD  A, E
                 LD   (_SCX_OPchg_3 + 1), A        ; 3 * (7 - number)
 
-                LD   DE, 13
+                LD   DE, screenwidth+1 ;or 13
 
 _SCX_LineLoop:  LD   C, (IX)
                 ld a,255

@@ -5,6 +5,13 @@
 
 Initalize:
 	di
+#ifndef WIDE16
+mm_menupos = 70
+#else
+mm_menupos = 88
+#endif
+
+
 ;#IFDEF NEWMAINMENU
 MainMenu:
 
@@ -12,14 +19,13 @@ MainMenu:
 MainMenuLoop:
 	call DrawMenu
 	push bc
+#ifdef GRAY
+	call graycopy
+#else
 	call ionfastcopy
-#IFDEF GRAYTITLE
-	pop bc
-	call GrayWaitkey
-#ELSE
+#endif
 	call randwaitkey
 	pop bc
-#ENDIF
 	
 	cp gLeft
 	jr z,MM_Up
@@ -31,13 +37,17 @@ MainMenuLoop:
 	jr z,MM_Down
 	cp gClear
 	jp z,Quit2
+#ifdef WIDE16
+	cp gExit
+	jp z,Quit2
+#endif
 
 #IFDEF CHEAT
 	cp gZoom
 	jr z,LevelCheat
 #ENDIF
 
-#IFDEF APP
+#IFDEF ICECLIMB
 	cp gSquare
 	jp z,PlayIceClimb
 #ENDIF
@@ -106,64 +116,16 @@ TitleHighScoreTable:
 	jp Quit
 #ENDIF
 	
-	
-#IFDEF GRAYTITLE
-GrayWaitKey:
-  ei
-; 	push bc
-	icall(_getcsc)
-	icall(_getcsc)
-; 	pop bc
-GWKA_loop:
-;	push bc
- 	call DrawMenu
-	ei
-  icall(_getcsc)
-; 	pop bc
-  or a
-  jr z, GWKA_loop
-  push af
-  ld a,r
-  ld (randdata1),a
-  pop af
-  di
-  ret
-#ENDIF	
-	
-	
-	
 DrawMenu:
 ;Redraw title screen
 	push bc
 
-#ifdef GRAYTITLE
-	ld hl,op5
-	inc (hl)
-	ld a,(hl)
-	cp 3
-	jr z,SelectPlane2
-	cp 5
-	
-	jr c,selectplane1
-	ld (hl),0
-	ld hl,Title2
-	jr SelectedPlane
-SelectPlane1:
-	ld hl,TitlePic
-	jr SelectedPlane
-SelectPlane2:
-	ld hl,Title2
-SelectedPlane:
-#ELSE
-	ld hl,TitlePic
-#ENDIF
-	
-	
-	
-	
-	ld de,plotsscreen
-	ld bc,768
-	call DispRLE
+	call DrawTitleScreen
+;#ifdef GRAY
+;	ei
+;	halt
+;	di
+;#endif
 	pop bc
 	
 ;Get first menu item to draw by subrtracting 1
@@ -208,11 +170,15 @@ AddMenuitemSkip:
 	call z,LdL53
 	
 	push bc
-	ld a,69
+	ld a,mm_menupos-1
 	ld ix,MenuHighlight
 	ld bc,$0704
 	call ionLargeSprite
-	call ionFastCopy
+#ifdef GRAY
+	call graycopy
+#else
+	call ionfastcopy
+#endif
 	
 	pop bc
 	ret
@@ -226,7 +192,7 @@ LdL53:
 	
 DrawAMenuItem:
 	ld bc,$0503
-	ld a,70
+	ld a,mm_menupos
 	jp ionLargeSprite
 	
 	
@@ -262,7 +228,7 @@ DrawAMenuItem:
 ;	jr z,LevelCheat
 ;	cp gGraph
 ;	jr z,TitleHighScoreTable
-;#IFDEF APP
+;#IFDEF ICECLIMB
 ;	cp G_SQR
 ;	jp z,PlayIceClimb
 ;#endif
@@ -340,104 +306,43 @@ ShowInfoPage:
 	call BlackScreen
 	
 #IFDEF HIGHSCORE
-	ld hl,HiscorePic
-	ld de,plotsscreen+1+(12*2)
-	ld bc,178
-	call DispRLE
+	ld l,2
+	call DrawHiscorePic
 #ENDIF
 	
-	ld hl,tAbout1
-	ld de,(20*256)+1
-	call fastvputs
+	call DrawText
+	.dw tAbout1
 
-	ld hl,tAbout2
-	ld de,(26*256)+11
-	call fastvputs
-
-	ld hl,tEmail1
-	ld de,(34*256)+1
-	call fastvputs
-
-	ld hl,tEmail2
-	ld de,(40*256)+5
-	call fastvputs
-
-	ld hl,tAIM
-	ld de,(48*256)+1
-	call fastvputs
-	
-	ld hl,tURL
-	ld de,(56*256)+1
-	call fastvputs
-	
 	call SwapScroll
 	call Waitkey
 
-	ld de,plotsscreen+(19*12)+1
-	ld hl,plotsscreen+(19*12)
-	ld bc,767-(19*12)
+	ld de,plotsscreen+(19*screenwidth)+1
+	ld hl,plotsscreen+(19*screenwidth)
+	ld bc,screensize-1-(19*screenwidth)
 	ldir
 	
-	ld hl,tInstructions1
-	ld de,(19*256)+27
-	call fastvputs
-	
-	ld hl,tInstructions2
-	ld de,(28*256)+1
-	call fastvputs
-	
-	ld hl,tInstructions3
-	ld de,(35*256)+1
-	call fastvputs
-	
-	ld hl,tInstructions4
-	ld de,(42*256)+1
-	call fastvputs
-		
-	ld hl,tInstructions5
-	ld de,(49*256)+1
-	call fastvputs
-
-	ld hl,tInstructions6
-	ld de,(56*256)+6
-	call fastvputs
-	
+	call DrawText
+	.dw tInstructions1
 	call ionfastcopy
 	call waitkey
 
-	ld de,plotsscreen+(27*12)+1
-	ld hl,plotsscreen+(27*12)
-	ld bc,767-(27*12)
+	ld de,plotsscreen+(27*screenwidth)+1
+	ld hl,plotsscreen+(27*screenwidth)
+	ld bc,screensize-1-(27*screenwidth)
 	ldir
 	
-	ld hl,tInstructions8
-	ld de,(28*256)+1
-	call fastvputs
-	
-	ld hl,tInstructions9
-	ld de,(35*256)+6
-	call fastvputs
-	
-	ld hl,tInstructionsA
-	ld de,(42*256)+6
-	call fastvputs
-		
-	ld hl,tInstructionsB
-	ld de,(49*256)+6
-	call fastvputs
+	call DrawText
+	.dw tInstructions8
 
-	ld hl,tInstructions7
-	ld de,(56*256)+1
-	call fastvputs
-	
 	call ionfastcopy
 	call waitkey
 	
-	ld de,plotsscreen+(19*12)+1
-	ld hl,plotsscreen+(19*12)
-	ld bc,767-(19*12)
+	ld de,plotsscreen+(19*screenwidth)+1
+	ld hl,plotsscreen+(19*screenwidth)
+	ld bc,screensize-1-(19*screenwidth)
 	ldir
-	
+
+#ifndef WIDE16	
 	ld hl,player+(BubbleBuster*8)
 	ld bc,(16*256)+25
 	ld a,8
@@ -458,32 +363,15 @@ ShowInfoPage:
 	ld a,8
 	call Repspr
 	
-	ld hl,tCast
-	ld de,18*256+35
-	call fastvputs
-	
-	ld hl,tEnemy1
-	ld de,26*256+28
-	call fastvputs
-	
-	ld hl,tEnemy2
-	ld de,36*256+28
-	call fastvputs
-	
-	ld hl,tEnemy3
-	ld de,46*256+28
-	call fastvputs
-	
-	ld hl,tEnemy4
-	ld de,56*256+28
-	call fastvputs
+	call DrawText
+	.dw tCast
 	
 	call ionfastcopy
 	call Waitkey
 
-	ld de,plotsscreen+(12*24)+1
-	ld hl,plotsscreen+(12*24)
-	ld bc,767-(12*24)
+	ld de,plotsscreen+(screenwidth*24)+1
+	ld hl,plotsscreen+(screenwidth*24)
+	ld bc,screensize-1-(screenwidth*24)
 	ldir
 	
 	ld hl,player+(Banebou*8)
@@ -506,28 +394,15 @@ ShowInfoPage:
 	ld a,8
 	call Repspr
 	
-	ld hl,tEnemy5
-	ld de,26*256+36
-	call fastvputs
-	
-	ld hl,tEnemy6
-	ld de,36*256+36
-	call fastvputs
-	
-	ld hl,tEnemy7
-	ld de,46*256+36
-	call fastvputs
-	
-	ld hl,tEnemy8
-	ld de,56*256+36
-	call fastvputs
-	
+	call DrawText
+	.dw tEnemy5
+
 	call ionfastcopy
 	call Waitkey
 
-	ld de,plotsscreen+(12*24)+1
-	ld hl,plotsscreen+(12*24)
-	ld bc,767-(12*24)
+	ld de,plotsscreen+(screenwidth*24)+1
+	ld hl,plotsscreen+(screenwidth*24)
+	ld bc,screensize-1-(screenwidth*24)
 	ldir
 
 	ld hl,SuperDrunkGfx
@@ -539,47 +414,102 @@ ShowInfoPage:
 	ld a,16
 	call Repspr
 
-	ld hl,tEnemy9
-	ld de,48*256+29
-	call fastvputs
+	call DrawText
+	.dw tEnemy9
+
+	call ionfastcopy
+	call Waitkey
+#else ;wide16
+	ld hl,player+(BubbleBuster*8)
+	ld bc,(8*256)+25
+	ld a,8
+	call Repspr
+
+	ld hl,player+(Stoner*8)
+	ld bc,(8*256)+35
+	ld a,8
+	call Repspr
+
+	ld hl,player+(Beluga*8)
+	ld bc,(8*256)+45
+	ld a,8
+	call Repspr
+
+	ld hl,player+(HullaBalloon*8)
+	ld bc,(8*256)+55
+	ld a,8
+	call Repspr
+
+	ld hl,player+(Banebou*8)
+	ld bc,(72*256)+25
+	ld a,8
+	call Repspr
+
+	ld hl,player+(Hidegonsu*8)
+	ld bc,(72*256)+35
+	ld a,8
+	call Repspr
+
+	ld hl,player+(Drunk*8)
+	ld bc,(72*256)+45
+	ld a,8
+	call Repspr
+
+	ld hl,player+(Invader*8)
+	ld bc,(72*256)+55
+	ld a,8
+	call Repspr
+	
+	call DrawText
+	.dw tCast
 	
 	call ionfastcopy
 	call Waitkey
 
-	
+	ld de,plotsscreen+(screenwidth*24)+1
+	ld hl,plotsscreen+(screenwidth*24)
+	ld bc,screensize-1-(screenwidth*24)
+	ldir
+
+	ld hl,SuperDrunkGfx
+	ld bc,(56*256)+31
+	ld a,16
+	call Repspr
+
+	ld bc,(64*256)+31
+	ld a,16
+	call Repspr
+
+	call DrawText
+	.dw tEnemy9
+
+	call ionfastcopy
+	call Waitkey
+#endif ;wide16
+
 	jp Quit
 #ENDIF
 
 
 SpeedSelect:
 	call SwapAPD
-	call BlackScreen
-	
-#IFDEF HIGHSCORE
-	ld hl,HiscorePic
-	ld de,plotsscreen+1+(12*5)
-	ld bc,178
-	call DispRLE
-#ENDIF
+	call DrawHiScorePic5
 
-	ld hl,tSpeed1
-	ld de,(22*256)+15
-	call Fastvputs
+	call DrawText
+	.dw tSpeed1
 
-	ld hl,tSpeed2
-	ld de,(29*256)+3
-	call Fastvputs
-
-	ld hl,tSpeed3
-	ld de,(43*256)+31
-	call Fastvputs
-	
 	call SwapScroll
 	
 SpeedSelectLoop:
-	ld a,(Halts)
-	ld de,(43*256)+55
+#ifdef TI85  ;TI85 can't draw text over anything, must redraw blank
+	call DrawHiScorePic5
+	call DrawText
+	.dw tSpeed1
+#endif ;ti85
+
+	ld de,(43*256)+55+XOFF
 	ld (pencol),de
+	ld a,(Halts)
 	call VDispA
 	call ionFastCopy
 	call WaitKey
@@ -589,6 +519,10 @@ SpeedSelectLoop:
 	jp z,Quit
 	cp gClear
 	jp z,Quit
+#ifdef WIDE16
+	cp gExit
+	jp z,Quit
+#endif
 	cp gLeft
 	jr z,SpeedDown
 	cp gUp
@@ -616,53 +550,47 @@ SpeedUp:
 NewGame:
 	call ResetGame
 	
+#IFDEF EXTERNAL
+	call SelectWorld
+#else
+#IFDEF SENDLEVELS
+	ld a,level_count
+	ld (levelcount),a
+#endif
+#ENDIF
 	call SelectSuperGame
+	call SetInitialLevel
 
-	call SetInitalLevel
 ContinueNewGame:
 	;Load Level
 	call NewLevel
 	;Save level gfx
-	call DrawMap
+	call DisplayOverlay ;CHANGED
 	jp SwapScroll
 
 SelectSuperGame:
-	ld a,(todaysrecord)
-	cp 100
-	jr nc,SelectSuperGame2
-	xor a
-	ld (supergame),a
+	ld hl,superunlocked
+	ld a,(hl)
+	or a
+	jr nz,SelectSuperGame2
+	inc hl
+	ld (hl),a
 	ret
 	
 SelectSuperGame2:
 	ret c
-	call BlackScreen
+	call DrawHiScorePic5
 	
-#IFDEF HIGHSCORE
-	ld hl,HiscorePic
-	ld de,plotsscreen+1+(12*5)
-	ld bc,178
-	call DispRLE
-#ENDIF
-	
-	ld de,38*256+4
-	ld hl,tGameMode
-	call FastVputs
+	call DrawText
+	.dw tGameMode
 
-	ld de,49*256+15
-	ld hl,tNormal
-	call FastVputs
-	ld de,49*256+57
-	ld hl,tSuper
-	call FastVputs
-	
 	call SwapScroll
 	
 SuperPrompt:
 		
 	call copy2apd
 	ld hl,cursor
-	ld bc,9*256+50
+	ld bc,(9+xoff)*256+50
 	ld e,0
 SuperPromptLoop:
 	push hl
@@ -692,13 +620,17 @@ SuperPromptLoop:
 	jr z,supChange
 	cp gClear
 	jp z,Quit
+#ifdef WIDE16
+	cp gExit
+	jp z,Quit
+#endif
 	jr SuperPromptLoop
 SupChange:
 	ld a,e
 	xor 1
 	ld e,a
 	ld a,b
-	xor 9^51
+	xor (9+xoff)^(51+xoff)
 	ld b,a
 	jr SuperPromptLoop
 SupProceed:
@@ -725,10 +657,24 @@ ResetGame:
 	ld (savedflag),a
 	
 	jp SwapAPD
-	
-SetInitalLevel:
+
+GetTodaysRecord
+;	push hl
+	ld hl,SuperGame
+	ld a,(hl)
+	dec hl
+	dec hl
+	or a
+	jr z,GetTodaysRecordSkipDecHL
+	dec hl
+GetTodaysRecordSkipDecHL:
+	ld a,(hl)
+;	pop hl
+	ret
+
+SetInitialLevel:
 	call Roundselect
-SetInitalLevel2:
+SetInitialLevel2:
 	ld (onlevel),a
 	ld (ContinueLevel),a
 	ld (StartLevel),a
@@ -743,16 +689,22 @@ RestoreGame:
 	ld a,(linkgame)
 	or a
 	jp nz,ResumeSync
-ResumeSyncDone:
 #ENDIF
 
+#IFDEF EXTERNAL
+	call ReloadWorld
+	jp c,NewGame
+#ENDIF
+	
+ResumeSyncDone:
 	xor a
 	ld (savedflag),a
 
-	
-	ld a,(onlevel)
-	call GetMapOnly
 	call SwapAPD
+	ld a,(onlevel)
+	
+	
+	call GetMapOnly
 	call RenderScreenFull
 	call SwapScroll
 	;Scroll the Display
@@ -760,15 +712,30 @@ ResumeSyncDone:
 
 RoundSelect:
 ;If record<19 don't bother, just start the game.
-	ld a,(TodaysRecord)
+	call GetTodaysRecord
+;if record>levelcount, record=levelcount
+#ifdef EXTERNAL
+	ld hl,levelcount
+	cp (hl)
+#else
+#ifdef SENDLEVELS
+	ld hl,levelcount
+	cp (hl)
+#else
+	cp level_count
+#endif
+#endif
+	jr c,nomorethanlevels
+	ld a,(hl)
+nomorethanlevels:
 	cp 19
-	jr nc,ProceedRoundSelect
-	xor a
-	ret
+	ld l,a
+	ld a,0
+	ret c
 ProceedRoundSelect:
 ;Max round = record\10*10-9
-	ld h,0
-	ld l,a
+	ld h,a
+;	ld l,a
 	inc l
 	icall(_divhlby10)
 	ld h,10
@@ -777,11 +744,11 @@ ProceedRoundSelect:
 	sub 9
 	ld (op4),a
 ;Black the screen
-	call BlackScreen
-;Dispaly "Select a Round"
-	ld hl,tSelect
-	ld de,$1010
-	call FastVPuts
+	call DrawHiscorePic5
+;Display "Select a Round"
+	call DrawText
+	.dw tSelect
+
 ;Set inital round (1)
 	ld a,1
 	ld (op4+1),a
@@ -790,6 +757,7 @@ ProceedRoundSelect:
 	call SwapScroll
 RoundSelectLoop:
 	call RoundSelectDraw
+	call ionfastcopy
 	call WaitKey
 	ld hl,op4+1
 	cp gLeft
@@ -802,6 +770,10 @@ RoundSelectLoop:
 	jr z,RoundSelectConfirm
 	cp gClear
 	jp z,Quit
+#ifdef WIDE16
+	cp gExit
+	jp z,Quit
+#endif
 	jr RoundSelectLoop
 RoundSelectConfirm:	
 	call swapapd
@@ -832,25 +804,88 @@ RoundSelectRight:
 
 RoundSelectDraw:
 	;Clear the line
-	ld hl,(30*12)+plotsscreen
-	ld de,(30*12)+1+plotsscreen
-	ld bc,(12*12)-1
+	ld hl,(30*screenwidth)+plotsscreen
+	ld de,(30*screenwidth)+1+plotsscreen
+	ld bc,(33*screenwidth)-1
 	ld (hl),$FF
 	ldir
-	;Set cursor's position
-	ld hl,(32*256)+30
+	;Now draw a bunch of squares at the bottom
+
+	ld hl,(op4)
+	ld h,0
+	icall(_divhlby10)
+	;l=number of squares
+	inc l
+	;force l<=10
+	ld a,l
+	cp 11
+	jr c,dont_set_10
+	ld l,10
+dont_set_10:
+	ld c,l
+	ld b,8+XOFF-8
+drawsquaresloop:
+	push bc
+
+		ld hl,squaregfx
+		ld c,56
+		ld a,5
+		call repspr
+	pop bc
+	ld a,b
+	add a,8
+	ld b,a
+	dec c
+	jr nz,drawsquaresloop
+	;now draw the bub icon
+	ld hl,(op4+1)
+	ld h,0
+	icall(_divhlby10)
+	ld a,l
+
+	;force a<10
+	cp 10
+	jr c,dont_set_9
+	ld a,9
+dont_set_9:
+	add a,a
+	add a,a
+	add a,a
+	add a,8+XOFF-8
+	ld hl,player+8
+	ld c,47
+	ld b,a
+	ld a,8
+	call repspr
+	;draw the superdrunk
+	ld hl,superdrunkgfx+64
+	ld a,16
+	ld bc,(80+XOFF)*256+45
+	call repspr	
+	ld a,16
+	ld bc,(88+XOFF)*256+45
+	call repspr	
+	
+	;now draw the level number
+	ld hl,(33*256)+44+XOFF
 	ld (pencol),hl
-	ld a,'<'
-	bcall(_vputmap)
-	ld a,48
-	ld (pencol),a
-	ld a,'>'
-	bcall(_vputmap)
-	ld a,38
-	ld (pencol),a
 	ld a,(op4+1)
-	call VDispA
-	jp ionFastCopy
+	jp vdispa
+
+;old commented out code...
+;	;Set cursor's position
+;	ld hl,(32*256)+30+XOFF
+;	ld (pencol),hl
+;	ld a,'<'
+;	vputmap
+;	ld a,48+XOFF
+;	ld (pencol),a
+;	ld a,'>'
+;	vputmap
+;	ld a,38+XOFF
+;	ld (pencol),a
+;	ld a,(op4+1)
+;	jp VDispA
 
 
 ;=====================================================
@@ -858,6 +893,11 @@ RoundSelectDraw:
 ;=====================================================
 ;Output: A=key pressed
 waitkey:
+#ifdef GRAY
+	ld a,1
+	ld (sysinterrupt),a
+#endif
+
   ei
 	icall(_getcsc)
 	icall(_getcsc)
@@ -866,13 +906,25 @@ WKA_loop:
   icall(_getcsc)
   or a
   jr z, WKA_loop
+
+#ifdef GRAY
+	push af
+		xor a
+		ld (sysinterrupt),a
+	pop af
+#endif
+
   ret
 
 RandWaitkey:
 	call WaitKey
   push af
   ld a,r
+#IFDEF NEWRANDOM
+	ld (RandSeed),a
+#ELSE
   ld (randdata1),a
+#ENDIF
   pop af
   di
   ret
@@ -950,6 +1002,12 @@ ReadKeys:
 	call ReadAKey
 	and KI2nd
 	ld (hl),a ;jBubble
+#IFDEF WIDE16
+	ld a,b
+	and ~KMode ;mode is EXIT on 85/86
+	jp nz,SaveAndQuit
+#endif
+
 	ret
 #IFDEF CHEAT
 OneLifeCheat:
@@ -963,6 +1021,10 @@ OneLifeCheat:
 ;  Gameloop!
 ;==============
 GameLoop:
+#ifdef GRAY
+	ei
+#endif
+
 ;Halts?
 	ld a,(LinkGame)
 	or a
@@ -1005,22 +1067,40 @@ NoHalts:
 	or a
 	call nz,HandlePopUpScore
 	
+#ifndef GRAY
 	ld a,(ScoreUpdateFlag)
 	or a
 	call z,CopyAPD
 	or a
 	call nz,DispScore
+#endif
 
 	call InvincibleBub
 #IFDEF LINK
 	call InvincibleBob
 #ENDIF
+
+#ifdef GRAY
+	call DrawMap
+	call copy2apd
+	call DisplayOverlay2
 	call DrawSprites
 	ld bc,(BigspriteY)
 	xor a
 	or b
 	or c
 	call nz,Disp16Sprite
+
+	
+	
+#else
+	call DrawSprites
+	ld bc,(BigspriteY)
+	xor a
+	or b
+	or c
+	call nz,Disp16Sprite
+#endif
 	
 	ld hl,SpriteTable+2
 	res 7,(hl)
@@ -1036,23 +1116,41 @@ DontUnblinkSprite2:
 
 #IFDEF LOUDSEED
 dispseedis:
-	ld de,$0800
+	ld de,$0700
 	ld (pencol),de
-	ld hl,SeedIS
-	vputs
-	ld a,(randdata1)
-	call vdispa
-	ld hl,(randdata2)
-	call vdisphl
+
+
+	ld hl,(spritetable)
+	ld de,(spritetable+32)
+	ld a,h
+	sub d
+	call vdispahex
+	
+;	ld de,$0700
+;	ld (pencol),de
+;	ld hl,(randseed)
+;	call vdisphlhex
+;	ld hl,pencol
+;	inc (hl)
+;	inc (hl)
+;	call GetSpriteTableChecksum
+;	call vdisphlhex
+	
+
 #endif
 	
+#ifdef GRAY
+	call graycopy
+#else
 	call ionfastcopy
+#endif
 ;Loop back
 	jp GameLoop
 
-#IFDEF LOUDSEED
-SeedIs: .db "Seed: ",0
-#endif
+
+;#IFDEF LOUDSEED
+;SeedIs: .db "Seed: ",0
+;#endif
 
 	
 ;=======================
@@ -1100,15 +1198,70 @@ HandlePopUpScore:
 	ld (scoreupdateflag),a
 	ret
 
+#IFDEF NEWRANDOM
+;AppBubRandom:
+;	di \ halt
+;	call blackscreen
+;	call DrawText
+;	.dw tDontCallMe
+;	call ionfastcopy
+;;	call waitkey
+;	ret
+;tDontCallMe:
+;	.db 2,0,"BAKABAKA!!",0,255
+
+;Rand16 from z80bits.html
+BubRandom:
+BubRand:
+	push de
+	push hl
+	ld	de,(randSeed)
+	ld	a,d
+	ld	h,e
+	ld	l,253
+	or	a
+	sbc	hl,de
+	sbc	a,0
+	sbc	hl,de
+	ld	d,0
+	sbc	a,d
+	ld	e,a
+	sbc	hl,de
+	jr	nc,BubRand_2
+	inc	hl
+BubRand_2:
+	ld	(randseed),hl
+	ld a,l
+	and %11110000
+	ld l,a
+	ld a,h
+	and %00001111
+	or l
+	pop hl
+	pop de
+	ret
+bubRandom2:
+	push hl
+	call BubRandom
+	ld h,a
+	call BubRandom
+	ld l,a
+	ld a,b
+	icall(_divhlbya)
+	pop hl
+	ret
+#ENDIF
+
+
+#IFNDEF NEWRANDOM
 ;=============
 ;  BubRandom
 ;=============
 
-
 #IFNDEF APP \bbRand: \bbRandom: \BubRand:
 bubRandom:
-#ELSE \bbRand = UserMem + AppVarLen+ 141
-bbRandom = bbRand \BubRand = bbRand \BubRandom = bbrand
+#ELSE; \bbRand = UserMem + AppVarLen+ 141
+;bbRandom = bbRand \BubRand = bbRand \BubRandom = bbrand
 #ENDIF
 AppBubRandom:
 RandA:
@@ -1148,6 +1301,7 @@ bubRandom2:
 	icall(_divhlbya)
 	pop hl
 	ret
+#ENDIF
 
 ;===============
 ;  DispScore
@@ -1164,30 +1318,102 @@ DispScore:
 DisplayOverlay:
 ;Redraw the bloody map
 	call DrawMap
-;Cursor = (0,0)
-	ld hl,0
-	ld (pencol),hl
+DisplayOverLay2:
 ;Display Score, Lives, Extends, Level#...
+
+#ifdef WIDE16
+	call MakeBlackRight
+
+	
+
+	call DrawText
+	.dw tLevelScoreLives
+#endif ;wide16
+
+;Cursor = (0,0)
+#ifndef WIDE16
+	ld hl,0
+#else ;wide16
+	ld hl,99+(56*256)
+#endif ;wide16
+	ld (pencol),hl
+
 	call DispScore2
 	call DispLives
 	call DispExtend
+
 ;Check if displaying PopupScore as well
 	ld a,(popuplife)
 	or a
 	call nz,DispPopupScore
 
 	call DispLevelNo
+#ifdef WIDE16
+	call DispBonus
+#endif
+	
 	ret
 DispLevelNo:
+#ifdef WIDE16
+	ld hl,256*10+112
+#else
 	ld hl,$002C
+#endif
 	ld (pencol),hl
 	ld a,(onLevel)
 	inc a
 	jp vDispA
 
+#ifdef WIDE16
+DispBonus:
+	ld a,(bonusflags)
+	bit b_candy,a
+	push af
+
+		call nz,DispCandyBonus
+	pop af
+	bit b_shoes,a
+	call nz,DispShoesBonus
+	ret
+DispCandyBonus:
+;Input:	ix->sprite
+;	a=x
+;	l=y
+;	b=height	(in pixels)
+;	c=width		(in bytes, e.g. 2 would be 16)
+	ld ix,CandyStatImage
+	ld a,107
+	ld bc,$0601
+	ld l,40
+	jp ionlargesprite
+DispShoesBonus:
+	ld ix,ShoesStatImage
+	ld a,117
+	ld bc,$0501
+	ld l,41
+	jp ionlargesprite
+	
+#endif ;wide16
+
 DispExtend:
+#ifdef GRAY
+	ld de,plotsscreen
+	ld (repsprplane),de
+	ld hl,playerplane1+(8*extendbubble)
+	call DispExtend2
+	ld de,saferam1
+	ld (repsprplane),de
+	ld hl,playerplane2+(8*extendbubble)
+DispExtend2:
+#else
 	ld hl,player+(8*extendbubble)
+#endif
+
+#ifdef WIDE16
+	ld bc,$0601
+#else
 	ld bc,$0608
+#endif
 DispExtendLoop:
 	push hl
 	ld hl,exptable
@@ -1206,7 +1432,11 @@ DispExtendLoop:
 	push hl
 	push bc
 	jr z,NoDispExtendLetter
+#ifdef WIDE16
+	ld b,96
+#else
 	ld b,0
+#endif
 	ld a,8
 	call repspr
 ;	call PutSprClpAND
@@ -1229,6 +1459,17 @@ NoDispExtendLetter:
 
 DispLives:
 ;Display All Natural(TM) Lives Counter
+#ifndef GRAY
+
+#ifdef WIDE16
+	ld hl,LivesCounterGfx
+	ld bc,104*256+29
+	ld a,6
+	call Repspr
+	ld bc,112*256+29
+	ld a,6
+	call Repspr
+#else
 	ld hl,LivesCounterGfx
 	ld bc,$4800
 	ld a,6
@@ -1236,7 +1477,36 @@ DispLives:
 	ld bc,$5000
 	ld a,6
 	call Repspr
+#endif ;wide16
+
+#else
+	ld de,plotsscreen
+	ld (repsprplane),de
+	ld hl,LivesCounterGfx
+	ld bc,$4800
+	ld a,6
+	call Repspr
+	ld bc,$5000
+	ld a,6
+	call Repspr
+	ld de,saferam1
+	ld (repsprplane),de
+	ld bc,$4800
+	ld a,6
+	call Repspr
+	ld bc,$5000
+	ld a,6
+	call Repspr
+
+
+
+#endif
+
+#ifdef WIDE16
+	ld bc,256*29+117
+#else
 	ld bc,$0053
+#endif
 	ld (pencol),bc
 	ld a,(lives)
 	jp Vdispa
@@ -1269,11 +1539,11 @@ DispPSLoop:
 	or l
 	jr nz,DispPSLoop
 	ex de,hl
-	bjp(_vputs)
+	vputsjram
 	
 DispScore2:
 	call ConvScore
-	bjp(_vputs)
+	vputsjram
 ConvScore:
 	ld hl,op1
 	ld de,op1+1
@@ -1375,9 +1645,19 @@ BCDskip:
 	pop	hl
 	ret
 
-#IFDEF APP
+#IFDEF TWOPAGE
 NewLevel:
-	cp levelcount
+#IFDEF EXTERNAL
+	ld hl,LevelCount
+	cp (hl)
+#ELSE
+#ifdef SENDLEVELS
+	ld hl,LevelCount
+	cp (hl)
+#else
+	cp level_count
+#endif
+#ENDIF
 	jp nc,ending
 
 	b_call _NewLevel
@@ -1385,7 +1665,6 @@ NewLevel:
 GetMapOnly:
 	b_call _GetMapOnly
 	ret
-#ELSE
 #ENDIF
 #IFDEF UNCOMMENT
 
@@ -1831,7 +2110,7 @@ iFruit:
 	dec a
 	ld (hl),a
 	cp 1
-	call z,LastEnemy
+	call z,MakeEnemiesAngry
 	or a
 	jr nz,EnemiesStillAlive
 	call NoMoreEnemies
@@ -1860,14 +2139,46 @@ NotFruit:
 	
 	ret
 
-LastEnemy:
-	ld hl,spritetable+15
+UnPissOffEnemies:
+	ld c,1
+	xor a
+	ld (timer+1),a
+	
+	jr MakeEnemiesAngry2
+
+MakeEnemiesAngry:
+	ld c,0
+MakeEnemiesAngry2:
+	push ix
+		push af
+;			push bc
+;				push hl
+;					push de
+	ld ix,spritetable
 	ld de,8
-	ld b,spritecount-1
+	ld b,20
 LastEnemyLoop:
-	add hl,de
-	set 6,(hl)
+	add ix,de
+	ld a,(ix+3)
+	cp BubbleBuster
+	jr c,SkipAngryEnemy
+	cp Invader+1
+	jr nc,SkipAngryEnemy
+	ld a,c
+	or a
+	jr nz,UnsetNotSet
+	set 6,(ix+7)
+	jr SkipAngryEnemy
+UnsetNotSet:
+	res 6,(ix+7)
+SkipAngryEnemy	
 	djnz LastEnemyLoop
+	
+;					pop de
+;				pop hl
+;			pop bc
+		pop af
+	pop ix
 	ret
 
 ;LastEnemy:
@@ -1952,13 +2263,117 @@ MEBNotABubble:
 ;===================
 BackgroundCode:
 	call FruityTests
-	call BonusLifeCheck
+;	call BonusLifeCheck
 	call CheckEnd
+#IFDEF SKEL_HURRY
+	call HurryBaron
+#ENDIF
 	ret
 
-BonusLifeCheck:
+#IFDEF SKEL_HURRY
+HurryBaron:
+	ld a,(enemycount)
+	or a
+	ret z
 	
+	ld hl,(timer)
+	ld a,48
+	icall(_divhlbya)
+	or a
+	ret nz
+	
+	ld de,(hurry)
+	ld a,d
+	or a
+	ret z
+	
+	
+	ld a,e
+	cp l
+	jr z,Hurryup
+	ld a,d
+	cp l
+	jr z,MakeBaron
 	ret
+HurryUp:
+	call renderscreenfull
+	call copy2apd
+	ld c,56
+	ld b,28
+HurryLoop1:
+	call HurryStep
+	djnz HurryLoop1
+	ld b,100
+HurryLoop2:
+	ei
+	halt
+	djnz HurryLoop2
+	ld b,28
+HurryLoop3:
+	call HurryStep
+	djnz HurryLoop3
+	call DisplayOverlay
+	call copy2apd
+	call MakeEnemiesAngry
+#IFDEF LINK
+	ld a,(linkgame)
+	or a
+	ret z
+	dec a
+	jr nz,Player2HurryResume
+	ld a,69
+	jp Waitsend
+Player2HurryResume:
+	call WaitLink
+	ld a,$BB
+	jp sendbyte
+#ELSE
+	ret
+#ENDIF
+
+HurryStep:
+	push bc
+	call copyapd
+	pop bc
+	push bc
+	ld d,c
+	ld e,32
+	ld (pencol),de
+	ld hl,tHurryUp
+	vputs
+	call ionfastcopy
+;	ei \ halt
+	pop bc
+	dec c
+	ret
+
+MakeBaron:
+	ld a,Skel
+	ld bc,$0808
+	call CreateSprite
+#IFDEF LINK
+	ld a,(linkgame)
+	or a
+	ret z
+#ELSE
+	ret
+#ENDIF
+	ld a,Skel
+	ld bc,$0854
+	call CreateSprite
+	ld (ix+2),Skel+2
+	set 0,(ix+6)
+	ret
+	
+
+
+
+	
+#ENDIF	
+
+;BonusLifeCheck:
+;	
+;	ret
 
 CalcNextBonusFruit:
 ;Make CurBonusFruit:
@@ -2106,21 +2521,64 @@ NextLevel:
 	ld a,(onlevel)
 	inc a
 	ld (onlevel),a
-	ld hl,TodaysRecord
-	ld b,(hl)
+	ld c,a
+	call gettodaysrecord
+	ld b,a
+	ld a,c
 	cp b
 	jr c,NoNewLevelRecord
   ld (hl),a
 NoNewLevelRecord:
 	call Newlevel
-	call DrawMap
+	
+	call DisplayOverlay ;changed
 	ld hl,0
 	ld (pencol),hl
 	call DispScore2
 	ld a,3
 	ld (scoreupdateflag),a
-	call SwapScroll
+	call SwapScroll2
 	ret
+
+
+DoHighScore:
+	call CheckHighScore
+;#IFDEF LINK
+	jp DoHighScore2
+;#ENDIF
+;	jp CheckHiScore2
+	
+
+DoHighScore2:
+#IFDEF LINK
+	ld a,(linkgame)
+	or a
+	ret z
+	
+	push af
+	call HiScoreWait
+	pop af
+	cp 2
+	jr z, hiImBob
+hiImBub:
+	ld a,$BB
+	call waitsend
+	ret
+HiImBob:
+	call waitlink
+	call SendThis
+	.db $BB
+	ret
+HiscoreWait:
+	call BlackScreen
+	call DrawText
+	.dw tHi1
+	jp ionfastcopy
+
+#ENDIF	
+
+
+
 
 ;================
 ;   Game Over
@@ -2131,78 +2589,91 @@ GameOver:
 	call RenderScreenFull
 
 #IFDEF HIGHSCORE
-
-#ifdef LINK
-
-	call CheckHighScore
-
-	ld a,(linkgame)
-	or a
-	jr z, HiscoreDone
-	
-	push af
-	call HiScoreWait
-	pop af
-	cp 2
-	jr z, hiImBob
-hiImBub:	
-	ld a,$BB
-	call waitsend
-	jr HiScoreDone
-
-HiscoreWait:
-	call BlackScreen
-	ld de,$0000
-	ld hl,tHi1
-	call fastvputs
-#IFNDEF LESSTEXT
-	ld de,$0700
-	ld hl,tHi2
-	call fastvputs
-#ENDIF
-	jp ionfastcopy
-
-HiImBob:
-	call waitlink
-	ld a,$BB
-	call sendbyte
-
-HiScoreDone:
-#ELSE
-	call CheckHighScore
-	call CheckHiScore2
-#ENDIF
-	
+	call DoHighScore
+;#ifdef LINK
+;	call LinkHighScore
+;	
+;	call CheckHighScore
+;
+;	ld a,(linkgame)
+;	or a
+;	jr z, HiscoreDone
+;	
+;	push af
+;	call HiScoreWait
+;	pop af
+;	cp 2
+;	jr z, hiImBob
+;hiImBub:	
+;	ld a,$BB
+;	call waitsend
+;	jr HiScoreDone
+;
+;HiscoreWait:
+;	call BlackScreen
+;	call DrawText
+;	.dw tHi1
+;;	
+;;	ld de,$0000
+;;	ld hl,tHi1
+;;	call fastvputs
+;;#IFNDEF LESSTEXT
+;;	ld de,$0700
+;;	ld hl,tHi2
+;;	call fastvputs
+;;#ENDIF
+;	jp ionfastcopy
+;
+;HiImBob:
+;	call waitlink
+;	call SendThis
+;	.db $BB
+;;	ld a,$BB
+;;	call sendbyte
+;
+;HiScoreDone:
+;#ELSE
+;	call CheckHighScore
+;	call CheckHiScore2
+;#ENDIF
+;	
 #ENDIF	
 
 	call Swapapd
 	call BlackScreen
 	
-	ld de,27*256+30
-	ld hl,tGameOver
-	call FastVputs
+	call DrawText
+	.dw tGameOver
+;	ld de,27*256+30
+;	ld hl,tGameOver
+;	call FastVputs
 	
 	call SwapScroll
 	
 ContinuePrompt:
-	ld de,37*256+26
-	ld hl,tCredits
-	call FastVputs
+	call DrawText
+	.dw tCredits
+;	ld de,37*256+26
+;	ld hl,tCredits
+;	call FastVputs
+
 	ld a,(credits)
 	or a
 	jp z,NoContinues
 	add a,'0'
-	bcall(_Vputmap)
-	ld de,47*256+33
-	ld hl,tContinue
-	call FastVputs
-	ld de,55*256+33
-	ld hl,tEnd
-	call FastVputs
+	vputmap
+	call DrawText
+	.dw tContinue
+;	ld de,47*256+33
+;	ld hl,tContinue
+;	call FastVputs
+;	ld de,55*256+33
+;	ld hl,tEnd
+;	call FastVputs
 		
 	call copy2apd
 	ld hl,cursor
-	ld bc,26*256+48
+	ld bc,(26+xoff)*256+48
 	ld e,0
 ContinueLoop:
 	push hl
@@ -2235,6 +2706,10 @@ ContinueLoop:
 	jr z,contChange
 	cp gClear
 	jp z,Quit
+#ifdef WIDE16
+	cp gExit
+	jp z,Quit
+#endif
 	jr ContinueLoop
 contChange:
 	ld a,e
@@ -2278,7 +2753,7 @@ DontContWith10Lives:
 	ld (onlevel),a
 	ld (ContinueLevel),a
 	call NewLevel
-	call DrawMap
+	call DisplayOverlay ;changed
 	call copy2apd
 	
 	call BlackScreen
@@ -2292,13 +2767,43 @@ NoContinues:
 
 
 
-;================
-;   FastVPuts
-;================
-FastVPuts:
-	ld (pencol),de
-	vputsj
+;;================
+;;   FastVPuts
+;;================
+;FastVPuts:
+;	ld (pencol),de
+;	vputsj
 
+
+#ifdef WIDESCORES
+
+hsentrysize   = 17
+hsnamelength  = 12
+#ifndef WIDE16
+hsnamecolumn  = 2
+hsscorecolumn = 49
+hslevelcolumn = 83
+#else ;wide16
+hsnamecolumn  = 12
+hsscorecolumn = 67
+hslevelcolumn = 109
+#endif ;wide16
+
+#else ;widescores
+
+hsentrysize   = 12
+hsnamelength  = 7
+#ifndef WIDE16
+hsnamecolumn  = 3
+hsscorecolumn = 32
+hslevelcolumn = 81
+#else ;wide16
+hsnamecolumn  = 12
+hsscorecolumn = 67
+hslevelcolumn = 109
+#endif ;wide16
+
+#endif ;widescores
 
 
 #IFDEF HIGHSCORE
@@ -2307,11 +2812,8 @@ FastVPuts:
 ;=======================
 DispHighScoreTable:
 	;Draw the top image
-	call Blackscreen
-	ld hl,HiscorePic
-	ld de,plotsscreen+1+(12*5)
-	ld bc,178
-	call DispRLE
+	call DrawHiScorePic5
+
 ;Display the names and scores	
 DisplayNames:
 	;Get table address
@@ -2326,12 +2828,12 @@ DisplayNamesLoop:
 	ld (penrow),a
 	;Display the name
 	push hl
-	ld a,3
+	ld a,hsnamecolumn
 	ld (pencol),a
-	bcall(_vputs)
+	vputsram
 	pop hl
-	;Forward 7 bytes
-	ld de,7
+	;Forward hsnamelength bytes
+	ld de,hsnamelength
 	add hl,de
 	;Modify the dispscore2 code to display the high score instead of the player's score
 	ld (Dispscore2_mod+5),hl
@@ -2342,13 +2844,13 @@ DisplayNamesLoop:
 	inc hl
 	;Display the score
 	push hl
-	ld a,32
+	ld a,hsscorecolumn
 	ld (pencol),a
 	call DispScore2
 	pop hl
 	;Display the level
 	push hl
-	ld a,81
+	ld a,hslevelcolumn
 	ld (pencol),a
 	ld l,(hl)
 	ld h,0
@@ -2368,17 +2870,18 @@ DisplayNamesLoop:
 	inc hl
 	inc hl
 	ld (Dispscore2_mod+1),hl
-	;Display the graph buffer
-	jp ionFastCopy
-#endif
+	ret
+;	;Display the graph buffer
+;	jp ionFastCopy
+#endif ;highscore
 
 ;=======================
 ;  CheckHighScore
 ;=======================
 CheckHighScore:
-#IFnDEF HIGHSCORE
+#IFNDEF HIGHSCORE
 	ret
-#ELSE
+#ELSE ;highscore
 
 ;IX=Highscoretable, B=Score Entry number inverted
 	ld ix,HighscoreTable
@@ -2386,8 +2889,8 @@ CheckHighScore:
 	
 CheckHiScoreLoop:
 	;Score - Highscore
-	ld e,(ix+9)
-	ld d,(ix+10)
+	ld e,(ix+hsnamelength+2)
+	ld d,(ix+hsnamelength+3)
 	ld hl,(score+2)
 	sbc hl,de
 	;If Score>= Highscore then next checks
@@ -2395,15 +2898,15 @@ CheckHiScoreLoop:
 	jr nc,GotHighScore
 NotGreaterLoBits:
 	;Next Entry
-	ld de,12
+	ld de,hsentrysize
 	add ix,de
 	djnz CheckHiScoreLoop
 	;Done
 	ret
 CheckHiScore2:
 	;Hiscore-Score
-	ld l,(ix+7)
-	ld h,(ix+8)
+	ld l,(ix+hsnamelength+0)
+	ld h,(ix+hsnamelength+1)
 	ld de,(score)
 	sbc hl,de
 	;If Score<=Hiscore then go back
@@ -2415,12 +2918,12 @@ GotHighScore:
 	cp 1
 	jr z,DontMoveScores
 	ld l,a
-	ld h,12
+	ld h,hsentrysize
 	icall(_htimesl)
 	ld b,h
 	ld c,l
-	ld hl,highscoretable+(12*4)-1
-	ld de,highscoretable+(12*5)-1
+	ld hl,highscoretable+(hsentrysize*4)-1
+	ld de,highscoretable+(hsentrysize*5)-1
 	lddr
 DontMoveScores:
 	push ix
@@ -2429,7 +2932,7 @@ DontMoveScores:
 	ld l,e
 	inc de
 	ld (hl),0
-	ld bc,6
+	ld bc,hsnamelength-1
 	ldir
 	ld hl,Score
 	ld bc,4
@@ -2440,6 +2943,7 @@ DontMoveScores:
 	
 	push ix
 	call DispHighscoreTable
+	call ionfastcopy
 	call Copy2Apd
 	pop ix
 	pop bc
@@ -2453,7 +2957,7 @@ NameEntry:
 	ld a,25
 	add a,l
 	ld h,a
-	ld l,3
+	ld l,hsnamecolumn
 	
 	ld (backuphl),hl
 	
@@ -2470,7 +2974,7 @@ NameEntryLoop:
 	ld (pencol),hl
 	push ix
 	pop hl
-	bcall(_vputs)
+	vputsram
 	
 	pop bc
 	push bc
@@ -2484,7 +2988,7 @@ neNotChar2:
 neNotCharSkip:
 	
 	res textinverse,(iy+textflags)
-	bcall(_vputmap)
+	vputmap
 	set textinverse,(iy+textflags)	
 	
 	call ionfastcopy
@@ -2499,11 +3003,18 @@ neNotCharSkip:
 
 	cp gEnter
 	ret z
+#ifdef WIDE16
+	cp gExit
+	ret z
+#endif
+
 	
 	cp gClear
 	call z,neClearString
 
 	cp gDel
+	call z,nepressDel
+	cp gLeft
 	call z,nepressDel
 	
 	cp gAlpha
@@ -2515,7 +3026,11 @@ neNotCharSkip:
 	;AddChar
 	ld e,a
 	ld a,b
+#IFDEF WIDESCORES
+	cp 12
+#ELSE
 	cp 6
+#ENDIF
 	ld a,e
 	jr z,NameEntryLoop
 	
@@ -2541,7 +3056,11 @@ neClearString:
 	ld d,h
 	ld e,l
 	inc de
+#IFDEF WIDESCORES
+	ld bc,12
+#ELSE
 	ld bc,6
+#ENDIF
 	ld (hl),0
 	ldir
 	push ix
@@ -2569,3 +3088,8 @@ nepressAlpha:
 	ret
 
 #endif
+
+
+
+
+

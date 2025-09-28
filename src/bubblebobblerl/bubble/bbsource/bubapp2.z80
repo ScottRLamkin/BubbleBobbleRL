@@ -1,4 +1,6 @@
 #DEFINE NOAPPHEADER
+#DEFINE TWOPAGE
+#DEFINE ICECLIMB
 
 #DEFINE disp(xxxx) ld hl,xxxx \ call AppPuts
 
@@ -38,14 +40,27 @@ DefaultXSpriteHeight = 8
 Return:
 	ret
 
+#IFDEF ICECLIMB
 PlayIceClimb:
 #include "miniice.z80"
+#ENDIF
 
 #include "icemaps.h"
+	
+
+
 IonFastCopy:
-#include "fastcopy.h"
+	bcall(_ionfastcopy)
+	ret
+CreateSprite:
+	bcall(_CreateSprite)
+	ret
 
 #include "bub_lev.z80"
 #include "bub_map.h"
 #include "bub_tabl.h"
 #include "bub_gfx.inc"
+
+
+_IonFastCopy = $0088+(3*3)
+_CreateSprite = $0088+(3*4)

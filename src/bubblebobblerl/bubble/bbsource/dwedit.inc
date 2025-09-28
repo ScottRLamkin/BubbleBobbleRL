@@ -1,6 +1,6 @@
 ; Dwedit's huge include file
-; 73/82/83/83+ compatible
-; Include file version 5.08
+; 73/82/83/85/86/83+ compatible
+; Include file dated 6/29/2004
 ;
 ; Include this file at the top of your program, then include a label tTitle
 ; followed by the description of your program, a label lblStart, then finally
@@ -17,6 +17,8 @@
 ; #DEFINE TI83 - makes a program for the TI83
 ; #DEFINE TI83P - makes a program for the TI83+
 ; #DEFINE TI82 - makes a program for the TI82
+; #DEFINE TI85 - makes a program for the TI85  (only supports RIGEL)
+; #DEFINE TI86 - makes a program for the TI86 (no shell)
 ; #DEFINE TI73 - makes an APP for the TI73
 ;
 ; Supported TI83 shells:
@@ -49,17 +51,24 @@
 ; Supported TI73 shells:
 ;   #DEFINE APP
 ;     There's no ASM for TI73 outside of apps, remember that the TI73 has
-;     NO ARCHIVE!
+;     no archive.
+;     Also there's no way to sign apps to run on hardware yet.
+;
+; Supported TI85 shells:
+;   #DEFINE RIGEL
+;     Only RIGEL is supported directly.  Rigel supports fixed address relocation!
 ;
 ;  Other options:
+;    #DEFINE NOHEADER - Leaves off the program header, and doesn't define a
+;      start address
 ;    #DEFINE NOIONLIB - Don't equate the ion libs, use this when your ion
 ;      program exceeds 8.8k and you want to put the ion libs from ionf.z80
 ;      into your program yourself
 ;    #DEFINE NOAPPHEADER - Excludes the Flash Application header.  Use this
 ;      on the second and above pages of the flash application.
+;    #DEFINE TOKENS - Enables equates of tokens.  This is OFF by default.
 ;    #DEFINE NOTOKENS - Excludes token equates.  Use this if you have lots
 ;      of name conflicts, or just don't want tokens.
-;    #DEFINE TOKENS - Enables equates of tokens, 
 ;
 ;  Notes:
 ;    Make sure your program doesn't confilct with all the names.  There are
@@ -70,6 +79,9 @@
 ;
 ;
 .nolist
+#IFNDEF NOEND
+.end
+#ENDIF
 
 #DEFINE EQU .EQU
 #DEFINE equ .EQU
@@ -111,7 +123,11 @@
 ApdSubTimer = $8009
 ApdTimer = $800A
 
+FPS  = $930D
+OPS = $9311
+
 ptemp		=9317h
+flags = $8567
 
 progstart	= 9327h
 usermem = progstart
@@ -2480,6 +2496,11 @@ sram = saferam1
 apdram = saferam1
 statram = saferam2
 cmdshad = cmdshadow
+_IY_TABLE = flags
+
+FREE_MEM_START = FPS
+FREE_MEM_END = OPS
+
 
 ;CrASH names
 GRAPH_MEM = plotsscreen
@@ -2509,8 +2530,8 @@ GET_KEY = _getcsc
 DISP_DELAY = _lcdbusy
 
 ;CrASH ROM_CALLs
-TR_CHARPUT = _putc
-TX_CHARPUT = _putmap
+TR_CHARPUT = _putmap
+TX_CHARPUT = _putc
 D_ZT_STR = _puts
 D_HL_DECI = _disphl
 NEXT_LINE = _newline
@@ -2521,6 +2542,20 @@ D_ZM_STR = _vputs
 
 CLEARLCD = _clrlcdfull
 DISP_GRAPH = _grbufcpy
+
+;Venus Alt names:
+_getProgInfo		= _Findprogsym
+_getVarSize		 = _datasize
+_setGraphDirty		equ $001B
+_setRunIndicOff		= _runIndicOff
+usermemoffset = usermem_offset
+
+;undocumented RAM addresses:
+basic_pc = $9146
+basic_end = $9148
+basic_type = $913B
+basic_name = $913C
+
 
 #ENDIF
 
@@ -2545,6 +2580,8 @@ DISP_GRAPH = _grbufcpy
 #define icall(xxxx) bcall(xxxx)
 #define ijp(xxxx) bjp(xxxx)
  .addinstr B_CALL *       EF   3 NOP 1
+
+
 
 APP_PUSH_ERRORH .EQU	59h
 APP_POP_ERRORH	.EQU	5Ch
@@ -3725,13 +3762,85 @@ smartGraph_inv  EQU  1
 more_Flags	EQU 26
 
 No_Del_Stat	EQU 2
+
 ;----------------------------------------------------------------------
-;           Available for ASM programming
+;           available for asm programming
 ;----------------------------------------------------------------------
 
-asm_Flag1       EQU  33          ; ASM CODING
-asm_Flag2       EQU  34          ; ASM CODING
-asm_Flag3       EQU  35          ; ASM CODING
+asm_Flag1       equ  33          ; asm coding
+asm_Flag2       equ  34          ; asm coding
+asm_Flag3       equ  35          ; asm coding
+
+;----------------------------------------------------------------------
+
+fracFlags	equ	  36		; fraction display/edit
+fracStopEOS	equ	   0
+fracInside	equ	   1
+fracDontDraw	equ	   2
+fracEditMode	equ	   3
+fracInNum	equ	   4
+fracScrScrolled equ	   5
+fracFlag1	equ	   6
+fracClearEOS	equ	   7	   ; tell drawExpr code to clear to end of screen when done
+;
+fontFlags	equ	   37
+fracDrawNum	equ	   0
+fracDrawDenom	equ	   1
+fracDrawLFont	equ	   2
+fracTallLFont	equ	   3
+fracLastChar	equ	   4
+fracCursor	equ	   5
+DrawLfont       equ       6
+CustomFont      equ       7
+;
+;flags for fraction math routines:
+FracFlags2      equ     38
+DtoF10F         equ      0      ;10digit flag for Dec ->Frac
+SimpKeyF        equ      1      ;Used for Simp K.
+RatD1K          equ      1      ;also used to show denominator=1000
+FinalType       equ      2      ;1=final type is improper 0=type is simple
+FinalFrac       equ      3      ;set if final fraction result expected.
+ManDtoF         equ      4      ;manual simp=1, Dec->frac bit.
+ManForceS       equ      5      ;manual simp=1, Abc=0; force simplify anyhow.
+ManAdjW         equ      6      ;manual simp=1, Abc=0; Adjust whole flag.
+ManBin          equ      7      ;manual simp=1, Binop set.
+
+
+;flags for fraction math routines:
+FracFlags3      equ     39
+FNormOver       equ      0      ;Fraction Normalization Override if set.
+DivSmallNum     equ      1      ;set if Frac Numerator < denominator.
+IntDivDisp      equ      2      ;integer divide display flag.
+StrictInt       equ      3      ;strict integer check by intdiv if set.
+yxRatF          equ      4      ;y^x rational approximation flag.
+nid             equ      5      ;1 if non integer decimal
+SimpDisp        equ      6      ;1 if need to display frac simplify factor.
+HadTrueMixed    equ      7      ;at least one true fraction in an expression.
+;(HadTrueMixed is needed by >Ab/c<>d/e so that if any mixed fraction, then
+; if convert, will stay b/c if b/c mode & not convert back to mixed.)
+
+;
+getSendFlg	equ  47
+comFailed	equ  3	      ; 1 = get/send communication failed
+;
+;
+apiFlg3		equ  52 
+;
+apiFlg4		equ  53
+fullScrnDraw	equ    2	; draw into last row/col of screen
+
+xapFlag0        equ  43      ; external app flags
+xapFlag1        equ  44
+xapFlag2        equ  45
+xapFlag3        equ  46
+
+plotFlag3	equ  47  
+bufferOnly	equ    6
+useFastCirc	equ    4
+
+;
+varTypeMask	equ  1fh             
+varGraphRef	equ    6
 
 ;======================================================================
 ;           Data Type Equates                                                    
@@ -4946,6 +5055,10 @@ sram = saferam1
 apdram = saferam1
 statram = saferam2
 cmdshad = cmdshadow
+_IY_TABLE = flags
+
+FREE_MEM_START = FPS
+FREE_MEM_END = OPS
 
 ;CrASH names
 GRAPH_MEM = plotsscreen
@@ -4975,8 +5088,8 @@ GET_KEY = _getcsc
 DISP_DELAY = _lcdbusy
 
 ;CrASH ROM_CALLs
-TR_CHARPUT = _putc
-TX_CHARPUT = _putmap
+TR_CHARPUT = _putmap
+TX_CHARPUT = _putc
 D_ZT_STR = _puts
 D_HL_DECI = _disphl
 NEXT_LINE = _newline
@@ -4986,6 +5099,20 @@ D_ZM_STR = _vputs
 
 CLEARLCD = _clrlcdfull
 DISP_GRAPH = _grbufcpy
+
+;Venus Alt names:
+
+;_getProgInfo		= _Findprogsym
+_getVarSize		 = _datasize
+_setRunIndicOff		= _runIndicOff
+
+;undocumented RAM addresses:
+usermem_offset = $89EC
+usermemoffset = usermem_offset
+basic_pc = $965D   ;position in basic prog
+basic_end = $965F  ;end of basic prog (used for checking if inside)
+basic_prog = $9652 ;program type byte of basic prog
+basic_name = $9653 ;name of basic prog
 
 #ENDIF
 
@@ -4999,6 +5126,8 @@ DISP_GRAPH = _grbufcpy
 ;    888       888         888    888 d88P"      
 ;    888       888         Y88b  d88P 888"       
 ;    888     8888888        "Y8888P"  8888888888
+
+ptemp = $8D18
 
 ApdSubTimer = $8009
 ApdTimer = $800A
@@ -5240,7 +5369,218 @@ GroupObj        EQU       17h           ;group.
 
 
 
+#IFDEF CRASH19006
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+; CRASH19006.INC for CrASH
+;  made by Hideaki Omuro and Jeff Mears
+; modifié le 22/04/2003 pour CrASH_19006 par Jumbo (www.PlaneteTI82.fr.st)
+;
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+; RAM Locations
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+;Name         Address Len  Meaning
+;ÄÄÄÄÄÄÄÄÄÄÄÄ ÄÄÄÄÄÄÄ ÄÄÄÄ ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+KEY_0        = $8000 ;Byte Scancode of last key, 0 if gotten
+KEY_1        = $8001 ;Byte Scancode of key down now
+KEY_2        = $8002 ;Byte Same as $8001, $FF if more than one key is down
+KEY_STAT     = $8004 ;Byte Bit 2 set = key down now
+LAST_KEY     = $8006 ;Byte Last key pressed
+CONTRAST     = $8008 ;Byte Contrast ($00 to $1F)
+CURSOR_POS   = $800C ;Word Text position for word operations
+CURSOR_ROW   = $800C ;Byte Text cursor row
+CURSOR_COL   = $800D ;Byte Text cursor column
+BUSY_COUNTER = $8026 ;Byte Counter for busy indicator
+BUSY_BITMAP  = $8027 ;Byte Bitmap for busy indicator
+OP1          = $8028 ;  11 OP1
+OP2          = $8033 ;  11 OP2
+OP3          = $803E ;  11 OP3
+OP4          = $8049 ;  11 OP4
+OP5          = $8054 ;  11 OP5
+OP6          = $805F ;  11 OP6
+TEXT_MEM     = $808F ; 128 text memory
+GRAF_CURS    = $8215 ;Word Cursor position for graphics
+CURSOR_X     = $8215 ;Byte X value of graphics cursor
+CURSOR_Y     = $8216 ;Byte Y value of graphics cursor
+APD_BUF      = $8228 ; 768 APD screen buffer
+_IY_TABLE    = $8528 ; N/A Where IY usually points
+GRAPH_MEM    = $88B8 ; 768 Graphics Buffer
+TEXT_MEM2    = $8BDF ; 128 Secondary text memory
+WIN_START    = $8C8F ;Byte Number of first row in window
+WIN_END      = $8C90 ;Byte Number of last row in window
+CRASH_VER    = $8D73 ;Byte Version number of CrASH
+VAT_START    = $FE6E ; N/A Start of VAT
+
+; The following will be used in programs using the APD buffer.  If something
+; important (ie. interrupt) is going on inside APD_BUF, INT_STATE will not
+; be 00. (Look in CrASHprg.TXT for details)
+APD_FREE     = $8D70 ;Word Public Free Mem of APD_BUF ($000=none, other=using)
+INT_STATE    = $8D72 ;Byte Public Stat of Interrupts (00=none, other=using)
+
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+; Variable Regions
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+; You can allocate memory freely in FREE_A regions.
+; You must be careful to not use FREE_B if your program calls CR_KHAND
+
+;Free Memory Regions Len Comments
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ ÄÄÄ ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+FREE_A1 = GRAPH_MEM ;768 Cleared when starting a program
+FREE_A2 = TEXT_MEM  ;128 Cleared when starting a program
+FREE_A3 = OP1       ; 66 Can be used if only using normal ROM_CALLs
+FREE_B  = TEXT_MEM2 ;128 Cleared after calling CR_KHAND
+FREE_C  = APD_BUF   ;768 If INT_STATE is not 0, check for available APD_FREE
+
+;TI83 names
+plotsscreen = GRAPH_MEM
+savesscreen = APD_BUF
+textshadow = TEXT_MEM
+cmdshadow = TEXT_MEM2
+currow = CURSOR_ROW
+curcol = CURSOR_COL
+pencol = CURSOR_X
+penrow = CURSOR_Y
+symtable = VAT_START
+indicbusy = BUSY_BITMAP
+statvars = cmdshadow
+flags = _IY_TABLE
+
+;Saferams
+saferam1	= savesscreen
+saferam2	= text_mem2
+saferam3	= textshadow
+saferam4	= op1
+
+;Alternate equate names
+gbuf = plotsscreen
+grbuf = plotsscreen
+sram = saferam1
+apdram = saferam1
+statram = saferam2
+cmdshad = cmdshadow
+
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+; CrASH call Addresses (use CALL)
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+; This is a list of useful functions created by the authors of CrASH.  They
+; are embedded into CrASH, and are very useful tools.
+
+; Use CALL to call these functions.
+
+EXIT_2_TIOS  = $8D88 ; Exits to TI-OS with a clear screen. (can use JP)
+RAND         = $8D8B ; Returns a random number 0-127 in A.
+CP_HL_BC     = $8D8E ; Compares HL and BC, like CP_HL_DE
+CR_KHAND     = $8D91 ; Key_Hand; does not crash if turned off
+CR_GRBCopy   = $8D94 ; Fast copy to LCD - Read below
+
+ionFastCopy = CR_GRBCopy
+
+; CR_GRBCopy is limited:
+;  May not work correctly if LCD_Port is set to go auto right
+;  May not work correctly if calc is turboed
+;  Only copies from GRAPH_MEM
+;  Still testing - please report bugs while using it.
+
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+; ROM Addresses (use CALL)
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+; This is a list of useful functions inside the TI-82's ROM.
+
+; Use CALL to call these functions.
+
+;AddressName  Address Registers Description
+;ÄÄÄÄÄÄÄÄÄÄÄÄ ÄÄÄÄÄÄÄ ÄÄÄÄÄÄÄÄÄ ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+LD_HL_MHL    = $0033 ;HLA       HL=(HL), A=L
+CP_HL_DE     = $0095 ;F         CP  HL, DE
+UNPACK_HL    = $00A1 ;HLA       HL=int(HL/10), A=HL MOD 10
+DIV_HL_A     = $00A3 ;HLA       HL=int(HL/A), A=HL MOD A
+KEY_READ     = $01D7 ;$01B8	;AB        Does raw keyboard read with mask A; returns A
+STORE_KEY    = $01E6 ;$01C7	;?         Store keystroke from A
+GET_KEY      = $01F3 ;$01D4	;HL?       Get immediate keystroke into A
+DISP_DELAY   = $083A ;$07F3	;          Delay for display controller      (60 clocks)
+FIND_PIXEL   = $4166 ;?         Find pixel (rom page must be 4) !? Somebody uses that ???
+
+;TI83 Romcalls
+_getkey = CR_KHAND
+_ldhlind = LD_HL_MHL
+_cphlde = CP_HL_DE
+_divhlby10 = UNPACK_HL
+_divhlbya = DIV_HL_A
+_getcsc = GET_KEY
+_lcdbusy = DISP_DELAY
+
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+; ROM Offset Addresses (use ROM_CALL)
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+; To use functions not included here just make a definition like the ones
+; below in your program (not recommended).  If you are using the addresses
+; in rom found by another source for rom version 19, remember to subtract $1A
+; from that address.  (The ones listed are roms version 16-18)
+
+; Use ROM_CALL to call these functions.
+
+#DEFINE ROM_CALL(addr) CALL addr
+#define bcall(xxxx)	CALL xxxx
+#define bjp(xxxx) jp xxxx
+#define icall(xxxx) CALL xxxx
+#define ijp(xxxx) JP xxxx
+
+TR_CHARPUT   = $387D	;$3738 ; Raw display of A on screen, normal text style
+TX_CHARPUT   = $3B35	;$39D2 ; Xlated display of A on screen, normal text style
+D_ZT_STR     = $3A2D	;$38FA ; Display zero-terminated normal text string
+D_LT_STR     = $3883	;$373E ; Display length-byte normal text string
+D_HL_DECI    = $39AF	;$387C ; Disp HL as 5-char, right just., blank-pad. integer
+LAST_LINE    = $38B9	;$3774 ; Is it the last line?
+NEXT_LINE    = $38BF	;$377A ; Goto next line (might scroll)
+SCROLL_UP    = $38CB	;$3786 ; Scroll text screen up
+UP_TEXT      = $392B	;$37F2 ; Update text mem from command shadow
+
+M_CHARPUT    = $3907	;$37CE ; Display %A on screen, menu style
+D_ZM_STR     = $390D	;$37D4 ; Display zero-terminated string, menu style
+D_LM_STR     = $3913	;$37DA ; Display length indexed string, menu style
+
+CLEARLCD     = $39CD	;$389A ; Clear LCD, but not text or graphics memory
+CLEAR_LCD    = $39CD	;$389A ; Clear LCD, but not text or graphics memory
+CLEARTEXT_W  = $3A45	;$37B0 ; Clear LCD and text memory, but only current window (affected by 1,(IY+13))
+CLEARTEXT_F  = $38E9	;$37A4 ; Clear LCD and text memory (affected by 1,(IY+13))
+CLEAR_DISP   = $39F1	;$38CA ; Clear display
+BACKUP_DISP  = $3B29	;$39C6 ; Copy display to APD_BUF
+RESTOR_DISP  = $3A09	;$38DC ; Copy APD_BUF to display
+
+_DispHL = D_HL_DECI
+_Puts = D_ZT_STR
+_NewLine = NEXT_LINE
+_PutC = TX_CHARPUT
+
+_Vputs = D_ZM_STR
+_Vputmap = M_CHARPUT
+
+_ClrLCDFull = CLEARLCD
+_ClrLCDF = CLEARLCD
+
+; In OShell-82, two of these ROM functions are called by the TI-83 name which
+; TI gave them.  To make easier for TI-83 programmers, the following two
+; definitions are included, although NOT recommended for usage AT ALL.
+;                                    ÄÄÄ                       ÄÄÄÄÄÄ
+; Also, there are alternate CrASH calls that will do the same thing, but
+; enhanced.  (Look above)
+
+DISP_GRAPH   = $39DF	;$38AC ; Display contents of GRAPH_MEM on LCD
+KEY_HAND     = $3A87	;$3924 ; Get key using key handler (2nd, alpha, contrast)
+
+_GRBUFCPY_V  = DISP_GRAPH ; Way too slow
+;_GETKEY      = KEY_HAND   ; Crashes when you turn off calc. (not a joke)
+
+START_ADDR = $9104
+progstart = START_ADDR
+
+#DEFINE CRASH
+
+#ENDIF
+
 #IFDEF CRASH
+#IFNDEF CRASH19006
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 ; CRASH82.INC for CrASH v1.1
 ;  made by Hideaki Omuro and Jeff Mears
@@ -5313,6 +5653,7 @@ penrow = CURSOR_Y
 symtable = VAT_START
 indicbusy = BUSY_BITMAP
 statvars = cmdshadow
+flags = _IY_TABLE
 
 ;Saferams
 saferam1	= savesscreen
@@ -5570,6 +5911,7 @@ _GRBUFCPY_V  = DISP_GRAPH ; Way too slow
 START_ADDR = $9104
 progstart = START_ADDR
 #ENDIF
+#ENDIF
 
 #IFDEF ACE
 ;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
@@ -5614,9 +5956,12 @@ VAT_START    = $FE6E ; N/A Start of VAT
 
 saferam2 = APD_BUF+768
 plotsscreen = graph_mem
+textshadow = TEXT_MEM
+cmdshad = TEXT_MEM2
 gbuf = graph_mem
 pencol = CURSOR_X
 penrow = CURSOR_Y
+flags = _IY_TABLE
 
 currow = CURSOR_ROW
 curcol = CURSOR_COL
@@ -5732,7 +6077,1543 @@ START_ADDR = $9880
 progstart = START_ADDR
 #ENDIF
 
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+; Ports
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+P_LINK       = $00   ; Link port                                     (TI-85)
+P_KEYBOARD   = $01   ; Port used to access keys                      (TI-85)
+P_ROM        = $02   ; Rom page switching and other things
+P_STATUS     = $03   ; Used to get/set status of varius hardware
+P_INT        = $04   ; Interrupt speed (don't change!!! the display needs it)
+P_LCD_CON    = $10   ; Control port for display controller           (TI-83)
+P_LCD_DATA   = $11   ; Data port for display controller              (TI-83)
+
+bport		= P_LINK			; 4-BIT LINK PORT (I/O) 
+
+
+
+
 #ENDIF
+
+
+#IFDEF TI85
+
+#IFDEF RIGEL
+;ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+;³                      °°°°°   °°                  °°                       ³
+;³                      ²ÛÛÛÛ°  ²Û                  ²Û                       ³
+;³                      ²Û  °Û                      ²Û                       ³
+;³                      ²Û  °Û  °°   °°°°    °°°°   ²Û                       ³
+;³                      ²Û°°°Û  ²Û   ²ÛÛÛ°   ²ÛÛÛ°  ²Û                       ³
+;³                      ²ÛÛÛÛ   ²Û  ²Û  °Û  ²Û  °Û  ²Û                       ³
+;³                      ²Û  °Û  ²Û  ²Û  °Û  ²Û°ÛÛ   ²Û                       ³
+;³                      ²Û  °Û  ²Û  ²Û°°°Û  ²ÛÛ     ²Û                       ³
+;³                      ²Û  °Û  ²Û   ²ÛÛÛÛ   ²ÛÛÛÛ  ²Û                       ³
+;³                                      ²Û                                   ³
+;³                         Version  ²Û  ²Û  0.9 áeta                         ³
+;³                                   ²ÛÛÛ                                    ³
+;³                                                                           ³
+;³                            Copyright (C) 1997                             ³
+;³                               Ben Sferrazza                               ³
+;³                          bens@nj.semi.harris.com                          ³
+;³                                                                           ³
+;³                       °±²Û RIGEL.H Header File Û²±°                       ³
+;ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+;ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+;³ #DEFINES                                                                  ³
+;ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+#DEFINE ROM_CALL(addr)                  call addr
+#DEFINE ROM_CALL_C(addr)                call c, addr
+#DEFINE ROM_CALL_NC(addr)               call nc, addr
+#DEFINE ROM_CALL_Z(addr)                call z, addr
+#DEFINE ROM_CALL_NZ(addr)               call nz, addr
+#DEFINE LIB_CALL_(addr)                 call addr
+#DEFINE LIB_CALL_C(addr)                call c, addr
+#DEFINE LIB_CALL_NC(addr)               call nc, addr
+#DEFINE LIB_CALL_Z(addr)                call z, addr
+#DEFINE LIB_CALL_NZ(addr)               call nz, addr
+#DEFINE CALL_(addr)                     call addr
+#DEFINE CALL_C(addr)                    call c, addr
+#DEFINE CALL_NC(addr)                   call nc, addr
+#DEFINE CALL_Z(addr)                    call z, addr
+#DEFINE CALL_NZ(addr)                   call nz, addr
+#DEFINE JUMP_(addr)                     jp addr
+#DEFINE JUMP_C(addr)                    jp c, addr
+#DEFINE JUMP_NC(addr)                   jp nc, addr
+#DEFINE JUMP_Z(addr)                    jp z, addr
+#DEFINE JUMP_NZ(addr)                   jp nz, addr
+
+#define icall(xxxx)	call xxxx
+#define bcall(xxxx)	call xxxx
+#define	bcallz(xxxx)	call	z,xxxx
+#define	bcallnz(xxxx)	call	nz,xxxx
+#define	bcallc(xxxx)	call	c,xxxx
+#define	bcallnc(xxxx)	call	nc,xxxx
+#define bjump(xxxx)	jp xxxx
+#define bjp(xxxx) jp xxxx
+#define ijp(xxxx) jp xxxx
+
+;ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+;³ Rigel Locations                                                           ³
+;ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+PROGRAM_ADDR    = $8C3C  ; Address of the currently run program
+ROM_VER         = $8C3E  ; ROM version byte
+RIGEL_VER       = $8C3F  ; Rigel version byte (BCD), 1st digit is major num,
+                         ; second digit is the minor num (e.g. $12 = v1.2)
+RIGEL_BITS      = $8C40  ; bit 0 = no longer used - ZShell used it to
+                         ;         recalculate the checksum byte
+                         ; bit 1 = no longer used - ZShell used it to exit
+                         ;         to TI-OS upon program completion
+                         ; bit 2 = reserved
+                         ; bit 3 = reserved
+                         ; bit 4 = reserved
+                         ; bit 5 = reserved
+                         ; bit 6 = reserved
+                         ; bit 7 = reserved
+PROG_START      = $9296  ; The starting address of the currently executed
+                         ; string
+progstart = PROG_START
+;ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+;³ ROM Routine Locations                                                     ³
+;ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+;Page 0
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+LD_HL_MHL       = $0033  ; HL=(HL), A=L
+CP_HL_DE        = $008E  ; CP HL,DE (modifies flags only)
+UNPACK_HL       = $009A  ; unpacks one digit of HL into %A
+DIV_HL_A        = $009C  ; divides HL by A
+STORE_KEY       = $01B1  ; store immediate keystroke from %A
+GET_KEY         = $01BE  ; get immediate keystroke into %A
+TX_CHARPUT      = $8C41  ; xlated display of %A on screen, normal text style
+D_LT_STR        = $8C44  ; display length-byte normal text string
+M_CHARPUT       = $8C47  ; display %A on screen, menu style
+D_ZM_STR        = $8C4A  ; display zero-terminated string, meny style
+D_LM_STR        = $8C4D  ; display length-byte string, menu style
+GET_T_CUR       = $8C50  ; HL = absolute address of text cursor
+SCROLL_UP       = $8C53  ; scroll text screen up
+TR_CHARPUT      = $8C56  ; raw display of %A on screen, normal text style
+CLEARLCD        = $8C59  ; clear LCD, but not text or graphics memory
+D_HL_DECI       = $8C5C  ; disp. HL as 5-byte, right just., blank-pad, decimal
+CLEARTEXT       = $8C5F  ; clear LCD and text memory (affected by 1, (IY+13))
+D_ZT_STR        = $8C62  ; display zero-terminated normal text string
+BUSY_OFF        = $8C65  ; turn off "busy" indicator
+BUSY_ON         = $8C68  ; turn on "busy" indicator
+
+_ldhlind = LD_HL_MHL
+_cphlde = CP_HL_DE
+_divhlby10 = UNPACK_HL
+_divhlbya = DIV_HL_A
+_getcsc = GET_KEY
+_get_key = _getcsc
+
+_DispHL = D_HL_DECI
+_Puts = D_ZT_STR
+_PutC = TX_CHARPUT
+_putmap = TR_CHARPUT
+_Vputs = D_ZM_STR
+_Vputmap = M_CHARPUT
+_ClrLCDFull = CLEARLCD
+_ClrLCDF = CLEARLCD
+_scrollup = SCROLL_UP
+_grbufcpy
+
+
+;Page 4
+;ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+FIND_PIXEL      = $8C6B  ; Find location in RAM for a pixel on the GFX screen
+
+;ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+;³ Rigel Routine Locations                                                   ³
+;ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+INT_INSTALL     = $8C6E  ; Install Interrupt with (HL) == Address of Routine
+INT_REMOVE      = $8C71  ; Remove Interrupt
+VAR_SEARCH      = $8C06  ; Search for a variable in the VAT
+
+#endif
+
+;ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+;³ Important RAM Locations                                                   ³
+;ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+KEY_0           = $8000  ; translated scancode of last key, but 0 if gotten
+KEY_1           = $8001  ; translated scancode of key down now
+KEY_2           = $8002  ; same as 8001, but $FF if more than one key is down
+KEY_STAT        = $8004  ; bit 2 set = key down now
+LAST_KEY        = $8006  ; last key pressed
+CONTRAST        = $8007  ; contrast
+CURSOR_ROW      = $800C  ; text cursor row
+CURSOR_COL      = $800D  ; text cursor column
+CURSOR_LET      = $800E  ; letter under text cursor
+BUSY_COUNTER    = $8080  ; counter for busy indicator
+BUSY_BITMAP     = $8081  ; bitmap for busy indicator
+CURR_INPUT      = $80C6  ; -> current home-screen input
+BYTES_USED      = $80CC  ; # of used user memory (Add to 80C8 to find first 
+                         ; byte of free memory)
+TEXT_MEM        = $80DF  ; text memory
+CURSOR_ROW2     = $800C  ; text cursor row
+CURSOR_COL2     = $800D  ; text cursor column
+CHECKSUM        = $81BE  ; memory checksum from 8BF7 to FA6F
+CURSOR_X        = $8333  ; x value of cursor
+CURSOR_Y        = $8334  ; y value of cursor
+_IY_TABLE       = $8346  ; where IY usually points
+GRAPH_MEM       = $8641  ; graphics memory
+TEXT_MEM2       = $8A6B  ; secondary text memory
+USER_MEM        = $8B1B  ; -> start of user memory
+FIXED_POINT     = $8B3A  ; fixed-point decimal place (FFh for floating point)
+VAT_END         = $8BEB  ; -> one byte before end of VAT (backwards)
+VAT_START       = $FA6F  ; start of VAT
+VIDEO_MEM       = $FC00  ; video memory
+
+op1 = $8082
+op2 = $808D
+op3 = $8098
+op4 = $80A3
+op5 = $80AE
+op6 = $80B9
+
+plotsscreen = GRAPH_MEM
+textshadow = TEXT_MEM
+cmdshadow = TEXT_MEM2
+currow = CURSOR_ROW
+curcol = CURSOR_COL
+pencol = CURSOR_X
+penrow = CURSOR_Y
+symtable = VAT_START
+indicbusy = BUSY_BITMAP
+statvars = cmdshadow
+flags = _IY_TABLE
+
+;Saferams
+;saferam1	= savesscreen
+saferam2	= text_mem2
+saferam3	= textshadow
+;saferam4	= op1
+
+;Alternate equate names
+gbuf = plotsscreen
+grbuf = plotsscreen
+;sram = saferam1
+;apdram = saferam1
+statram = saferam2
+cmdshad = cmdshadow
+
+trigflags			equ		$00
+trigdeg				equ		2
+
+grfmodeflags		equ		$02
+grffuncm			equ		4
+grfpolarm			equ		5
+grfparamm			equ		6
+grfrecurm			equ		7
+
+graphflags			equ		$03
+graphdraw			equ		0
+
+grfdbflags			equ		$04
+grfdot				equ		0
+grfsimul			equ		1
+grfgrid				equ		2
+grfpolar			equ		3
+grfnocoord			equ		4
+grfnoaxis			equ		5
+grflabel			equ		6
+
+textflags			equ		$05
+textEraseBelow		equ		1
+textInverse			equ		3
+
+fmtflags			equ		$0A
+fmtExponent			equ		0
+fmtEng				equ		1
+fmtHex				equ		2
+fmtOct				equ		3
+fmtBin				equ		4
+
+curflags			equ		$0C
+curAble				equ		2
+curOn				equ		3
+
+appflags			equ		$0D
+appTextSave			equ		1
+appAutoScroll		equ		2
+
+indicflags			equ		$12
+indicRun			equ		0
+
+shiftflags			equ		$12
+shift2nd			equ		3
+shiftAlpha			equ		4
+shiftLwrAlph		equ		5
+shiftALock			equ		6
+
+#ENDIF
+
+
+
+#IFDEF TI86
+;88888888888 8888888        .d8888b.   66666666 
+;    888       888         d88P  Y88b 6666666666
+;    888       888         Y88b. d88P 666       
+;    888       888  888888  "Y88888"  666666666 
+;    888       888  888888 .d8P""Y8b. 6666666666
+;    888       888         888    888 666    666
+;    888       888         Y88b  d88P 6666666666
+;    888     8888888        "Y8888P"   66666666
+
+#define icall(xxxx)	call xxxx
+#define bcall(xxxx)	call xxxx
+#define	bcallz(xxxx)	call	z,xxxx
+#define	bcallnz(xxxx)	call	nz,xxxx
+#define	bcallc(xxxx)	call	c,xxxx
+#define	bcallnc(xxxx)	call	nc,xxxx
+#define bjump(xxxx)	jp xxxx
+#define bjp(xxxx) jp xxxx
+#define ijp(xxxx) jp xxxx
+
+; ACZ include file: ROM calls
+; Assembly Coder's Zenith - http://www.acz.org
+; version: January 18, 1999
+
+_insertMem = 46CFh ;undocumented
+_deleteMem = 4767h ;undocumented
+
+
+_ldhlind				equ		4010h	; ld hl,(hl)
+_chkON					equ		4028h	; bit onInterrupt,(iy+onflags)
+_bitgrffuncm			equ		402Ch	; bit grffuncm,(iy+grfmodeflags)
+_bitgrfpolarm			equ		4030h	; bit grfpolarm,(iy+grfmodeflags)
+_bitgrfparamm			equ		4034h	; bit grfparamm,(iy+grfmodeflags)
+_bitgrfrecurm			equ		4038h	; bit grfrecurm,(iy+grfmodeflags)
+_cphlde					equ		403Ch	; cp hl,de
+_put_colon				equ		4040h	; disp ":"
+_divHLby10				equ		4044h	; hl = hl/10
+_divHLbyA				equ		4048h	; hl = hl/a
+_divAHLby10				equ		404Ch	; ahl = ahl/10
+_timeout				equ		4058h	; dec timeout counter. if 0, turn calc off
+_resetAPD				equ		4060h	; reset APD counter
+_scan_code				equ		4064h	; keyboard handler (read keyboard)
+_get_key				equ		4068h	; a = key code
+_jforcecmdnochar		equ		409Ch	; force out of program
+_pPutAwayPrompt			equ		40B5h	; put home screen edit away
+_call_cxPPutAway		equ 	40BDh
+_call_cxPutAway			equ		40C1h
+_call_cxSizeWind		equ		40C5h
+_call_cxErrorEP			equ		40C9h
+_call_cxMain			equ		40CDh
+_cxNull					equ		40D1h
+_p_cxNull				equ		40D2h
+_err_handler			equ		40DDh	; default error handler
+_set_cx_100				equ		40E1h
+_set_cx_50				equ		40E5h
+_set_cx_dec				equ		40E9h
+_set_context			equ		40EDh	; init the State Monitor with a new set of context vectors
+_off					equ		4101h	; turn calc off normally
+_reset					equ		4109h	; reset calculator
+_removTok				equ		4119h	; remove all user tokens
+_errAxes				equ		412Dh	; error 35 AXES
+_errFldOrder			equ		4130h	; error 36 FLD-ORDER
+_errStatPlot			equ		4133h	; error 34 STAT PLOT
+_errOverflow			equ		4136h	; error 01 OVERFLOW
+_errDivBy0				equ		4139h	; error 02 DIV BY 0
+_errSingularMat			equ		413ch	; error 03 SINGULAR MAT
+_errDomain				equ		413fh	; error 04 DOMAIN
+_errIncrement			equ		4142h	; error 05 INCREMENT
+_errSyntax				equ		4145h	; error 07 SYNTAX
+_errNumberBase			equ		4148h	; error 08 NUMBER BASE
+_errMode				equ		414Bh	; error 09 MODE
+_errDataType			equ		414eh	; error 10 DATA TYPE
+_errArgument			equ		4151h	; error 11 ARGUMENT
+_errDimMismatch			equ		4154h	; error 12 DIM MISMATCH
+_errDimension			equ		4157h	; error 13 DIMENSION
+_errUndefined			equ		415Ah	; error 14 UNDEFINED
+_errReserved			equ		4169h	; error 16 RESERVED
+_errInvalid				equ		416ch	; error 17 INVALID
+_errIllegalNest			equ		416fh	; error 18 ILLEGAL NEST
+_errBound				equ		4172h	; error 19 BOUND
+_errGraphWindow			equ		4175h	; error 20 GRAPH WINDOW
+_errZoom				equ		4178h	; error 21 ZOOM
+_errBreak				equ		417bh	; error 06 BREAK
+_errStat				equ		417eh	; error 23 STAT
+_errConversion			equ		4181h	; error 24 CONVERSION
+_errSolver				equ		4184h	; error 25 SOLVER
+_errIterations			equ		4187h	; error 28 ITERATIONS
+_errBadGuess			equ		418ah	; error 29 BAD GUESS
+_errDifEqSetup			equ		418dh	; error 30 DIF EQ SETUP
+_errPoly				equ		4190h	; error 32 POLY
+_errTolNotMet			equ		4193h	; error 33 TOL NOT MET
+_errLink				equ		4196h	; error 37 LINK
+_errorA					equ		4199h	; invoke error message, a = error #
+_error					equ		419Ch	; invoke error message, _ERRNO = error #
+_instError				equ		41A1h	; install error handler (HL=ptr)
+_removError				equ		41A4h	; remove error handler
+_ld_de_fp0				equ		41B7h	; (de) = fp0
+_ld_de_fp1				equ		41BBh	; (de) = fp1
+_mulHL10				equ		41BFh	; hl = hl x 10
+_ckop1cplx				equ		41C3h	; check if op1 is cplx
+_ckcplx					equ		41C7h	; check if A & $1f = $01
+_ckop1real				equ		41CBh	; get type of op1 in a
+_cpop1op2				equ		41FBh	; cp op1,op2
+_op3toop4				equ		4203h	; move 11 bytes at op3 to op4
+_op1toop4				equ		4207h	; move 11 bytes at op1 to op4
+_op2toop4				equ		420Bh	; move 11 bytes at op2 to op4
+_movtoop4				equ		420Fh	; move 11 bytes at (hl) to op4
+_op4toop2				equ		4213h	; move 11 bytes at op4 to op2
+_op4toop3				equ		4217h	; move 11 bytes at op4 to op3
+_op3toop2				equ		421Bh	; move 11 bytes at op3 to op2
+_op1toop3				equ		421Fh	; move 11 bytes at op1 to op3
+_movfrop1				equ		4223h	; move 11 bytes at op1 to (de)
+_op5toop2				equ		4227h	; move 11 bytes at op5 to op2
+_op5toop6				equ		422Bh	; move 11 bytes at op5 to op6
+_op5toop4				equ		422Fh	; move 11 bytes at op5 to op4
+_op1toop2				equ		4233h	; move 11 bytes at op1 to op2
+_movtoop2				equ		4237h	; move 11 bytes at (hl) to op2
+_op6toop2				equ		423Bh	; move 11 bytes at op6 to op2
+_op6toop1				equ		423Fh	; move 11 bytes at op6 to op1
+_op4toop1				equ		4243h	; move 11 bytes at op4 to op1
+_op5toop1				equ		4247h	; move 11 bytes at op5 to op1
+_op3toop1				equ		424Bh	; move 11 bytes at op3 to op1
+_op4toop5				equ		424Fh	; move 11 bytes at op4 to op5
+_op3toop5				equ		4253h	; move 11 bytes at op3 to op5
+_op2toop5				equ		4257h	; move 11 bytes at op2 to op5
+_movtoop5				equ		425Bh	; move 11 bytes at (hl) to op5
+_op2toop6				equ		425Fh	; move 11 bytes at op2 to op6
+_op1toop6				equ		4263h	; move 11 bytes at op1 to op6
+_movtoop6				equ		4267h	; move 11 bytes at (hl) to op6
+_op1toop5				equ		426Bh	; move 11 bytes at op1 to op5
+_op2toop1				equ		426Fh	; move 11 bytes at op2 to op1
+_movtoop1				equ		4273h	; move 11 bytes at (hl) to op1
+_mov11b					equ		4277h	; move 11 bytes at (hl) to (de)
+_mov10b					equ		427Bh	; move 10 bytes at (hl) to (de)
+_mov9b					equ		427Fh	; move 9 bytes at (hl) to (de)
+_mov9b_					equ		4283h	; move 9 bytes at (hl) to (de)
+_mov8b					equ		4287h	; move 8 bytes at (hl) to (de)
+_mov7b					equ		428Bh	; move 7 bytes at (hl) to (de)
+_mov7b_					equ		428Fh	; move 7 bytes at (hl) to (de)
+_mov6b					equ		4293h	; move 6 bytes at (hl) to (de)
+_mov5b					equ		4297h	; move 5 bytes at (hl) to (de)
+_mov4b					equ		429Bh	; move 4 bytes at (hl) to (de)
+_mov3b					equ		429Fh	; move 3 bytes at (hl) to (de)
+_mov2b					equ		42A3h	; move 2 bytes at (hl) to (de)
+_op4toop2m				equ		42A7h
+_op2toop3				equ		42CBh	; move 11 bytes at op2 to op3
+_movtoop3				equ		42CFh	; move 11 bytes at (hl) to op3
+_op4toop6				equ		42D3h	; move 11 bytes at op4 to op6
+_mov10toop1				equ		42D7h	; move 10 bytes at (hl) to op1
+_mov10toop1op2			equ		42DBh	; move 10 to op1, 10 to op2
+_mov10toop2				equ		42DFh	; move 10 bytes at (hl) to op2
+_movfroop1				equ		42E3h	; move 10 bytes at op1 to (de)
+_op4set1				equ		42E7h	; op4 = floating point 1
+_op3set1				equ		42EBh	; op3 = floating point 1
+_op2set8				equ		42EFh	; op2 = floating point 8
+_op2set5				equ		42F7h	; op2 = floating point 5
+_op2set4				equ		42FBh	; op2 = floating point 4
+_op2set3				equ		4303h	; op2 = floating point 3
+_op1set1				equ		430Fh	; op1 = floating point 1
+_op1set4				equ		4313h	; op1 = floating point 4
+_op1set3				equ		4317h	; op1 = floating point 3
+_op3set2				equ		431Bh	; op3 = floating point 2
+_op1set2				equ		431Fh	; op1 = floating point 2
+_op2set2				equ		4323h	; op2 = floating point 2
+_op2set1				equ		432Fh	; op2 = floating point 1
+_ld_hl_8z				equ		4343h	; 8 zeros to (hl)
+_ld_hl_8a				equ		4347h	; 8 a to (hl)
+_ld_hlplus1_7a			equ		434Bh	; 7 a to (hl+1)
+_ld_hl_7a				equ		434Fh	; 7 a to (hl)
+_op4set0				equ		4353h	; op4 = floating point 0
+_op3set0				equ		4357h	; op3 = floating point 0
+_op2set0				equ		435Bh	; op2 = floating point 0
+_op1set0				equ		435Fh	; op1 = floating point 0
+_ld_hl_fp0				equ		4363h	; (hl)= fp0
+_zeroop1m				equ		4367h	; mantissa op1 = 0
+_zeroop1				equ		436Bh	; 11 bytes op1 = 0
+_zeroop2				equ		436Fh	; 11 bytes op2 = 0
+_zeroop3				equ		4373h	; 11 bytes op3 = 0
+_ld_hl_11z				equ		4377h	; 11 zeros to (hl)
+_ld_hl_bz				equ		437Bh	; B zeros to (hl)
+_shracc					equ		4383h	; shift bits in A four to the right
+_shlacc					equ		438Bh	; shift bits in A four to the left
+_ex_op2_op6				equ		446Fh	; swap op2,op6
+_ex_op5_op6				equ		4473h	; swap op5,op6
+_ex_op1_op5				equ		4477h	; swap op1,op5
+_ex_op1_op6				equ		447Bh	; swap op1,op6
+_ex_op2_op4				equ		447Fh	; swap op2,op4
+_ex_op2_op5				equ		4483h	; swap op2,op5
+_ex_op1_op3				equ		4487h	; swap op1,op3
+_ex_op1_op4				equ		448Bh	; swap op1,op4
+_ex_op1_op2				equ		448Fh	; swap op1,op2
+_ckop1fp0				equ		449Bh	; set Z if op1 = fp 0
+_ckop2fp0				equ		44A3h	; set Z if op2 = fp 0
+_ckop1int				equ		44B3h	; set Z if op1 = fp integer
+_ckint					equ		44B7h	; set Z if (hl)= fp integer
+_ckop1odd				equ		44BBh	; set Z if op1 is even
+_ckodd					equ		44BFh	; set Z if (hl) is even
+_ckop2pos				equ		450Bh	; set Z if op2 is positive
+_ckop1pos				equ		450Fh	; set Z if op1 is positive
+_absop2					equ		4513h	; op2 = abs(op2)
+_inco1exp				equ		4527h	; op1 = op1 x 10
+_HtimesL				equ		4547h	; hl = h * l
+_findsym_error			equ		458Fh	; just like findsym, error if undefined
+_invsub					equ		45E3h
+_PLUS1					equ		45EBh	; op1 = op1 + 1
+_inc_ptr_ade			equ		45EFh	; ade = ade + 1
+_ex_ahl_bde				equ		45F3h	; swap ahl and bde
+_get_size_word			equ		460Bh	; get size word of var at bde
+_setXXop1				equ		4613h	; convert hex # in A to flt point in op1
+_setXXop2				equ		4617h	; convert hex # in A to flt point in op2
+_setXXXXop2				equ		461Bh	; convert hex # in HL to flt point in op2
+_load_ram_ahl			equ		462Fh	; decode ABS ahl, load the RAM page and set hl = offset
+_conv_ahl				equ		4633h	; decode ABS ahl, a = RAM page, hl = offset
+_inc_ptr_ahl			equ		4637h	; ahl = ahl + 1
+_dec_ptr_ahl			equ		463Bh	; ahl = ahl - 1
+_inc_ptr_bde			equ		463Fh	; bde = bde - 1
+_dec_ptr_bde			equ		4643h	; bde = bde - 1
+_set_abs_src_addr		equ		4647h	; ahl -> (_abs_src_addr)
+_get_free_mem			equ		464Bh	; (_FREE_MEM) -> ahl
+_set_mm_num_bytes		equ		464Fh	; ahl -> (_mm_num_bytes)
+_round_OP1				equ		4657h
+_check_asm				equ		46AFh	; set Z if prog at (bde) is asm
+_jump_table				equ		46B7h	; hl->table _asap_ind=index
+_memchk					equ		46BBh	; ahl = # bytes of free memory
+_dec_ptr_ade			equ		46BFh	; ade = ade - 1
+_getb_ahl				equ		46C3h	; a = (ABS ahl), hl = asic address
+_cp_ahl_bde				equ		46C7h	; cp ahl,bde
+_findsym				equ		46CBh	; look up var op1
+_copy_fwd				equ		46D3h
+_del_temp_vars			equ		46D7h	; delete temp vars
+_createreal				equ		46EBh	; create real var op1
+_createrconst			equ		46EFh	; create real constant var op1
+_createcconst			equ		46F3h	; create cplx constant var op1
+_createcplx				equ		46F7h	; create cplx var op1
+_creatervect_temp		equ		46FBh
+_creatervect			equ		46FFh	; create real vector op1, L = # elements
+_createcvect_temp		equ		4703h
+_createcvect			equ		4707h	; create cplx vector op1, L = # elements
+_createrlist_temp		equ		470Bh
+_createrlist			equ		470Fh	; create real list op1, HL = # elements
+_createclist_temp		equ		4713h
+_createclist			equ		4717h	; create cplx list op1, HL = # elements
+_creatermat_temp		equ		471Bh
+_creatermat				equ		471Fh	; create real matrix op1, HL = row,col
+_createcmat_temp		equ		4723h
+_createcmat				equ		4727h	; create cplx matrix op1, HL = row,col
+_createstrng_temp		equ		472Bh
+_createstrng			equ		472Fh	; create string op1, HL = # bytes
+_createequ_temp			equ		4733h
+_createequ				equ		4737h	; create equation op1, HL = # bytes
+_createpict				equ		473Bh	; create picture var op1
+_createprog				equ		474Fh	; create program var op1, HL = # bytes
+_copy_bkwd				equ		475Bh
+_delvar					equ		475Fh	; delete var
+_update_VAT_ptrs		equ		476Fh
+_get_size				equ		477Bh
+_get_var_size			equ		477Fh
+_push_bc_OPS			equ		4783h
+_check_STACK_mem		equ		4787h
+_pop_bc_OPS				equ		478Bh
+_push_a_OPS				equ		478Fh
+_pop_a_OPS				equ		4793h
+_popop1					equ		479Fh	; pop real or complex to op1/op2
+_poprealo6				equ		47A3h	; pop real num op6 from fp stack
+_poprealo5				equ		47A7h	; pop real num op5 from fp stack
+_poprealo4				equ		47ABh	; pop real num op4 from fp stack
+_poprealo3				equ		47AFh	; pop real num op3 from fp stack
+_poprealo2				equ		47A3h	; pop real num op2 from fp stack
+_poprealo1				equ		47A7h	; pop real num op1 from fp stack
+_sub_FPS_20				equ		47CBh
+_sub_FPS_10				equ		47CFh
+_sub_FPS_bc				equ		47D3h
+_deallocfps1			equ		47DBh
+_ram_page_1				equ		47E3h	; load RAM page 1, FPS page
+_load_ram_OPS			equ		47E7h
+_load_ram_ES			equ		47EBh
+_load_ram_FPS			equ		47EFh
+_ram_page_7				equ		47F3h	; load RAM page 7, symbol table page
+_pushrealo1				equ		4813h	; push real num op1 to fp stack
+_cpyto2fpst				equ		4893h
+_cpyto1fpst				equ		4897h
+_cpyto2fps1				equ		48AFh
+_cpyto2fps2				equ		48C3h
+_cpyo2tofpst			equ		48D7h
+_cpyo6tofpst			equ		48DBh
+_cpyo1tofpst			equ		48DFh
+_cpydetofpst			equ		48E3h
+_cpydetohlt				equ		48E7h
+_cpydetohlc				equ		48EBh
+_cpyo5tofps2			equ		48EFh
+_cpyo2tofpsto1tofps1	equ		48F3h
+_cpyo1tofps1			equ		48F7h
+_cpydetofps1			equ		48FBh
+_cpydetohl1				equ		48FFh
+_cpyo2tofps2			equ		4903h
+_cpyo3tofps2			equ		4907h
+_cpyo6tofps2			equ		490Bh
+_cpyo1tofps2			equ		490Fh
+_cpydetofps2			equ		4913h
+_cpydetohl2				equ		4917h
+_cpyo5tofps3			equ		491Bh
+_cpyo2tofps2o1tofps3	equ		491Fh
+_cpyo1tofps3			equ		4923h
+_cpydetofps3			equ		4927h
+_cpydetohl3				equ		492Bh
+_cpyo1tofps4			equ		492Fh
+_cpydetofps4			equ		4933h
+_cpydetohl4				equ		4937h
+_cpyo1tofps6			equ		493Bh
+_cpyo1tofps7			equ		493Fh
+_cpyo1tofps8			equ		4943h
+_ask_self_test			equ		494Fh
+_self_test				equ		4953h
+_strlen					equ		4957h	; bc = length of string (hl)
+_strcpy					equ		495Bh	; hl->source, de->destination
+_strcat					equ		495Fh	; hl->source, de->destination
+_strcmp					equ		4963h	; compare (hl) to (de), length bytes first
+_find_bit				equ		496Bh	; hl+=a/8 a=1<<(a%8)
+_cursorOff				equ		498Ch	; turn off blinking cursor
+_cursorOn				equ		4994h	; turn on blinking cursor
+_reset_MATH				equ		49A0h
+_disp_GRAPH				equ		49B0h
+_flushallmenus			equ		49DCh	; clear the menu key stacks
+_disp_menu				equ		49E8h
+_exec_pg1				equ		4A0Ah
+_putmap					equ		4A27h	; display a character (A=char)
+_putc					equ		4A2Bh	; display a character and advance cursor
+_dispAHL				equ		4A33h	; disp ahl deci
+_puts					equ		4A37h	; display a zero-terminated string (HL=ptr)
+_putps					equ		4A3Bh	; display a string with leading length byte
+_newline				equ		4A5Fh	; move cursor to next line
+_clrLCD					equ		4A7Eh	; clear LCD screen
+_clrScrn				equ		4A82h	; clear LCD screen and _textShadow
+_clrWindow				equ		4A86h	; clear between _winTop and _winBtm
+_clrLine				equ		4A8Ah	; clear to end of line
+_homeup					equ		4A95h	; cursor to top left of home screen
+_vputmap				equ		4AA1h	; display variable width character (A=char)
+_vputs					equ		4AA5h	; display a string of variable width characters
+_vputsn					equ		4AA9h	; display B characters of string at (HL)
+_runindicon				equ		4AADh	; turn on run indicator
+_runindicoff			equ		4AB1h	; turn off run indicator
+_clrText				equ		4AB5h
+_exec_pg2				equ		4B1Bh
+_binopexec1				equ		4B1Fh
+_tofrac					equ		4B93h	; convert op1 to op1/op2
+_gfudydx				equ		4B9Fh	; op1 = dy/dx
+_INTOP1					equ		4C2Fh
+_ahl_plus_2_pg3			equ		4C3Fh	; ahl = ahl + 2
+_exec_basic				equ		4C47h	; basic program in op1
+_stoAns					equ		4C9Fh	; store op1 to 'Ans' var
+_stoY					equ		4CB3h	; store op1 to 'y' var
+_stoX					equ		4CBBh	; store op1 to 'x' var
+_stoOther				equ		4CBFh	; store pushed op to op1 var
+_rclY					equ		4CDFh	; rcl 'y' var to op1
+_rclX					equ		4CE3h	; rcl 'x' var to op1
+_rclVarSym				equ		4CE7h	; rcl op1 var to op1
+_get_token				equ		4D13h	; get byte from _P_CURPC to A
+_get_varname			equ		4D1Bh	; get var name from _P_CURPC to A
+_disp					equ		4D3Fh	; TI-BASIC "Disp" command
+_pause					equ		4D43h	; TI-BASIC "Pause" command
+_PDspGrph				equ		4D6Fh
+_horizCmd				equ		4D73h	; op1 = y value
+_vertCmd				equ		4D77h	; op1 = x value
+_unpack_hex				equ		4DAFh	; a(hex) -> bc(dec)
+_grbufcpy				equ		4E39h
+_ILine					equ		4E51h
+_IPoint					equ		4E59h
+_geqnamea				equ		4E71h	; op1 = name of current EQ
+_set_app_title			equ		4FA8h
+_FindAlphaUp			equ		514Bh	; search VAT
+_FindAlphaDn			equ		514Fh
+_dispOP1				equ		515Bh	; display op1 as result
+_dispDone				equ		515Fh	; print 'Done' right justified
+_formReal				equ		5191h	; format real # op1 to displayable str op3-op4 (a=max width)
+_CLine					equ		51E9h
+_get_abs_src_addr		equ		5209h	; (_abs_src_addr) -> ahl
+_get_word_ahl			equ		521Dh	; ld de,(ahl)  ahl = ahl + 2
+_set_word_ahl			equ		5221h	; ld (ahl),de  ahl = ahl + 2
+_abs_mov10toop1			equ		5235h	; ahl -> (_abs_src_addr) mov 10b (_abs_src_addr) -> OP1
+_abs_mov10toop1_noset	equ		5239h	; move 10 bytes (_abs_src_addr) -> OP1
+_abs_mov10b_set_d		equ		523Dh	; ahl -> (_abs_dest_addr) mov 10b (_abs_src_addr)->(_abs_dest_addr)
+_abs_mov10b				equ		5249h	; move 10 bytes (_abs_src_addr) -> (_abs_dest_addr)
+_abs_movfrop1_set_d		equ		5241h	; ahl -> (_abs_dest_addr) mov 10b OP1 -> (_abs_dest_addr)
+_abs_movfrop1			equ		5245h	; move 10 bytes from OP1 -> (_abs_dest_addr)
+_set_abs_dest_addr		equ		5285h	; ahl -> (_abs_dest_addr)
+_RcPicGrph				equ		52B5h
+_mm_ldir				equ		52EDh	; 24bit ldir
+_mm_lddr				equ		52F1h	; 24bit lddr
+_get_statvar			equ		5369h	; load (_STATVAR+10*a) to op1
+_getky					equ		5371h
+_low_battery			equ		5398h	; low battery message (ret to homescreen)
+_mov10op2add			equ		5464h
+_INTGR					equ		5468h	; op1 = intgr(op1)
+_MINUS1					equ		5470h	; op1 = op1 - 1
+_FPSUB					equ		5474h	; op1 = op1 - op2
+_FPADD					equ		5478h	; op1 = op1 + op2
+_TIMESPT5				equ		5484h	; op1 = .5 x op1
+_FPSQUARE				equ		5488h	; op1 = op1^2
+_FPMULT					equ		548Ch	; op1 = op1 x op2
+_invop1op2				equ		5490h
+_invop1s				equ		5494h	; op1 = -op1
+_invop2s				equ		5498h	; op2 = -op2
+_FRAC					equ		549Ch	; op1 = frac(op1)
+_FPRECIP				equ		54A4h	; op1 = 1/op1
+_FPDIV					equ		54A8h	; op1 = op1/op2
+_SQROOT					equ		54ACh	; op1 = sqrt(op1), neg# -> error
+_SQROOTP				equ		54B0h	; op1 = sqrt(op1), neg# -> complex
+_RNDGUARD				equ		54BCh	; round op1 to 12 digits
+_ROUND					equ		54C0h
+_LNX					equ		54C4h	; op1 = ln(op1), neg# -> error
+_LNXP					equ		54C8h	; op1 = ln(op1), neg# -> complex
+_LOGXP					equ		54CCh	; op1 = log(op1), neg# -> error
+_LOGX					equ		54D0h	; op1 = log(op1), neg# -> complex
+_ETOX					equ		54D4h	; op1 = e^op1
+_TENX					equ		54D8h	; op1 = 10^op1
+_SIN					equ		54E0h	; op1 = sin(op1)
+_COS					equ		54E4h	; op1 = cos(op1)
+_TAN					equ		54E8h	; op1 = tan(op1)
+_TANH					equ		54F0h	; op1 = hyp tan(op1)
+_COSH					equ		54F4h	; op1 = hyp cos(op1)
+_SINH					equ		54F8h	; op1 = hyp sin(op1)
+_ACOS					equ		5508h	; op1 = inv cos(op1), no complex
+_ACOSP					equ		550Ch	; op1 = inv cos(op1), complex ok
+_ATAN					equ		5510h	; op1 = inv tan(op1)
+_ASIN					equ		5514h	; op1 = inv sin(op1)
+_ATANH					equ		551Ch	; op1 = inv hyp tan(op1)
+_ASINH					equ		5524h	; op1 = inv hyp sin(op1)
+_ACOSH					equ		5528h	; op1 = inv hyp cos(op1)
+_YTOX					equ		5538h	; op1 = op1^op2
+_randint				equ		5544h	; op1 = random int between op1 and fps
+_writeb_inc_ahl			equ		5567h	; c -> (ABS ahl), ahl = ahl + 1
+_convop1				equ		5577h	; op1 -> de,a  (max 9999)
+_set_mode				equ		557Bh	; a = function ($56-$79)
+_asmComp				equ		55a3h
+_getkey					equ		55AAh
+_random					equ		55DAh	; op1 = random number (0-1)
+_vputspace				equ		5643h	; a = ' '  _vputmap
+_get_char				equ		569Dh	; get char A bitmap to _charmap (5x7 font)
+_get_vchar				equ		56A1h	; get char A bitmap to _charmap (variable width font)
+_call_user_on			equ		56EAh	; execute user on routine
+_call_user_off			equ		56EDh	; execute user off routine
+_call_sqrtexpr			equ		56F0h	; execute (sqrt)EXPR prog
+_call_sqrtparse			equ		56F3h	; execute (sqrt)PARSE prog
+_call_sqrtexec			equ		56F6h	; execute (sqrt)EXEC prog
+_call_sqrtform			equ		56F9h	; execute (sqrt)FORM prog
+_call_sqrtcmdtok		equ		56FCh	; execute (sqrt)CMDTOK prog
+_call_sqrthome			equ		56FFh	; execute (sqrt)HOME prog
+_call_sqrtkey			equ		5702h	; execute (sqrt)KEY prog
+_call_sqrtgrf			equ		5705h	; execute (sqrt)GRF prog
+_exec_pg4				equ		5718h	; rom page 4 asm jump table routine
+_exec_pg3				equ		5714h	; rom page 3 asm jump table routine
+_linkExec				equ		571Ch	; link routines (use _ASAP_IND)
+_exec_assembly			equ		5730h	; exec assembly prog op1
+_errNoSignChng			equ		5732h	; error 27 NO SIGN CHNG
+_instTok				equ		575Ch	; OP1=funcname bc=endofprog de=symtab hl=menutab
+
+
+
+
+
+; ACZ include file: flags, key equates, etc...
+; Assembly Coder's Zenith - http://www.acz.org/
+; version: January 30, 1999
+
+;============ FLAGS ============
+
+trigflags			equ		$00
+trigdeg				equ		2
+
+doneflags			equ		$00
+donePrgm			equ		5
+
+plotflags			equ		$02
+plotloc				equ		1
+plotdisp			equ		2
+
+grfmodeflags		equ		$02
+grffuncm			equ		4
+grfpolarm			equ		5
+grfparamm			equ		6
+grfrecurm			equ		7
+
+graphflags			equ		$03
+graphdraw			equ		0
+graphcursor			equ		2
+
+grfdbflags			equ		$04
+grfdot				equ		0
+grfsimul			equ		1
+grfgrid				equ		2
+grfpolar			equ		3
+grfnocoord			equ		4
+grfnoaxis			equ		5
+grflabel			equ		6
+
+textflags			equ		$05
+textEraseBelow		equ		1
+textScrolled		equ		2
+textInverse			equ		3
+
+parsflag			equ		$06
+
+parsflag2			equ		$07
+numop1				equ		0
+
+apdflags			equ		$08
+apdable				equ		2		; enable APD counter
+apdlock				equ		3		; lock APD
+apdwarmstart		equ		4		; APD has expired
+
+onflags				equ		$09
+onRunning			equ		3
+onInterrupt			equ		4
+
+fmtflags			equ		$0A
+fmtExponent			equ		0
+fmtEng				equ		1
+fmtHex				equ		2
+fmtOct				equ		3
+fmtBin				equ		4
+
+curflags			equ		$0C
+curAble				equ		2
+curOn				equ		3
+curLock				equ		4
+
+appflags			equ		$0D
+appTextSave			equ		1
+appAutoScroll		equ		2
+
+indicflags			equ		$12
+indicRun			equ		0
+indicOnly			equ		2
+
+shiftflags			equ		$12
+shift2nd			equ		3
+shiftAlpha			equ		4
+shiftLwrAlph		equ		5
+shiftALock			equ		6
+
+asap_cmd_flag		equ		$16
+ex_asap_cmd			equ		7
+
+NewDispf			equ		$17
+ProgramExecuting	equ		6
+
+new_grf_flgs		equ		$18
+textwrite			equ		6
+
+sgrflags = new_grf_flgs ;for easy 83->86 porting...
+
+statflags			equ		$1D
+statsvalid			equ		6
+
+anumeditflgs		equ		$1F
+ex_asm_module		equ		2
+
+exceptionflg		equ		$23
+alt_font			equ		0		; enable user font (5x7)
+alt_vfont			equ		1		; enable user font (variable width)
+alt_int				equ		2		; enable user interrupt routine
+alt_on				equ		3		; enable user on routine
+alt_link			equ		4		; enable user link routine
+alt_sqrt			equ		5
+alt_grphexpr		equ		6		; enable (sqrt)EXPR
+alt_off				equ		7		; enable user off routine
+
+exceptionflg2		equ		$24
+alt_parse			equ		0		; enable (sqrt)PARSE
+alt_form			equ		1		; enable (sqrt)FORM
+alt_exec			equ		2		; enable (sqrt)EXEC
+alt_home			equ		4		; enable (sqrt)HOME
+alt_cmdtok			equ		5		; enable (sqrt)CMDTOK
+alt_key				equ		6		; enable (sqrt)KEY
+alt_grf				equ		7		; enable (sqrt)GRF
+
+asm_flag1			equ		$28		; unused flags
+asm_flag2			equ		$29		; for programmers
+asm_flag3			equ		$2A
+asm_flag4			equ		$2B
+asm_flag5			equ		$2C
+asm_flag6			equ		$2D
+asm_flag7			equ		$2E
+
+;============ PORTS ============
+
+scrnPort		equ		0			; screen port
+kbdPort			equ		1			; keyboard port
+intrptPort		equ		3			; interrupt port
+iall			equ		11			; interrupts on, lcd on
+bPort			equ		7			; link port
+D0lD1l			equ		$FC
+D0lD1h			equ		$D4
+D0hD1l			equ		$E8
+D0hD1h			equ		$C0
+
+;============ MISC =============
+
+textend			equ		$8E
+txasmcmp		equ		$28
+
+lcdmem			equ		$fc00
+lcdwide			equ		16
+lcdtall			equ		64
+
+
+
+; ACZ include file: RAM locations
+; Assembly Coder's Zenith - http://www.acz.org/
+; version: January 30, 1999
+
+RAMStart             equ         0C000h
+kbdScanCode          equ         0C000h	; key code
+kbdLGSC              equ         0C001h
+kbdPSC               equ         0C002h	; previous scan code
+kbdWUR               equ         0C003h
+kbdDebncCnt          equ         0C004h
+kbdkey               equ         0C005h
+kbdGetKy             equ         0C006h
+keyextend            equ         0C007h
+contrast             equ         0C008h	; contrast (0-31)
+APDSubTimer          equ         0C009h	; APD sub-timer
+APDTimer             equ         0C00Ah	; APD timer
+APDWarmUp            equ         0C00Bh
+viet                 equ         0C00Ch
+curTime              equ         0C00Eh	; cursor time counter
+curRow               equ         0C00Fh	; cursor row
+curCol               equ         0C010h	; cursor column
+curUnder             equ         0C011h	; char under cursor
+undelBufLen          equ         0C012h	; undelete buffer lenght
+undelBuf             equ         0C013h	; undelete buffer
+P_tokVarPtr          equ         0C077h
+toklen               equ         0C07Ah
+TOK_B3               equ         0C07Ch
+DETOK_H3             equ         0C07Dh
+MEMPRE_H3            equ         0C07Eh
+indicMem             equ         0C07Fh
+indicCounter         equ         0C087h
+indicBusy            equ         0C088h	; busy indicator
+OP1                  equ         0C089h	; OP registers begin
+OP1EXPM              equ         0C08Ah	;
+OP1EXPL              equ         0C08Bh	;
+OP1M                 equ         0C08Ch	;
+OP1EXT               equ         0C093h	;	
+LOGKP                equ         0C094h	;
+OP2                  equ         0C094h	; op2
+OP2EXPM              equ         0C095h	;
+OP2EXPL              equ         0C096h	;
+OP2M                 equ         0C097h	;
+OP2EXT               equ         0C09Eh	;
+OP3                  equ         0C09Fh	; op3
+LOGKM                equ         0C09Fh	;
+OP3EXPM              equ         0C0A0h	;
+OP3EXPL              equ         0C0A1h	;
+OP3M                 equ         0C0A2h	;
+OP3EXT               equ         0C0A9h	;
+CORDFLG1             equ         0C0AAh	;
+OP4                  equ         0C0AAh	; op4
+OP4EXPM              equ         0C0ABh	;
+OP4EXPL              equ         0C0ACh	;
+OP4M                 equ         0C0ADh	;
+OP4EXT               equ         0C0B4h	;
+EK                   equ         0C0B5h	;
+CORDFLG              equ         0C0B5h	;
+OP5                  equ         0C0B5h	; op5
+OP5EXPM              equ         0C0B6h	;
+SF                   equ         0C0B6h	;
+EL                   equ         0C0B6h	;
+OP5EXPL              equ         0C0B7h	;
+EM                   equ         0C0B7h	;
+OP5M                 equ         0C0B8h	;
+EMM1                 equ         0C0B8h	;
+EITS                 equ         0C0B9h	;
+ENM2                 equ         0C0BAh	;
+ENA                  equ         0C0BBh	;
+EEN                  equ         0C0BCh	;
+OP5EXT               equ         0C0BFh	;
+EN                   equ         0C0C0h	;
+OP6                  equ         0C0C0h	; op6
+EJ                   equ         0C0C1h	;
+OP6EXPM              equ         0C0C1h	;
+OP6EXPL              equ         0C0C2h	;
+EEI                  equ         0C0C2h	;
+OP6M                 equ         0C0C3h	;
+ELOW                 equ         0C0C5h	;
+EIGH                 equ         0C0C6h	;
+OP6EXT               equ         0C0CAh	; OP registers end
+OP7                  equ         0C0CCh	;
+CPLXTRG              equ         0C0D7h
+IOFLAG               equ         0C0D7h
+P_IMATHPTR1          equ         0C0D8h
+P_IMATHPTR2          equ         0C0DBh
+P_IMATHPTR3          equ         0C0DEh
+P_IMATHPTR4          equ         0C0E1h
+P_IMATHPTR5          equ         0C0E4h
+CHKDELPTR1           equ         0C0E7h
+P_CHKDELPTR1         equ         0C0E7h
+P_CHKDELPTR2         equ         0C0EAh
+P_INSDELPTR          equ         0C0EDh
+P_UPDOWNPTR          equ         0C0F0h
+STDRNGSGN            equ         0C0F3h
+POLRNGSGN            equ         0C0F4h
+PARRNGSGN            equ         0C0F5h
+DIFRNDSGN            equ         0C0F6h
+USRRNGSGN            equ         0C0F7h
+STATSGN              equ         0C0F8h
+textShadow           equ         0C0F9h	; text mem
+textShadCur          equ         0C1A1h	; _textShadow's cursors
+textShadTop          equ         0C1A3h	;
+textShadAlph         equ         0C1A4h	;
+textShadIns          equ         0C1A5h	;
+textAccent           equ         0C1A6h
+cxMain               equ         0C1A7h
+cxPPutAway           equ         0C1A9h
+cxPutAway            equ         0C1ABh
+cxRedisp             equ         0C1ADh
+cxErrorEP            equ         0C1AFh
+cxSizeWind           equ         0C1B1h
+cxPage               equ         0C1B3h
+CXCURAPP             equ         0C1B4h	; current calc state
+cxPrev               equ         0C1B5h
+monQH                equ         0C1C4h
+monQT                equ         0C1C5h
+monQueue             equ         0C1C6h
+onSP                 equ         0C1D6h
+onCheckSum           equ         0C1D8h
+promptRow            equ         0C1DAh
+promptCol            equ         0C1DBh
+promptIns            equ         0C1DCh
+promptShift          equ         0C1DDh
+promptRet            equ         0C1DEh
+promptValid          equ         0C1E0h
+P_promptTop          equ         0C1E2h
+P_promptCursor       equ         0C1E5h
+P_promptTail         equ         0C1E8h
+P_promptBtm          equ         0C1EBh
+varType              equ         0C1EEh	; current variable type
+varCurrent           equ         0C1EFh	; current variable
+varFAFlags           equ         0C1F8h
+varClass             equ         0C1FAh
+catCurrent           equ         0C1FBh	; current catlg entry ptr
+menuActive           equ         0C1FDh	; number of active menus
+menu2Hilite          equ         0C1FEh	; selected entry (1-5)
+menuSingle           equ         0C1FFh
+menuAppStack         equ         0C201h	; stack of menu applications
+menuAppPtr           equ         0C20Dh	; pointer to end of stack
+menuAppDepth         equ         0C20Fh	; depth of menu app stack
+menuSysStack         equ         0C210h	; stack of menus
+menuSysPtr           equ         0C21Ch	; pointer to end of stack
+menuSysDepth         equ         0C21Eh	; depth (# of menus, limit=3)
+menuPrvStack         equ         0C21Fh
+menuPrvPtr           equ         0C22Bh
+menuPrvDepth         equ         0C22Dh
+m2i                  equ         0C22Eh	; active menu entries
+menuDyn1             equ         0C242h	; Dynamic menu entries
+menuDyn5             equ         0C26Ah	; ie, program menu and solver
+userMenu1            equ         0C274h
+userMenuTitle        equ         0C275h
+userMenu2            equ         0C27Ch
+userMenu3            equ         0C284h
+userMenu4            equ         0C28Ch
+userMenu5            equ         0C294h
+userMenuSA           equ         0C29Ch
+XSTATSAV             equ         0C31Ch
+ioPrompt             equ         0C324h
+YSTATSAV             equ         0C326h
+FSTATSAV             equ         0C330h
+IOSNDTYP             equ         0C33Ah
+SNDRECSTATE          equ         0C33Bh
+IOERRSTATE           equ         0C33Ch
+HEADER               equ         0C33Dh
+IODATA               equ         0C346h
+BAKHEADER            equ         0C352h
+TBLRNGSGN            equ         0C35Bh
+calc_id              equ         0C35Ch
+penCol               equ         0C37Ch	; pen column
+penRow               equ         0C37Dh	; pen row
+P_RCLQUEUE           equ         0C37Eh
+ERRNO                equ         0C381h	; error number
+ERRSP                equ         0C382h	; error stack pointer
+errOffset            equ         0C384h	; error offset
+ram_to_use           equ         0C386h
+offerr_sav_bc        equ         0C390h
+ABS_SRC_ADDR         equ         0C392h	; 3 byte ABS address pointer
+ABS_DEST_ADDR        equ         0C395h	; 3 byte ABS address pointer
+MM_NUM_BYTES         equ         0C398h	; 3 byte block move counter
+mm_tmp1              equ         0C39Bh
+mm_tmp2              equ         0C39Dh
+mm_tmp3              equ         0C39Fh
+mm_tmp4              equ         0C3A1h
+mm_tmp5              equ         0C3A3h
+ram_cache            equ         0C3A5h
+Flags                equ         0C3E5h	; system flags
+ram_to_use1          equ         0C40Ah	; user flags
+statReg              equ         0C414h
+STATVARS             equ         0C415h	; free if res statsvalid,(iy+statflags)
+STCounter            equ         0C555h	; self test counter
+curgstyle            equ         0C555h
+curGY                equ         0C556h
+curGX                equ         0C557h
+curGY2               equ         0C558h
+curGX2               equ         0C559h
+curgstyle_save       equ         0C55Ah
+curgstylesave        equ         0C55Bh
+plotflagsave         equ         0C55Ch
+XMINPTR              equ         0C55Dh	; pointers
+XMAXPTR              equ         0C55Fh	;
+XSCLPTR              equ         0C561h	;
+YMINPTR              equ         0C563h	;
+YMAXPTR              equ         0C565h	;
+YSCLPTR              equ         0C567h	;
+DIF1STCURINC         equ         0C569h
+TRACEPLOT            equ         0C56Bh
+BOXPLOTINFO          equ         0C56Ch
+SCURINC              equ         0C56Dh
+CURINC               equ         0C56Fh
+YPIXEL               equ         0C571h
+ORGXMIN              equ         0C572h
+PANSHIFT             equ         0C57Ch
+USRRNGSIZE           equ         0C586h
+UTHETMIN             equ         0C588h
+STSP                 equ         0C58Dh
+STRAMStart           equ         0C58Dh
+UTHETMAX             equ         0C592h
+UTHETSTEP            equ         0C59Ch
+UTPLOT               equ         0C5A6h
+UTMIN                equ         0C5B0h
+UTMAX                equ         0C5BAh
+UTSTEP               equ         0C5C4h
+UXMIN                equ         0C5CEh
+UXMAX                equ         0C5D8h
+UXSCL                equ         0C5E2h
+UYMIN                equ         0C5ECh
+UYMAX                equ         0C5F6h
+UYSCL                equ         0C600h
+UXRES                equ         0C60Ah
+XRES_INT             equ         0C614h
+HDERIV               equ         0C615h
+TOL                  equ         0C61Fh	; tol(tolerance)
+XFACT                equ         0C629h
+YFACT                equ         0C633h
+DELTAX               equ         0C63Dh	; delta x
+DELTAY               equ         0C647h	; delta y
+SHORTX               equ         0C651h	
+SHORTY               equ         0C65Bh
+FUNRNGSIZE           equ         0C665h
+FLAGSF               equ         0C667h	; settings for Func Mode
+XMINF                equ         0C668h	;
+XMAXF                equ         0C672h	;
+XSCLF                equ         0C67Ch	;
+YMINF                equ         0C686h	;
+YMAXF                equ         0C690h	;
+YSCLF                equ         0C69Ah	;
+LOWER                equ         0C6A4h	;
+UPPER                equ         0C6AEh	;
+XRES                 equ         0C6B8h	; Func Mode settings end
+POLRNGSIZE           equ         0C6C2h
+FLAGSPOL             equ         0C6C4h	; settings for Pol Mode
+THETAMIN             equ         0C6C5h	;
+THETAMAX             equ         0C6CFh	;
+THETASTEP            equ         0C6D9h	;
+XMINPOL              equ         0C6E3h	;
+XMAXPOL              equ         0C6EDh	;
+XSCLPOL              equ         0C6F7h	;
+YMINPOL              equ         0C701h	;
+YMAXPOL              equ         0C70Bh	;
+YSCLPOL              equ         0C715h	; Pol Mode settings end
+PARRNGSIZE           equ         0C71Fh	
+FLAGSPAR             equ         0C721h	; settings for Param Mode
+TMINPAR              equ         0C722h	;
+TMAXPAR              equ         0C72Ch	;
+TSTEPPAR             equ         0C736h	;
+XMINPAR              equ         0C740h	;
+XMAXPAR              equ         0C74Ah	;
+XSCLPAR              equ         0C754h	;
+YMINPAR              equ         0C75Eh	;
+YMAXPAR              equ         0C768h	;
+YSCLPAR              equ         0C772h	; Param mode settings end
+DIFRNGSIZE           equ         0C77Ch
+FLAGSDIF             equ         0C77Eh	; settings for DifEq Mode
+TOLERDIF             equ         0C77Fh	;
+TPLOTDIF             equ         0C789h	;
+TMINDIF              equ         0C793h	;
+TMAXDIF              equ         0C79Dh	;
+TSTEPDIF             equ         0C7A7h	;
+XMINDIF              equ         0C7B1h	;
+XMAXDIF              equ         0C7BBh	;
+XSCLDIF              equ         0C7C5h	;
+YMINDIF              equ         0C7CFh	;
+YMAXDIF              equ         0C7D9h	;
+YSCLDIF              equ         0C7E3h	;
+XAXISDIF             equ         0C7EDh	;
+YAXISDIF             equ         0C7EEh	; DifEq Settings end
+SLOPEF_EQU           equ         0C7EFh
+DIRF_X               equ         0C7F0h
+DIRF_Y               equ         0C7F1h
+DIRF_TIME            equ         0C7F2h
+FRES                 equ         0C7FCh
+INTS                 equ         0C806h
+DNEQ                 equ         0C810h
+P_XOUTSYM            equ         0C811h
+P_XOUTDAT            equ         0C814h
+P_YOUTSYM            equ         0C817h
+P_YOUTDAT            equ         0C81Ah
+P_INPUTSYM           equ         0C81Dh
+P_INPUTDAT           equ         0C820h
+P_FOUTDAT            equ         0C823h
+PREVDATA             equ         0C826h
+PREVDATA_EXT         equ         0C862h
+P1TYPE               equ         0C86Ch
+SavX1List            equ         0C86Dh
+SavY1List            equ         0C876h
+SavF1List            equ         0C87Fh
+P1FRQONOFF           equ         0C888h
+P2TYPE               equ         0C889h
+SavX2List            equ         0C88Ah
+SavY2List            equ         0C893h
+SavF2List            equ         0C89Ch
+P2FRQONOFF           equ         0C8A5h
+P3TYPE               equ         0C8A6h
+SavX3List            equ         0C8A7h
+SavY3List            equ         0C8B0h
+SavF3List            equ         0C8B9h
+P3FRQONOFF           equ         0C8C2h
+oldtype              equ         0C8C3h
+oldxlist             equ         0C8C4h
+oldylist             equ         0C8CDh
+oldflist             equ         0C8D6h
+uppery               equ         0C8D6h
+oldonoff             equ         0C8DFh
+tblpsrow             equ         0C8E0h
+tblscroll            equ         0C8E1h
+INPUTDAT_PG0         equ         0C8E3h
+TblLine              equ         0C8EDh
+OldTblMin            equ         0C8F7h
+TBLRNGSIZE           equ         0C901h
+TblMin               equ         0C903h
+TblStep              equ         0C90Dh
+TABLESGN             equ         0C917h
+TableYPtr            equ         0C918h
+curTblcol            equ         0C919h
+curTblrow            equ         0C91Ah
+dspTblcol            equ         0C91Bh
+dspTblrow            equ         0C91Ch
+higTblcol            equ         0C91Dh
+higTblrow            equ         0C91Eh
+TABLEXDATA           equ         0C920h
+TBLMATRIX            equ         0C920h
+TABLEYDATA           equ         0C95Ch
+TABLETEMPLATE        equ         0C9D4h
+SavedEqTok           equ         0C9D5h
+SavedEqNum1          equ         0C9D7h
+SavedEqTok1          equ         0C9D8h
+SaveAppFlags         equ         0C9DAh
+SaveCurFlags         equ         0C9DBh
+SaveCurGstyle        equ         0C9DCh
+SaveGraphFlags       equ         0C9DDh
+evalflevel           equ         0C9DEh
+TmpMatCols           equ         0C9DFh
+ES                   equ         0C9DFh
+TmpMatRows           equ         0C9E0h
+P_DERIVPTR           equ         0C9E1h
+DTMPThresh           equ         0C9E4h
+ELCPLXLCNT           equ         0C9E6h
+DERIVLEVEL           equ         0C9E8h
+P_DIFFEQPTR          equ         0C9E9h	; absolute address to diff eq
+P_DSOLVPTR           equ         0C9EBh	; absolute address to solver eq
+SOLVAR               equ         0C9EEh	; length byte, current solver variable
+P_QUADPTR            equ         0C9F7h
+plotSScreen          equ         0C9FAh	; graph mem
+SEED1                equ         0CDFAh
+SEED2                equ         0CE04h
+PARSEVAR             equ         0CE0Eh	; last parsed variable
+P_BEGPC              equ         0CE18h
+P_CURPC              equ         0CE1Bh
+P_ENDPC              equ         0CE1Eh
+ELCNT                equ         0CE21h	; end of line count
+COLCNT               equ         0CE23h	; column count
+ROWCNT               equ         0CE24h	; row count
+LCOUNT               equ         0CE25h
+EOS_ASAP_2ND         equ         0CE27h
+EXEC_CONV_SAVE       equ         0CE28h
+LASTENTRYPTR         equ         0CE2Ah	; pointer to end of stack
+LASTENTRYSTK         equ         0CE2Ch	; last entry stack
+numlastentries       equ         0CEACh	; number of entries
+currlastentry        equ         0CEADh
+FREESAVEY            equ         0CEAEh
+FREESAVEX            equ         0CEAFh
+STRACESAVE_TYPE      equ         0CEB0h
+STRACESAVE           equ         0CEB1h
+TRACESAVE            equ         0CEB3h
+DIF_T_SAVE           equ         0CEB5h
+A_B_SAVE             equ         0CEBFh
+A_B_TYPE             equ         0CEC0h
+GS_DELX              equ         0CEC1h
+GS_D1_YINC           equ         0CEC2h
+GS_D2_YINC           equ         0CEC3h
+GS_DELY              equ         0CEC4h
+GS_MAX_Y_PIX         equ         0CEC5h
+CURRENT_STYLE        equ         0CEC6h	; current graph style
+CL_X1                equ         0CEC7h
+CL_X2                equ         0CEC8h
+CL_Y_DAT             equ         0CEC9h
+PREV_POINT           equ         0CECBh
+RESSAVE              equ         0CECDh
+DREQU_X              equ         0CECEh
+DREQU_XINIT          equ         0CECFh
+DREQU_Y              equ         0CED9h
+DREQU_YINIT          equ         0CEDAh
+DREQU_XLIST          equ         0CEE4h
+DREQU_YLIST          equ         0CEE7h
+DREQU_tLIST          equ         0CEEAh
+DREQU_COUNT          equ         0CEEDh
+GY1                  equ         0CEEFh
+GX1                  equ         0CF21h
+GR1                  equ         0CF53h
+GQ1                  equ         0CF85h
+EQU_EDIT_SAVE        equ         0CF8Ah	; 
+FORMULA_BITMAP       equ         0CF8Bh	; Solver buffer
+MENUCMD_M2I          equ         0CFABh	; menu shadow
+cmdShadow            equ         0CFABh	; _cmdShadow
+MENUCMD_ITEMS        equ         0CFC9h
+MENUCMD_NUMROWS      equ         0D041h
+MENUCMD_CURROW       equ         0D042h
+cmdShadCur           equ         0D053h	; shadow cursors
+cmdShadAlph          equ         0D055h	;
+cmdShadIns           equ         0D056h	;
+cmdCursor            equ         0D057h	; cursor
+P_editTop            equ         0D059h	; Program editor top
+P_EDITCURSOR         equ         0D05Ch	; program editor cursor
+P_editTail           equ         0D05Fh
+P_editBtm            equ         0D062h	; Program editor bottom
+curmatcol            equ         0D065h
+curmatrow            equ         0D066h
+curlstrow            equ         0D067h
+numedTbl             equ         0D069h
+curlistel            equ         0D069h
+curlstrowh           equ         0D06Ah
+higmatcol            equ         0D06Bh
+higmatrow            equ         0D06Ch
+higlstrow            equ         0D06Dh
+maxdsprow            equ         0D06Fh
+ForCurMat            equ         0D070h
+higlstrowh           equ         0D070h
+ForDspCol            equ         0D072h
+forerrornum          equ         0D074h
+P_editSym            equ         0D075h
+P_editDat            equ         0D078h
+DspMatCol            equ         0D07Bh
+DspMatRow            equ         0D07Ch
+TmpMatCol            equ         0D07Dh
+TmpMatRow            equ         0D07Eh
+numoflist            equ         0D07Fh	; num of lists in buffer
+num1stlist           equ         0D080h	; num of first list
+NumCurList           equ         0D081h	; num of current list
+STATED_CUT_COL       equ         0D082h
+listnamebuffer       equ         0D083h	; list buffer(numbered)
+LastName             equ         0D12Eh
+modeRoot             equ         0D137h
+modeCount            equ         0D139h
+modeItem             equ         0D13Ah
+modePtr              equ         0D13Bh
+winTop               equ         0D13Dh	; first homescreen row
+winBtm               equ         0D13Eh	; last homescreen row
+winLeftEdge          equ         0D13Fh	
+winLeft              equ         0D140h
+winAbove             equ         0D142h
+winRow               equ         0D144h
+winCol               equ         0D146h
+fmtDigits            equ         0D148h
+fmtString            equ         0D149h
+fmtConv              equ         0D18Ah
+fmtLeft              equ         0D19Eh
+fmtIndex             equ         0D1A0h
+P_fmtMatSym          equ         0D1A2h
+P_fmtMatMem          equ         0D1A5h
+EQS                  equ         0D1A8h
+LSTINDEX             equ         0D1AAh
+LSTSIZE              equ         0D1ACh
+EQUINDEX             equ         0D1AEh
+order                equ         0D1B0h	; polynomial degree
+xnamesav             equ         0D1B1h
+ynamesav             equ         0D1BAh
+CustMType            equ         0D1C3h	; type=09(new) or 08(sub)
+MCustM               equ         0D1C3h	; 
+CustMLen             equ         0D1C4h	; number of custmnames
+CustMSav             equ         0D1C5h	; pointers to names
+custmnames           equ         0D1E3h	; the menu entries
+VARSAVECNT           equ         0D279h
+DELADJAMT            equ         0D27Ah
+TEMPINPUT            equ         0D27Dh
+TSYMPTR1             equ         0D27Eh
+TSYMPTR2             equ         0D280h
+P_CHKDELPTR3         equ         0D282h
+P_CHKDELPTR4         equ         0D285h
+P_TEMPMEM            equ         0D288h
+FPBASE               equ         0D28Bh
+FPS                  equ         0D28Dh	; fp stack pointer
+OPBASE               equ         0D28Fh
+OPS                  equ         0D291h	; op stack pointer
+PTempCnt             equ         0D293h
+CLEANTMP             equ         0D295h
+P_PTEMP              equ         0D297h
+PTEMP_END            equ         0D29Ah
+FREE_MEM             equ         0D29Dh	; available user memory
+newdataptr           equ         0D2A0h
+SavBotRow            equ         0D2A3h
+curstatplot          equ         0D2B8h
+curstatplotprompt    equ         0D2B9h
+difeqfieldmode       equ         0D2BAh
+matedoldtype         equ         0D2BBh
+modesave1            equ         0D2BCh
+statansfirst         equ         0D2BDh
+statanslast          equ         0D2BFh
+statanscur           equ         0D2C1h
+charmap              equ         0D2C3h
+altcharmap           equ         0D2CBh
+toktmp1              equ         0D2D3h
+toktmp2              equ         0D2D4h
+IOSAVOP1             equ         0D2D5h
+DELVAR_SAV_F         equ         0D2DFh
+DEL_SAV_OP1          equ         0D2E0h
+alt_asm_exec_btm     equ         0D2EBh
+altlfontptr          equ         0D2EDh	; user font pointer
+altsfontptr          equ         0D2F0h
+altonptr             equ         0D2F3h
+altslinkptr          equ         0D2F6h
+alt_ret_status       equ         0D2F9h
+alt_ret_jmp_page     equ         0D2FAh
+alt_ret_jmp_addr     equ         0D2FBh
+alt_int_chksum       equ         0D2FDh	; checksum for interrupt
+alt_interrupt_exec   equ         0D2FEh	; interrupt
+alt_slink_chksum     equ         0D3C6h	; checksum for slink_exec
+alt_slink_exec       equ         0D3C7h	; slink
+alt_on_chksum        equ         0D48Fh	; checksum for on_exec
+alt_on_exec          equ         0D490h	; executed when turned on
+alt_off_chksum       equ         0D558h	; checksum for off_exec
+alt_off_exec         equ         0D559h	; executed when turned off
+altram_end           equ         0D621h
+asm_exec_btm         equ         0D621h
+ASAP_IND             equ         0D623h
+asm_reg_af           equ         0D624h	; saved registers start
+asm_reg_a            equ         0D625h	;
+asm_reg_l            equ         0D626h	;
+asm_reg_hl           equ         0D626h	;
+asm_reg_h            equ         0D627h	;
+asm_reg_bc           equ         0D628h	;
+asm_reg_c            equ         0D628h	;
+asm_reg_b            equ         0D629h	;
+asm_reg_de           equ         0D62Ah	;
+asm_reg_e            equ         0D62Ah	;
+asm_reg_d            equ         0D62Bh	; saved registers end
+mPrgmMATH            equ         0D62Ch
+mMath                equ         0D64Ch	; pointers math menu entries
+mMath_asap1          equ         0D65Ah	; ptrs to math menu asaps
+mMath_asap2          equ         0D65Ch	;
+mMath_asap3          equ         0D65Eh	;
+iASAP1               equ         0D66Ch	; space for asap entries
+iASAP2               equ         0D678h	;
+iASAP3               equ         0D684h	;
+iASAP4               equ         0D690h	;
+iASAP5               equ         0D69Ch	;
+iASAP6               equ         0D6A8h	;
+iASAP7               equ         0D6B4h	;
+iASAP8               equ         0D6C0h	;
+iASAP9               equ         0D6CCh	; end of space for asaps
+asapnames            equ         0D6D8h	;
+asap_nl1             equ         0D6D8h	; names of asap programs
+asap_nl2             equ         0D6E1h	; for tokens
+asap_nl3             equ         0D6EAh	;
+asapvar              equ         0D6FCh	; name of the current asm prog
+tokspell_asap1       equ         0D706h	; pointers to tables of
+tokspelltblptr       equ         0D706h	; token spelling
+tokspell_asap2       equ         0D708h	;
+tokspell_asap3       equ         0D70Ah	;
+numtokens            equ         0D70Eh	; number of tokens in each
+numtok_asap1         equ         0D70Eh	; asap
+numtok_asap2         equ         0D70Fh	;
+numtok_asap3         equ         0D710h	;
+eostblptr            equ         0D712h	; ponters to table of
+eostbl_asap1         equ         0D712h	; token code
+eostbl_asap2         equ         0D714h	;
+eostbl_asap3         equ         0D716h	;
+Amenu_offset         equ         0D71Ah
+reinstall_asap1      equ         0D722h
+reinstall_vec        equ         0D722h
+reinstall_asap2      equ         0D724h
+reinstall_asap3      equ         0D726h
+asap1_ram            equ         0D72Ah
+asap2_ram            equ         0D734h
+asap3_ram            equ         0D73Eh
+checkStart           equ         0D748h
+asm_exec_ram         equ         0D748h	; start address for all ASM programs
+
+progstart = asm_exec_ram
+;saferam1	= savesscreen
+;saferam2	= statvars   ;320 bytes for statvars on TI86
+saferam3	= textshadow
+saferam4	= op1
+
+;Alternate names:
+_memfree = _memchk
+_indicatorOn = _RunIndicOn
+_indicatorOff = _RunIndicOff
+_clrlcdf = _clrlcd
+_cleartextshad = _clrText
+_clrtxtshd = _clrText
+_getcsc = _get_key
+;_cleartextshad = _ClrTxtShd
+_chkfindsym = _findsym
+_createstring = _createstrng
+
+;Alternate equate names
+gbuf = plotsscreen
+grbuf = plotsscreen
+statram = statvars
+cmdshad = cmdshadow
+
+;CrASH names
+GRAPH_MEM = plotsscreen
+TEXT_MEM = textshadow
+TEXT_MEM2 = cmdshadow
+CURSOR_ROW = currow
+CURSOR_COL = curcol
+GRAF_CURS = pencol
+CURSOR_X = pencol
+CURSOR_Y = penrow
+;VAT_START = symtable
+FREE_A1 = plotsscreen
+FREE_A2 = saferam3
+FREE_A3 = OP1
+;FREE_B = saferam2
+;FREE_C = saferam1  
+START_ADDR = progstart
+
+;CrASH Romcalls
+CR_KHAND = _getkey
+LD_HL_MHL = _ldhlind
+CP_HL_DE = _cphlde
+UNPACK_HL = _divhlby10
+DIV_HL_A = _divhlbya
+GET_KEY = _getcsc
+;DISP_DELAY = _lcdbusy
+
+;CrASH ROM_CALLs
+TR_CHARPUT = _putmap
+TX_CHARPUT = _putc
+D_ZT_STR = _puts
+;D_HL_DECI = _disphl
+NEXT_LINE = _newline
+;SCROLL_UP = _scrollup
+
+M_CHARPUT = _vputmap
+D_ZM_STR = _vputs
+
+;CLEARLCD = _clrlcdfull
+DISP_GRAPH = _grbufcpy
+
+
+#endif ;TI86
+
+
+
+
 
 #IFDEF TI73
 
@@ -7875,8 +9756,8 @@ GET_KEY = _getcsc
 DISP_DELAY = _lcdbusy
 
 ;CrASH ROM_CALLs
-TR_CHARPUT = _putc
-TX_CHARPUT = _putmap
+TR_CHARPUT = _putmap
+TX_CHARPUT = _putc
 D_ZT_STR = _puts
 D_HL_DECI = _disphl
 NEXT_LINE = _newline
@@ -8087,8 +9968,6 @@ custintaddr           = $966F
 
 mirflags              = $21
 rightalign            = $07
-lcdinstport           = $10
-lcddataport           = $11
 
 numscrollpixels       = CmdShadow+104
 scrollbarcoords       = CmdShadow+105
@@ -8168,6 +10047,9 @@ vecF		=45
 data		=$9157+38
 #endif
 
+
+#IFNDEF TI86
+#IFNDEF TI85
 
 ;======================================================================
 ;           Scan Code Equates
@@ -8387,17 +10269,244 @@ kI2nd = 32
 kIMode = 64
 kIDel = 128
 
+#endif
+#endif
+
+#ifndef TI83
+#ifndef TI82
+#ifndef TI83P
+#ifndef TI73
+
+K_NOKEY			equ		00h
+K_DOWN			equ		01h
+K_LEFT			equ		02h
+K_RIGHT			equ		03h
+K_UP			equ		04h
+K_ENTER			equ		09h
+K_PLUS			equ		0Ah
+K_MINUS			equ		0Bh
+K_STAR			equ		0Ch
+K_SLASH			equ		0Dh
+K_RAISE			equ		0Eh
+K_CLEAR			equ		0Fh
+K_SIGN			equ		11h
+K_3				equ		12h
+K_6				equ		13h
+K_9				equ		14h
+K_RIGHTPAR		equ		15h
+K_TAN			equ		16h
+K_CUSTOM		equ		17h
+K_DOT			equ		19h
+K_2				equ		1Ah
+K_5				equ		1Bh
+K_8				equ		1Ch
+K_LEFTPAR		equ		1Dh
+K_COS			equ		1Eh
+K_PRGM			equ		1Fh
+K_DEL			equ		20h
+K_0				equ		21h
+K_1				equ		22h
+K_4				equ		23h
+K_7				equ		24h
+K_EE			equ		25h
+K_SIN			equ		26h
+K_TABLE			equ		27h
+K_XVAR			equ		28h
+K_ON			equ		29h
+K_STO			equ		2Ah
+K_COMMA			equ		2Bh
+K_SQUARE		equ		2Ch
+K_LN			equ		2Dh
+K_LOG			equ		2Eh
+K_GRAPH			equ		2Fh
+K_ALPHA			equ		30h
+K_F5			equ		31h
+K_F4			equ		32h
+K_F3			equ		33h
+K_F2			equ		34h
+K_F1			equ		35h
+K_SECOND		equ		36h
+K_EXIT			equ		37h
+K_MORE			equ		38h
+
+gNOKEY			equ		00h
+gDOWN			equ		01h
+gLEFT			equ		02h
+gRIGHT			equ		03h
+gUP			equ		04h
+gENTER			equ		09h
+gPLUS			equ		0Ah
+gADD			equ		0Ah
+gMINUS			equ		0Bh
+gSUB			equ		0Bh
+gSTAR			equ		0Ch
+gMUL			equ		0Ch
+gSLASH			equ		0Dh
+gDIV			equ		0Dh
+gRAISE			equ		0Eh
+gCLEAR			equ		0Fh
+gSIGN			equ		11h
+g3				equ		12h
+g6				equ		13h
+g9				equ		14h
+gRIGHTPAR		equ		15h
+gTAN			equ		16h
+gCUSTOM		equ		17h
+gDOT			equ		19h
+g2				equ		1Ah
+g5				equ		1Bh
+g8				equ		1Ch
+gLEFTPAR		equ		1Dh
+gCOS			equ		1Eh
+gPRGM			equ		1Fh
+gDEL			equ		20h
+g0				equ		21h
+g1				equ		22h
+g4				equ		23h
+g7				equ		24h
+gEE			equ		25h
+gSIN			equ		26h
+gTABLE			equ		27h
+gXVAR			equ		28h
+gON			equ		29h
+gSTO			equ		2Ah
+gCOMMA			equ		2Bh
+gSQUARE		equ		2Ch
+gLN			equ		2Dh
+gLOG			equ		2Eh
+gGRAPH			equ		2Fh
+gALPHA			equ		30h
+gF5			equ		31h
+gF4			equ		32h
+gF3			equ		33h
+gF2			equ		34h
+gF1			equ		35h
+gSECOND		equ		36h
+gEXIT			equ		37h
+gMORE			equ		38h
+
+gZOOM = gF3
+g2nd = gSecond
+
+;#######################
+;## Direct Input Keys ##
+;#######################
+
+;Group 1
+KeyRow_Pad	.equ 0feh
+KDown   .equ 254
+KLeft   .equ 253
+KRight  .equ 251
+KUp     .equ 247
+KIDown  .equ 1
+KILeft  .equ 2
+KIRight .equ 4
+KIUp    .equ 8
 
 
+
+;Group 2
+KeyRow_5 	.equ 0fdh
+KEnter		.equ 254
+KIEnter		.equ 1
+KPlus		.equ 253
+KMinus		.equ 251
+KMul		.equ 247
+KDiv		.equ 239
+KPower		.equ 223
+KClear		.equ 191
+
+;Group 3
+KeyRow_4 	.equ 0fbh
+KMinus2		.equ 254
+KThree		.equ 253
+KSix		.equ 251
+KNine		.equ 247
+KRbracket	.equ 239
+KTan		.equ 223
+KVars		.equ 191
+
+;Group 4
+KeyRow_3	.equ 0f7h
+KPoint		.equ 254
+KTwo		.equ 253
+KFive		.equ 251
+KEight		.equ 247
+KLbracket	.equ 239
+KCos		.equ 223
+KPrgm		.equ 191
+KStat		.equ 127
+
+;Group 5
+KeyRow_2 	.equ 0efh
+KZero		.equ 254
+KOne		.equ 253
+KFour		.equ 251
+KSeven		.equ 247
+KComma		.equ 239
+KSin		.equ 223
+KMatrx		.equ 191
+KApps		.equ 191
+KX		.equ 127
+
+;Group 6
+KeyRow_1 	.equ 0dfh
+KOn         = 254
+KSto		.equ 253
+KLn		.equ 251
+KLog		.equ 247
+kX2		.equ 239
+kX-1		.equ 223
+kMath		.equ 191
+kAlpha		.equ 127
+kIOn    = 1
+kIMath  = 64
+kIAlpha = 128
+
+
+;Group 7
+KeyRow_Top 	.equ 0bfh
+KGraph		.equ 254
+KTrace		.equ 253
+KZoom		.equ 251
+KWindow		.equ 247
+KY		.equ 239
+k2nd		.equ 223
+kMode		.equ 191
+kDel		.equ 127
+
+kI2nd = 32
+kIMode = 64
+kIDel = 128
+
+#endif
+#endif
+#endif
+#endif ;ti82,ti83,ti83p,ti73
+
+
+
+#IFNDEF NOHEADER
 
 .org progstart
 
-
-#IFNDEF APP
-#ifdef TI83P
- .org progstart-2
- .db     $BB,$6D
+#ifdef TI86
+.org asm_exec_ram-2
+ .db $8E,$28
+ nop
+ jp lblStart
+ .dw 0
+ .dw tTitle
 #endif
+
+
+#ifdef TI83P
+#IFNDEF APP
+#IFNDEF CRUNCHY
+ .org progstart-2
+ .db     $BB,$6D  ;squished asmprgm token
+#endif
+#ENDIF
 #ENDIF
 
 #ifdef ZES
@@ -8411,12 +10520,14 @@ kIDel = 128
 
 #ifdef MIRAGEOS
 	ret
-	.db 3
+	.db 1
 #endif
 
 #ifdef ION
+#ifndef CRUNCHY
   ret
   jr nc,lblStart
+#endif
 #endif
 
 #ifndef ZES
@@ -8436,12 +10547,25 @@ ionfastcopy = _grbufcpy
 
 #ifdef VENUS
 .org $9329
-	.db	$e7,"9_[V?",1
+	.db	$e7,"9_[V?",0
 	jr nc,lblStart
+vRandom		equ	$FE72
 vFastCopy	=$FE75
 ionfastcopy = vFastCopy
 
 #Endif
+
+#ifdef RIGEL
+.org PROG_START-3
+ .db 0,$FD,lblstart-ttitle   ;use this for BIN2VAR
+#endif
+
+
+#IFDEF CRUNCHY
+	.org progstart+2
+#ENDIF
+
+
 
 #IFDEF APP
 .org $4000
@@ -8483,6 +10607,7 @@ ionfastcopy = vFastCopy
 #ENDIF
 #ENDIF
 
+#endif ;noheader
 
-END
-.END
+;END
+;.END

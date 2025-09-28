@@ -9,7 +9,7 @@ HandleEnemies:
 	ld (timer),hl
 	;Start at entry -1
 	ld ix,spritetable-8
-	;Set up sprite counterz
+	;Set up sprite counters
 	ld b,SpriteTotal+1
 HandleEnemiesLoop:
 	;Count down, quit when done
@@ -32,47 +32,55 @@ HandleEnemiesLoop:
 	;Loop
 	jp HandleEnemiesLoop
 
+
+FixYCoordinate2:
+;Input: IX = sprite
+;output: (ix+1) = new y coordinate
+;destroys: none
+	push af
+	ld a,(ix+1)
+	call FixYCoordinate
+	ld (ix+1),a
+	pop af
+	ret
+
+FixYCoordinate:
+;Input: A = y coordinate
+;Output: A = new y coordinate
+;Destroys: none
+	; -16 to -1: negative zone
+	; 0 to 75: playfield zone
+	; 76 to 127: wrap back to negative zone or playfield zone
+	; -128 to -16: wrap back to playfield zone
+	cp BottomRow
+	ret c
+	cp 128
+	jr c,ToNegativeZone
+	cp Toprow & 255
+	ret nc ;replaces next 2 lines
+;	jr c,ToPlayFieldZone
+;	ret
+ToPlayFieldZone:
+	add a,PlayHeight
+	jr FixYCoordinate
+	
+ToNegativeZone:
+	sub PlayHeight
+	ret
+	
+	
+	
+
+
 ;======================
 ;     HandleEnemy
 ;======================
 ;Fixes Y coordinate then jumps to the correct code
 HandleEnemy:
-	;Vertical wrapping
+	;First Vertical wrapping, Falling enemies are excluded here
 	cp FallingEnemy
-	jr z,HandleEnemySkipMove+1
-	push af
-	ld a,(ix+1)
-HandleEnemyMoveLoop:
-	add a,16
-;;
-;	ld l,a
-;	ld h,0
-;	ld a,92
-;	icall(_divhlbya)
-;	sub 16
-;	ld (ix+1),a
-;;
-;	and 127
-;	sub 16
-;	ld (ix+1),a
-;;
-	sub 90
-	jr c,HandleEnemySkipMove
-	sub 16
-	ld (ix+1),a
-	jr HandleEnemyMoveLoop
+	call nz,FixYCoordinate2
 
-
-
-;	ld a,(ix+1)
-;	add a,16
-;	sub 92
-;	jr c,HandleEnemySkipMove
-;	sub 16
-;	ld (ix+1),a
-HandleEnemySkipMove:
-	pop af
-	
 	;A bunch of checks and jumps...
 	cp Bubble
 	jp z,HandleBubble
@@ -161,6 +169,10 @@ HandleEnemySkipMove:
 	
 	cp Rainbow
 	jp z,HandleRainbow
+#IFDEF SKEL_HURRY
+	cp Skel
+	jp z,HandleSkel
+#ENDIF
 	
 	ret
 
@@ -195,7 +207,7 @@ SeekLoop:
 	scf
 	ret
 CreateSprite2:
-	;Now make the sprite: Get paramaters
+	;Now make the sprite: Get parameters
 	pop de
 	pop af
 	pop bc
@@ -367,8 +379,7 @@ CheckHitPlayer_2:
 	cp Bub
 	ret nz
 	ld bc,(SpriteTable)
-	call CheckHitTarget
-	ret
+	jp CheckHitTarget
 #Endif
 
 CheckHitBub:
@@ -575,9 +586,12 @@ _MoveLeft:
 
 ;Animate - Zeros frame, performs next code operation, then restore it.
 ;Input: Next 2 bytes of code
+
+
+
 #IFNDEF APP
 Animate:
-#ELSE \Animate = BubRandom+35\#ENDIF
+#ENDIF
 AppAnimate:
 	ex (sp),hl
 	ld c,(hl)
@@ -599,7 +613,7 @@ AnimateOp:
 ;  ParallelUniverse
 ;====================
 ;Run code to detect both players in 2 player games
-#IFNDEF APP \ParallelUniverse:\#ELSE \ParallelUniverse = Animate+26 \#endif
+#IFNDEF APP \ParallelUniverse:\#ENDIF
 AppParallelUniverse:
 	ld hl,SpriteTable
 ParallelModify1:
@@ -681,7 +695,7 @@ CheckBelow:
 ;=====================
 ;    PlayerGravity
 ;=====================
-;Calls the correct y position modifing code (jump or gravity)
+;Calls the correct y position modifying code (jump or gravity)
 ;DAMMIT I'M REWRITING THIS!!!
 PlayerGravity:
 	ld a,(ix+4)
@@ -806,7 +820,7 @@ PlayerUnblow:
 	dec a
 	ld b,a
 ;	and 3
-;	cp 3				 ;Do nothing if bub's not blowing a bubble
+;	cp 3				 ;Do nothing if Bub's not blowing a bubble
 ; ret nz
 	and 2
 	ret z
@@ -900,7 +914,7 @@ HandleBubble:
 ;Do bubble stuff
 	call DoBubbleFlags
 
-;Gradual Selfdesctuct
+;Gradual Selfdestruct
 	ld a,(ix+4)
 	dec a
 	ld (ix+4),a
@@ -1017,13 +1031,25 @@ BubbleHitPlayer:
 #ENDIF
 	
 	;Bottom Bound
-	ld a,(ix+1)
-	;add a,-4, but safer
-	inc b
-	inc b
-	inc b
-	inc b
+	call CollisionFix
+	push af
+	ld a,b
+	add a,32+4
+	ld b,a
+	pop af
+	add a,32
 	cp b
+	
+	
+;	;get it centered on the y middle
+;	inc b
+;	inc b
+;	inc b
+;	inc b
+;
+;	ld a,(ix+1)
+;
+;	cp b
 	jp c,BP_1
 	set 0,(hl)
 	ret
@@ -1054,100 +1080,117 @@ BP2:
 	;Any non-save kills
 	set 7,(ix+7)
 	ret
+
+
+
+CollisionFix:
+;Input: b = y coordinate    ix = sprite
+;output: a = adjusted (ix+1)
+	;a < 0, b < 0: no adjustment
+	;a >= 64, b < 0: a=a-playheight
+	;a < 0, b >= 56: a=a+playheight
+	;a >= 56, b >= 64: no adjustment
+	
+	ld a,b
+	or a
+	jp m,cf_b_less_than_0
+	cp bottomrow-16
+	ld a,(ix+1)
+	ret c
+	;right now b>=64, a=(ix+1)
+	or a
+	ret p
+	add a,playheight
+	ret
+cf_b_less_than_0:
+	ld a,(ix+1)
+	or a
+	ret m
+	cp bottomrow-16
+	ret c
+	sub playheight
+	ret
+
+	;IF b>56
+		;load a
+		;IF a<0
+			;a=a+playheight
+	;IF b<0
+		;load a
+		;if a>56 && a>0
+			;a=a-playheight
 	
 CheckHitTarget:
-	push hl
-	ld hl,Retty
-	ex (sp),hl
-
+	;b = y, c = x
 	ld a,(ix+0)
 	sub c
 	add a,7
 	cp 15
 	ret nc
 
-	ld a,(ix+1)
+;	ld a,(ix+1)
+	call CollisionFix
 	sub b
 	add a,7
 	cp 15
-	ret nc
-	pop af
-	scf
-	ret
-
-Retty:
-	pop af
-	or a
+;	ret nc
+;	scf
 	ret
 
 CheckHitTarget4:
-	push hl
-	ld hl,Retty
-	ex (sp),hl
-
 	ld a,(ix+0)
 	sub c
 	add a,5
 	cp 11
 	ret nc
 
-	ld a,(ix+1)
+	call CollisionFix
+	;ld a,(ix+1)
 	sub b
 	add a,5
 	cp 11
-	ret nc
-
-	pop af
-	scf
+;	ret nc
+;	scf
 	ret
 
 PlayerHitWater:
-;Get player's coords
+#IFDEF LINK
+	call Paralleluniverse
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	inc hl
+	inc hl
+	ld a,(hl)
+	cp Bub
+	ret nz
+	inc hl
+	ld a,(hl)
+	and 3
+	cp 2
+	ret z
+	call checkhittarget4
+	ret nc
+	inc hl
+	inc hl
+	inc hl
+	set 4,(hl)
+	ret
+#ELSE
 	ld bc,(spritetable)
-;Not carrying player
-	res 1,(ix+7)
-	
 	ld a,(spritetable+3)
 	cp Bub
 	ret nz
-	
 	ld a,(spritetable+4)
 	and 3
 	cp 2
 	ret z
-	
-
-;    11111111
-;        00111100
-
-;dx=X2-X1
-;if dx<2 then ret
-;if dx>1 then ret
-;
-;dy=Y2-Y1
-;if dy<6 then ret
-;if dy>6 then ret
-
-	ld a,(ix+0)
-	sub c
-;
-;	add a,5
-;	cp 11
-	add a,2
-	cp 3
-;	add a,3
-;	cp 5
+	call checkhittarget4
 	ret nc
-
-	ld a,(ix+1)
-	sub b
-	add a,1
-	cp 4
-	ret nc
-	
-	set 1,(ix+7)
+	ld hl,spritetable+7
+	set 4,(hl)
 	ret
-
+#ENDIF
 
 BubbleHitBubble:
 	ld hl,SpriteTable+3
@@ -1377,7 +1420,7 @@ HB_Burst:
 ;;changed 0.991
 	ld a,(ix+6)
 	or a
-	jp z,Suicide
+	jr z,HB_nothinginside ;fixes popping bubbles gives you nothing bug introduced in 991
 	ld a,(ix+3)
 	
 	cp explode
@@ -1390,7 +1433,9 @@ HB_Burst2:
 	ld (ix+5),a
 	ld (ix+6),a
 	jp add1toscore
-
+HB_nothinginside: ;
+	call add1toscore
+	jp suicide
 
 ;   =================
 ;=======================
@@ -1449,7 +1494,7 @@ ProceedMakeBubble:
 ;IX offsets:
 ;4 = completion counter, 5 = direction, 6 = No longer active after hitting end boss
 HandleThunder:
-	;Thunder Chooses player's direction on its first frame of existance
+	;Thunder Chooses player's direction on its first frame of existence
 	bit 0,(ix+7)
 	jr nz,HandleProjectile
 	set 0,(ix+7)
@@ -1554,9 +1599,9 @@ HDEAnimProceed:
 HDESkipAnimation:	
 	ld a,(ix+4)
 	or a
-;Check if first cycle, Initalize if so
+;Check if first cycle, Initialize if so
 	jr nz,HDEInitSkip
-;Initalize DeadEnemy
+;Initialize DeadEnemy
 	ld a,(ix+1)
 	ld (ix+7),a
 	ld a,(SpriteTable+2)
@@ -1755,7 +1800,7 @@ DumbWalk:
 	ld a,(timer)
 	and 3
 	jr z,BustDontLookAround
-	call bubrand
+	call bubrandom
 	and 15
 	call z,BustLookAround
 BustDontLookAround:
@@ -2017,6 +2062,7 @@ MonsterHitPrebubble:
 	dec hl
 	ld c,(hl)
 	call CheckHitTarget
+	ret nc
 	xor a
 	ld b,8
 ;Kill the Prebubble
@@ -2051,6 +2097,7 @@ MonsterHitThunder:
 	dec hl
 	ld c,(hl)
 	call CheckHitTarget
+	ret nc
 	inc hl
 	inc hl
 	inc hl
@@ -2067,6 +2114,7 @@ CheckKill:
 	dec hl
 	ld c,(hl)
 	call CheckHitTarget
+	ret nc
 EnemyDeath:
 	ld a,(ix+3)
 	ld (ix+2),a
@@ -2553,7 +2601,7 @@ HandleGenericPop:
 	ld a,(ix+4)
 	inc a
 	ld (ix+4),a
-	cp 10
+	cp 16
 	jp nc,suicide
 	ret
 
@@ -3057,7 +3105,7 @@ HandleDrunk:
 	jp HandleStoner2
 
 DrunkShoot:
-;IX+5: 0 if hasnt shot yet, 1 otherwise
+;IX+5: 0 if hasn't shot yet, 1 otherwise
 	ld a,(ix+5)
 	or a
 	jr z,DrunkDrinkBeer
@@ -3184,7 +3232,7 @@ AnimateBeer:
 	ret
 
 StandardBeer:
-	;try to kill plyaer
+	;try to kill player
 	call MonsterHitPlayer
 	call AnimateBeer
 		
@@ -3273,6 +3321,8 @@ DontUseBubTable:
 	ld a,1
 	ld (ScoreUpdateFlag),a
 	
+	call UnPissOffEnemies
+	
 	ret
 	
 ;==================
@@ -3290,6 +3340,7 @@ HandleWater:
 	inc a
 	ld (ix+4),a
 	cp 1
+	ld d,0
 	jr nz,WaterNotFirstTime
 	;Water's First Frame: Set new aligned X and Y coordinates
 	ld a,(ix+0)
@@ -3305,6 +3356,7 @@ HandleWater:
 	ld (ix+1),a
 	;Set A to something less than 8!
 	xor a
+	ld d,1
 WaterNotFirstTime:
 	cp 8
 	ld e,(ix+7)
@@ -3324,17 +3376,25 @@ FinalizeWater:
 	and %00100000
 	or  %00000001
 	ld (ix+7),a
-	ld (ix+4),0
+	ld (ix+4),d
 	ld (ix+2),water
 	ret
 HandleWater2:
-	call PlayerHitWater
+	ld a,(ix+4)
+	dec a
+	call z,PlayerHitWater
 	call MoveWater
-	bit 1,(ix+7)
+WaterCarryPlayer:
+	ld a,(ix+4)
+	dec a
+	ret nz
+	call paralleluniverse
+	ld bc,7
+	push hl
+	add hl,bc
+	bit 4,(hl)
+	pop hl
 	ret z
-
-	ld hl,spritetable+7
-	set 4,(hl)
 	
 	ld a,(ix+0)
 ;Edge bounds
@@ -3346,14 +3406,15 @@ WaterNotRightEdge:
 	jr nc,WaterNotLeftEdge
 	ld a,4
 WaterNotLeftEdge:
-	ld l,a
+	ld (hl),a
+	inc hl
 ;end of edge bounds
 	
 	ld a,(ix+1)
 	sub 2
-	ld h,a
-	ld (spritetable),hl
+	ld (hl),a
 	ret
+	
 MoveWater:
 	;Inside a block?  Go down
 	ld a,(ix+1)
@@ -3632,11 +3693,14 @@ SD_NextSeq:
 	inc (ix+5)
 	ret
 SD_Wait:
-	inc (ix+6)
-	ld a,(ix+6)
-	cp 50
+	ld a,(timer)
+	cp 48+50+32
 	ret c
-	ld (ix+6),0
+;	inc (ix+6)
+;	ld a,(ix+6)
+;	cp 50
+;	ret c
+;	ld (ix+6),0
 	jr SD_NextSeq
 
 EndBossDead:
@@ -3705,8 +3769,8 @@ SD_Standardenemy:
 SDDontKillPlayer:
 	call SuperDrunkHitHazard
 	ld a,(ix+6)
-	cp 100
-	jr nc,EndBossDead
+	or a
+	jr z,EndBossDead
 SDSlowDown:
 	ld a,(Timer)
 	and 3
@@ -3772,6 +3836,8 @@ SD_CheckHitTarget:
 	cp 21
 	ret nc
 	
+;this one doesn't need the collisionfix,
+;big sprites don't go off the visible screen
 	ld a,(ix+1)
 	sub b
 	add a,7+8
@@ -3794,6 +3860,10 @@ SDHitHazardLoop:
 	push hl
 	cp Thunder
 	call z,SDHitThunder
+	cp Fire
+	call z,SDHitThunder
+	cp Water
+	call z,SDHitThunder
 	pop hl
 	pop de
 	pop bc
@@ -3807,7 +3877,10 @@ SDHitThunder:
 	ld c,(hl)
 	call SD_CheckHitTarget
 	ret nc
-	inc (ix+6)
+	ld a,(ix+6)
+	sub 1
+	adc a,0
+	ld (ix+6),a
 	push ix
 	push hl
 	pop ix
@@ -3988,3 +4061,94 @@ GetHugeItem:
 	
 	
 	ret
+
+#IFDEF SKEL_HURRY
+HandleSkel:
+	ld a,(enemycount)
+	or a
+	jp z,StoneSuicide
+	
+	call CheckStoneHitPlayer
+	;blink
+	push ix
+	pop hl
+	inc hl
+	inc hl
+	ex de,hl
+	ld a,(de)
+	xor 128
+	ld (de),a
+	ld hl,timer
+	ld a,(hl)
+	and 7
+	jr nz,DontAnimateSkel
+	ld a,(de)
+	xor 1
+	ld (de),a
+DontAnimateSkel:
+
+	ld hl,(spritetable)
+	ld a,(spritetable+3)
+#IFDEF LINK
+	bit 0,(ix+6)
+	jr z,SkelAfterPlayer2
+SkelPlayer2:
+	ld hl,(spritetable+8)
+	ld a,(spritetable+8+3)
+SkelAfterPlayer2:
+#ENDIF ;link
+	cp Bub
+	jp nz,StoneSuicide
+	
+	ld a,(ix+4)
+	dec (ix+4)
+	or a
+	ld b,(ix+5)
+	call z,SkelNextSequence
+	ld a,b
+	and %00000011
+	jr z,SkelMoveUD
+	cp 2
+	ret nz
+SkelMoveLR:
+	ld a,(ix+0)
+	cp l
+	ld a,(de)
+	jr c,SkelMoveRight
+SkelMoveLeft:
+	or 2
+	ld (de),a
+	jp MoveLeft1
+SkelMoveRight:
+	and %11111101
+	ld (de),a
+	jp MoveRight1
+SkelMoveUD:
+	ld a,(ix+1)
+	cp h
+	jp c,MoveDown1
+	jp MoveUp1
+
+SkelNextSequence:
+	inc (ix+5)
+	inc b
+	ld a,b
+	and %00000001
+	jr nz,SkelNewDelay
+	ld (ix+4),24
+	ret
+SkelNewDelay:
+	ld a,b
+	and %11111100
+	ld c,a
+	ld a,40
+	sub c
+	jr nc,SkelnoXora
+	xor a
+SkelnoXora:
+	ld (ix+4),a
+	ret
+
+	
+	
+#ENDIF ;skel

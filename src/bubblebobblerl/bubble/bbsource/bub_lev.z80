@@ -1,4 +1,3 @@
-
 ;===============
 ;    GetMap
 ;===============
@@ -6,8 +5,37 @@
 ;Input: A=New map
 GetMap:
 GetMapOnly:
+#IFDEF SENDLEVELS
+	ld c,a
+	ld a,(linkgame)
+	or a
+	jr z,GMOReady
+	dec a
+	jr z,GMOSendMap
+	call ReceiveLevel
+	jr GetMapOnlyAfterseek
+GMOSendMap:
+	ld a,c
+	call FindMap
+	ret c
+	call SendLevel
+	jr GetMapOnlyAfterSeek
+	
+GMOReady:
+	ld a,c
+#ENDIF
 	call Findmap
 	ret c
+GetMapOnlyAfterseek:
+	;get pattern
+	push hl
+
+		ld bc,5
+		add hl,bc
+		ex de,hl
+		call NewPattern
+	pop hl
+
 	ld a,(hl)
 	and 15
 	inc a
@@ -20,12 +48,23 @@ GetMapOnly:
 	inc hl
 	jp DecompressMap
 NewLevel:
-#IFNDEF APP
-	cp levelcount
-	jp nc,Ending
+#IFNDEF TWOPAGE
+
+#IFDEF EXTERNAL
+	ld hl,LevelCount
+	cp (hl)
+#ELSE
+#IFDEF SENDLEVELS
+	ld hl,LevelCount
+	cp (hl)
+#ELSE
+	cp level_count
 #ENDIF
+#ENDIF
+	jp nc,Ending
 
-
+#ENDIF
+	
 ;	ld hl,DefaultBubTable
 ;	ld de,SpriteTable
 ;	ld bc,4
@@ -35,7 +74,7 @@ NewLevel:
 ;	ld (hl),0
 ;	ld bc,8*spritetotal-1+4
 ;	ldir
-
+	
 	ld hl,SpriteTable
 	ld de,SpriteTable+1
 	ld bc,EndOfSprites-SpriteTable-1
@@ -57,9 +96,29 @@ NewLevel:
 NoBob:
 	pop af
 #endif
-	
+
+#IFDEF SENDLEVELS
+	ld c,a
+	ld a,(linkgame)
+	or a
+	jr z,JustLoadLevel
+	dec a
+	jr z,FindAndSendLevel
+ReceiveTheLevel:
+	call ReceiveLevel
+	jr StartLoadingMap
+FindAndSendLevel:
+	ld a,c
 	call FindMap
 	ret c
+	call SendLevel
+	jr StartLoadingMap
+JustLoadLevel:	
+	ld a,c
+#ENDIF
+	call FindMap
+	ret c
+StartLoadingMap:
 	ld a,(hl)
 	and 15
 	inc a
@@ -84,6 +143,14 @@ NoBob:
 
 	ex de,hl
 	call NewPattern
+
+	ld hl,tile+12
+	ld b,4
+eraseblackloop
+	ld (hl),255
+	inc hl
+	djnz eraseblackloop
+	
 	ex de,hl
 	
 	inc hl
@@ -130,22 +197,50 @@ CreateEnemiesLoop:
 	rra
 	add a,Enemies
 	add a,e
-	inc hl
 	call CreateSprite
 	ld (ix+3),FallingEnemy
 	pop bc
+	ld a,(hl)
+	cp $60
+	call z,Setup100
+	
+	
+	
+	inc hl
 	djnz CreateEnemiesLoop
 	push hl
 	call SpecialLevels
 	pop hl
 	jp DecompressMap
 
-
 ;    Findmap - Seeks a map
 ;Input: A=Map number
-;Output: HL=Compressed map pointer, carry flag set on failure
+;Output: HL=Compressed map pointer
+
 FindMap:
+#ifdef TI86
+	push af
+		ld hl,10
+		call get_next_chunk2
+	pop af
+	or a
+	ret z
+	ld b,a
+FMLoop1:
+	push bc
+		ld a,$FF
+		ld bc,384
+		cpir
+		call get_next_chunk
+	pop bc
+	djnz FMLoop1
+	ret
+#else
+#IFDEF EXTERNAL
+	ld hl,(MapRoot)
+#ELSE
 	ld hl,Maps
+#ENDIF
 	or a
 	ret z
 	ld b,a
@@ -157,6 +252,18 @@ FMLoop1:
 	pop bc
 	djnz FMLoop1
 	ret
+#endif
+
+#IFDEF BOUNDCHECKING
+OutOfBounds:
+	ld hl,0
+	ld (currow),hl
+	ld hl,tLevelCorrupt
+	puts
+	ei
+	call waitkey
+	jp quit
+#ENDIF	
 
 ;    DecompressMap - Decompresses 5.3 bit RLE	
 ;input: hl=pointer to compressed data
@@ -180,6 +287,19 @@ DecompressLoop:
 	rlca
 	and %00000111
 DecompLoop2:
+#IFDEF BOUNDCHECKING
+	;BOUNDS CHECKING
+	push de
+	push hl
+	ld hl,level+(22*14)-1
+	sbc hl,de
+	pop hl
+	pop de
+	jr c,outofbounds
+#ENDIF	
+	
+
+
 	;Store a byte
 	ld (de),a
 	;Next byte to store...
@@ -254,34 +374,18 @@ MakeHoleLoop:
 	ret
 
 SpecialLevels:
-	ld a,(onlevel)
-	cp 99
-	jr z,Setup100
+;	ld a,(onlevel)
+#IFDEF EXTERNAL
+;	inc a
+;	ld hl,LevelCount
+;	cp (hl)
+#ELSE
+;	cp 99
+#ENDIF
+;	jr z,Setup100
 	ld a,(SuperGame)
 	or a
-	jr nz,SetupSuper
-	ret
-Setup100:
-	ld ix,SpriteTable
-	ld bc,8
-Setup100CrappyLoop:
-	add ix,bc
-	ld a,(ix+3)
-	cp item1
-	jr nz,Setup100CrappyLoop
-	ld a,ThunderPotion
-	ld (ix+3),a
-	ld (ix+2),a
-	add ix,bc
-	ld (ix+3),a
-	ld (ix+2),a
-	add ix,bc
-	ld (ix+0),40
-	ld (ix+1),-16
-	ld (ix+2),0
-	ld (ix+3),SuperDrunk
-	ret
-
+	ret z
 SetupSuper:
 	ld ix,SpriteTable
 	ld b,12
@@ -328,12 +432,48 @@ SuperRemapTable:
 	.db 0 ;Hidegonzu 6 >Buster    0
 	.db 7 ;Invader   7 >Invader   7
 	
+Setup100:
+	push bc
+	ld ix,SpriteTable
+	ld bc,8
+Setup100CrappyLoop:
+	add ix,bc
+	ld a,(ix+3)
+	cp item1
+	jr nz,Setup100CrappyLoop
+	ld a,ThunderPotion
+	ld (ix+3),a
+	ld (ix+2),a
+	add ix,bc
+	ld (ix+3),a
+	ld (ix+2),a
+	add ix,bc
+	ld (ix+0),40
+	ld (ix+1),-16
+	ld (ix+2),0
+	ld (ix+3),SuperDrunk
+	dec hl
+	ld a,(hl)
+	ld (ix+6),a
+	inc hl
+	pop bc
+	ret
 	
 
 ;=========================================
 ;  NewPattern - Loads a new wall style
 ;=========================================
+;DE = address of wallstyle (2 bytes)
 NewPattern:
+	ld hl,Tile+12
+	ld b,4
+
+resetblankloop:
+	ld (hl),$FF
+	inc hl
+	djnz resetblankloop
+	
+
 	ld hl,Tile
 	call NewPattern2
 	inc de
@@ -376,47 +516,584 @@ NewPattern3:
 	add hl,bc
 	ret
 
-#IFDEF APP
-;=======================
-;     CreateSprite
-;=======================
-;Creates a new sprite A at (C,B), ix = new offset  Carry set on failure
-CreateSprite:
-	;Save regs
-	push bc
-	or a
-	push af
+;#IFDEF APP
+;;=======================
+;;     CreateSprite
+;;=======================
+;;Creates a new sprite A at (C,B), ix = new offset  Carry set on failure
+;CreateSprite:
+;	;Save regs
+;	push bc
+;	or a
+;	push af
+;	push de
+;	;Get spritetable entry 1
+;	ld ix,SpriteTable+8
+;	;Set up Incs and Count
+;	ld de,8
+;	ld b,SpriteTotal-1
+;SeekLoop:
+;	;Check if sprite is free
+;	ld a,(ix+3)
+;	or a
+;	;If so, then create it.
+;	jp z,CreateSprite2
+;	;If not, try next and loop
+;	add ix,de
+;	djnz SeekLoop
+;	;If no sprites found, Restore regs, set carry flag and quit.
+;	pop de
+;	pop af
+;	pop bc
+;	scf
+;	ret
+;CreateSprite2:
+;	;Now make the sprite: Get paramaters
+;	pop de
+;	pop af
+;	pop bc
+;	;And store them.
+;	ld (ix+0),c
+;	ld (ix+1),b
+;	ld (ix+2),a
+;	ld (ix+3),a
+;	;Done
+;	ret
+;#ENDIF
+
+#IFDEF EXTERNAL
+
+#IFDEF TI83
+#define USE_ALT_RELOAD
+#endif
+#IFDEF ACE
+#define USE_ALT_RELOAD
+#endif
+
+
+#IFNDEF USE_ALT_RELOAD
+ReloadWorld:
+	call SeekFirstWorld
+ReseekLoop:
+	jr nz,ReloadNotFound
+#ifdef TI86 \ ld b,a \ push bc \#endif
 	push de
-	;Get spritetable entry 1
-	ld ix,SpriteTable+8
-	;Set up Incs and Count
-	ld de,8
-	ld b,SpriteTotal-1
-SeekLoop:
-	;Check if sprite is free
-	ld a,(ix+3)
-	or a
-	;If so, then create it.
-	jp z,CreateSprite2
-	;If not, try next and loop
-	add ix,de
-	djnz SeekLoop
-	;If no sprites found, Restore regs, set carry flag and quit.
+	ld hl,LoadedMap
+	ld de,op1
+	call Strcmp
 	pop de
-	pop af
-	pop bc
+#ifdef TI86 \ pop bc \ ld a,b \#endif
+	jp z,LoadWorld2
+	call SeekWorld
+	jr ReseekLoop
+
+#ELSE
+ReloadWorld:
+	ld hl,LoadedMap
+	rst 20h ;mov9toop1
+	icall(_chkfindsym)
+	jr c,ReloadNotFound
+	inc de
+	inc de
+	ld hl,SearchString
+	call strcmp
+	jr z,LoadWorld2
+#ENDIF
+ReloadNotFound:
 	scf
 	ret
-CreateSprite2:
-	;Now make the sprite: Get paramaters
+
+#IFNDEF TI86
+;searches for (hl) inside (de), terminated by first 0 in (hl)
+;input: hl = address of search string, de = address of data
+;output: hl = stop position
+;        de = location after hl or stop position
+;				 z = 1 if successful
+;destroyed: a
+strcmp:
+	ld a,(hl)
+	or a
+	ret z
+	ld a,(de)
+	cp (hl)
+	ret nz
+	inc hl
+	inc de
+	jr strcmp
+#endif
+
+StoreProgName:
+#IFDEF TI86
+	push af
+	push bc
+	push hl
+	push de
+		ld hl,op1
+		ld de,loadedmap
+		ld bc,10
+		ldir
 	pop de
-	pop af
+	pop hl
 	pop bc
-	;And store them.
-	ld (ix+0),c
-	ld (ix+1),b
-	ld (ix+2),a
-	ld (ix+3),a
-	;Done
+	pop af
 	ret
+#ELSE
+	ld hl,op1
+	ld de,loadedmap
+	ld bc,10
+	ldir
+	ret
+#endif ti86
+
+#ifdef TI86
+LoadFirstWorld:
+	call SeekFirstWorld
+LoadWorld:
+	call StoreProgName
+LoadWorld2:
+	ld (levelpage),a
+	ld (maproot),de
+	ld a,(op2+2+7)
+	ld (levelcount),a
+	or a
+	ret
+#else
+LoadFirstWorld:
+	call SeekFirstWorld
+LoadWorld:
+	push de
+;	push hl
+	call StoreProgName
+;	pop hl
+	pop de
+LoadWorld2:
+	ld a,(de)
+	ld (LevelCount),a
+	inc de
+	ld (Maproot),de
+	or a
+	ret
+#endif ;ti86
+
+NoWorlds:
+	call blackscreen
+	call DrawText
+	.dw tNoWorlds
+	call ionfastcopy
+	call waitkey
+	jp quit
+
+WorldMenuEnter:
+	ld a,(hl)
+	pop hl
+	call SeekToWorld
+	jr LoadWorld
+
+SelectWorld:
+	call CountWorlds
+	jr z,NoWorlds
+	dec a
+	jr z,LoadFirstWorld
+	call DrawTitleScreen
+	call ScrollRight32
+	call ShowSelectWorld
+	
+WorldMenu:
+	xor a
+	ld (onworld),a
+	call ListWorlds
+WorldMenuLoop:
+	ld hl,OnWorld
+	push hl
+	call DrawWorldMenuSelection
+	pop hl
+	ld a,(WorldCount)
+	ld c,a
+	call WorldMenuKey
+	jr WorldMenuLoop
+WorldMenuKey
+	push hl
+	call Waitkey
+	pop hl
+	cp gUp
+	jr z,WorldMenuUp
+	cp gDown
+	jr z,WorldMenuDown
+	cp gLeft
+	jr z,WorldMenuLeft
+	cp gRight
+	jr z,WorldMenuRight
+	cp g2nd
+	jr z,WorldMenuEnter
+	cp gEnter
+	jr z,WorldMenuEnter
+	
+	cp gClear
+	jp z,Quit
+	ret
+WorldMenuUp:
+	ld a,(hl)
+	sub 1
+	jr c,WorldMenuToLast
+	ld (hl),a
+	and 7
+	cp 7
+	jr z,ListWorlds
+	ret
+WorldMenuToLast:
+	ld a,c
+	dec a
+	ld (hl),a
+	jr ListWorlds
+
+WorldMenuDown:
+	ld a,(hl)
+	add a,1
+	cp c
+	jr nc,WorldMenuToFirst
+	ld (hl),a
+	and 7
+	jr z,ListWorlds
+	ret
+WorldMenuToFirst:
+	ld (hl),0
+	jr ListWorlds
+
+WorldMenuLeft:
+	ld a,(hl)
+	and %11111000
+	sub 8
+	jr c,WorldMenuToLastPage
+	ld (hl),a
+	jr ListWorlds
+WorldMenuToLastPage:
+	ld a,c
+	dec a
+	and %11111000
+	ld (hl),a
+	jr ListWorlds
+WorldMenuRight:
+	ld a,(hl)
+	and %11111000
+	add a,8
+	cp c
+	jr nc,WorldMenuToFirst
+	ld (hl),a
+	jr ListWorlds
+
+DrawWorldMenuSelection:
+	ld a,(hl)
+	push af
+	call copyapd
+	pop af
+
+	and 7
+	inc a
+	ld b,a
+	ld hl,plotsscreen+screenwidth
+	ld de,7*screenwidth
+selectionmult7loop:
+	add hl,de
+	djnz selectionmult7loop
+	ld b,7
+	ld de,screenwidth-4
+InvertWorldMenuItemLoop:
+	push bc
+	ld b,4
+InvertWorldMenuItemLoop2:
+	ld a,(hl)
+	cpl
+	ld (hl),a
+	inc hl
+	djnz InvertWorldMenuItemLoop2
+	add hl,de
+	pop bc
+	djnz InvertWorldMenuItemLoop
+	jp ionFastCopy
+
+ListWorlds:
+	call ShowSelectWorld
+	call ListWorlds2
+	jp copy2apd
+ListWorlds2:
+
+	ld de,$0800
+	ld (pencol),de
+	
+	ld a,(onworld)
+	and %11111000
+	call SeekToWorld
+	
+ListWorldLoop:
+	ret nz
+	push bc
+	push hl
+	call DispProgName
+	pop hl
+	pop bc
+	;inc which level is being listed (for comparing to total)
+	inc c
+	ld a,c
+	;check if A==A&%11111000
+	and %11111000
+	cp c
+	ret z
+	;seek the next world
+	call SeekWorld
+	jr ListWorldLoop
+
+DispProgName:
+;#ifdef TI82
+#IFDEF TI86
+	ld hl,op1
+#else
+	ld hl,op1+1
+#endif
+	bcall(_vputs)
+
+	ld hl,pencol
+	ld (hl),0
+	inc hl
+	ld a,(hl)
+	add a,7
+	ld (hl),a
+
+	ret
+;#else
+;	ld b,10
+;	ld a,-1
+;FindProgNameLoop
+;	dec b
+;	ret z
+;	inc hl
+;	inc a
+;	cp (hl)
+;	jr nz,FindProgNameLoop
+;	ld b,a
+;DispProgNameLoop:
+;	dec hl
+;	push bc
+;	push hl
+;	ld a,(hl)
+;	bcall(_vputmap)
+;	pop hl
+;	pop bc
+;	djnz DispProgNameLoop
+;DPNNextLine:
+;	ld hl,pencol
+;	ld (hl),0
+;	inc hl
+;	ld a,(hl)
+;	add a,7
+;	ld (hl),a
+;	ret
+;#endif	
+	
+	
+	
+	
+
+
+
+
+
+	
+ShowSelectWorld:
+	call DrawShiftedTitleScreen
+	call DrawText
+	.dw tSelectWorld
+	ret
+;	jp ionfastcopy
+
+#IFDEF TI82
+#define FINDINIT call FIND_INIT
+IonDetect:
+AceDetect:
+;	di \ halt
+	call FIND_NEXT
+	jr c,AceNotFound
+	inc de
+	inc de
+	push ix
+	pop hl
+	call StrCmp
+	jr nz,AceDetect
+	ex de,hl
+	xor a
+	ret
+AceNotFound:
+	xor a
+	inc a
+	ret
+
+#else
+#IFNDEF TI86
+#define FINDINIT ld hl,(progptr)
+#else
+#define FINDINIT ld hl,$BFFF
+#endif ;ti86
+
+#endif ;ti82
+
+CountWorlds:
+	FINDINIT
+	ld c,0
+CountWorldLoop:
+	call SeekWorld
+	jr nz,CountFinished
+	inc c
+	jr CountWorldLoop
+CountFinished:
+	ld a,c
+	ld (WorldCount),a
+	or a
+	ret
+
+SeekFirstWorld:
+	FINDINIT
+SeekWorld:
+	push bc
+	ld ix,SearchString
+	call iondetect
+	ex de,hl
+#IFNDEF TI82
+#IFNDEF TI86
+	push af
+	push hl
+	push de
+	call StoreProgNameIntoOp1
+	pop de
+	pop hl
+	pop af
+#endif
+#ENDIF
+	pop bc
+	ret
+
+SeekToWorld:
+	FINDINIT
+SeekToWorldEntry:
+	ld c,a
+	inc a
+	ld b,a
+SeekToWorldLoop:
+	call seekworld
+	ret nz
+	djnz SeekToWorldLoop
+	ret
+
+;	ld hl,tSelectWorld
+	
+	
+#IFNDEF TI82
+StoreProgNameIntoOp1
+	ld b,10
+	ld a,-1
+FindProgNameLoop
+	dec b
+	ret z
+	inc hl
+	inc a
+	cp (hl)
+	jr nz,FindProgNameLoop
+	push hl
+	inc hl
+	inc hl
+	inc hl
+	ld b,a
+	ld a,(hl)
+	ld de,op1
+	ld (de),a
+	pop hl
+StoreProgNameLoop:
+	dec hl
+	inc de
+	ld a,(hl)
+	ld (de),a
+	djnz StoreProgNameLoop
+	inc de
+	xor a
+	ld (de),a
+	ret
+#ENDIF
+	
+
+	
+#ENDIF
+
+
+
+#IFDEF CRASH
+FIND_INIT:
+	ld hl,symtable
+	ld (TableEntry),hl
+	ret
+
+FIND_NEXT:
+	ld hl,(TableEntry)
+	ld bc,(ptemp)
+	inc bc
+Findvatloop1:
+	ld a,(hl)
+	dec hl
+	ld e,(hl)
+	dec hl
+	ld d,(hl)
+	dec hl
+	and $0F
+	sbc hl,bc
+	ret c
+	add hl,bc
+	cp $05
+	jr z,FoundAProg
+	cp $06
+	jr z,FoundAProg
+	dec hl
+	dec hl
+	dec hl
+	jr Findvatloop1
+FoundAProg:
+	push de
+	ld de,op1
+	ld (de),a
+	inc de
+	ld b,(hl)
+	dec hl
+CopyProgNameToOP1:
+	ld a,(hl)
+	ld (de),a
+	dec hl
+	inc de
+	djnz CopyProgNameToOP1
+	xor a
+	ld (de),a
+	ld de,(TableEntry)
+	ld (TableEntry),hl
+	ex de,hl
+	pop de
+	ret
+
+TableEntry: .dw 0
+
+
+;_chkfindsym:
+;	call FIND_INIT
+;	ld hl,op1
+;	ld de,op2
+;	ld bc,11
+;	ldir
+;findsymloop:
+;	call FIND_NEXT
+;	ret c
+;	push de
+;	push hl
+;	ld de,op1
+;	ld hl,op2
+;	call strcmp
+;	pop hl
+;	pop de
+;	ret z
+;	jr FindSymLoop
+	
+
 #ENDIF

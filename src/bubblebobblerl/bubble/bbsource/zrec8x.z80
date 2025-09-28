@@ -40,6 +40,24 @@
 ;
 ;============================================================================
 
+#ifdef TI86
+link1 = $1
+link2 = $2
+link3 = $3
+linkD4 = $D4
+linkE8 = $E8
+linkC0 = $C0
+link_port = 7
+#endif
+#ifdef TI85
+link1 = $1
+link2 = $2
+link3 = $3
+linkD4 = $D4
+linkE8 = $E8
+linkC0 = $C0
+link_port = 7
+#endif
 #ifdef TI82
 link1 = $1
 link2 = $2
@@ -47,6 +65,7 @@ link3 = $3
 linkD4 = $D4
 linkE8 = $E8
 linkC0 = $C0
+link_port = 0
 #endif
 #ifdef TI83
 link1 = $4
@@ -55,6 +74,7 @@ link3 = $C
 linkD4 = $D1
 linkE8 = $D2
 linkC0 = $D0
+link_port = 0
 #endif
 #ifdef TI83P
 link1 = $1
@@ -63,6 +83,7 @@ link3 = $3
 linkD4 = $1
 linkE8 = $2
 linkC0 = $0
+link_port = 0
 #endif
 #ifdef TI73
 link1 = $1
@@ -71,33 +92,29 @@ link3 = $3
 linkD4 = $1
 linkE8 = $2
 linkC0 = $0
+link_port = 0
 #endif
 
+LinkActivity:  ;returns Z if link is inactive
+        in      a,(link_port)           ; check for link activity
+        and     link3
+        sub     link3
+        ret
 GetByte:
 
 ;#IFDEF TI83P
-;;bit 7 of port 2. If it's set it's an SE.
-;	in a,(2)
-;	and 128
-;	jr z,receiveByte
-;	
 ;  AppOnErr(GetByteError)
-;	
-;	
-;;	IN (0x09), A
-;;	AND 0x38
-;	
 ;  bcall(_recabyteio)
 ;  ld (op4),a
 ;  AppOffErr
-;  
 ;  ld a,(op4)
+;  or a
 ;  ret
 ;GetByteError:
 ;	xor a
 ;;	scf
 ;	ret
-;#ENDIF
+;#else
 receiveByte:
 	ld	b,8
 receiveByteLoop:
@@ -107,7 +124,7 @@ receiveBitLoop1:
 	ld	a,h
 	or	l
 	ret	z
-	in	a,(0)
+	in	a,(link_port)
 	and	link3
 	cp	link3
 	jr	z,receiveBitLoop1
@@ -121,20 +138,21 @@ receiveBit0:
 	ld  d,link1
 receiveBit:
 	rr	c
-	out	(0),a
+	out	(link_port),a
 	ld	hl,0
 receiveBitLoop2:
 	dec	hl
 	ld	a,h
 	or	l
 	jr	z,receiveQuit
-	in	a,(0)
+	in	a,(link_port)
 	and	d
 	jr	z,receiveBitLoop2
 receiveQuit:
 	ld	a,linkc0
-	out	(0),a
+	out	(link_port),a
 	ret	z
 	djnz	receiveByteLoop
 	ld	a,c
 	ret
+;#endif

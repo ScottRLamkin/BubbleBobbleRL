@@ -4,55 +4,27 @@ KillLinkAssist:
 ;	and %10000000
 ;	ret z
 ;  ld a,%10000000
-  out (8),a
-  ret
+;  out (8),a
+;  ret
 RestoreLinkAssist:
 ;	in a,(2)
 ;	and %10000000
 ;	ret z
-	xor a
-  out (8),a
+;	xor a
+;  out (8),a
   ret
 #ENDIF
 
 
 NewLinkGameScreen:
 	call blackscreen
-
-#IFNDEF LESSTEXT	
-	ld de,2*256+31
-	ld hl,tLink0
-	call fastvputs
-
-	ld de,14*256+2
-	ld hl,tLink1
-	call fastvputs
-
-	ld de,20*256+2
-	ld hl,tLink2
-	call fastvputs
-
-	ld de,35*256+2
-	ld hl,tLink3
-	call fastvputs
-
-	ld de,41*256+2
-	ld hl,tLink4
-	call fastvputs
-
-	ld de,47*256+2
-	ld hl,tLink5
-	call fastvputs
-
-	ld de,53*256+2
-	ld hl,tLink6
-	call fastvputs
-#ELSE
-	ld de,0*256+1
-	ld hl,tLink0
-	call fastvputs
-#ENDIF
+	call DrawText
+	.dw tLink0
 	
+#IFNDEF LESSTEXT
+	call DrawText
+	.dw tLink2
+#ENDIF	
 	jp ionfastcopy
 
 CheckForClear:
@@ -64,6 +36,15 @@ CheckForClear:
 	in a,(1)
 	cp KClear
 	jp z,Quit
+#IFDEF WIDE16
+	ld a,255
+	out (1),a
+	ld a,KeyRow_Top
+	out (1),a
+	in a,(1)
+	cp KMode
+	jp z,Quit
+#endif
 	ret
 
 
@@ -77,9 +58,26 @@ LinkErrorQuit:
 	jp SaveAndQuit
 
 NewLinkGame:
+
+#IFDEF TI83P
+	in a,(2)
+	bit 7,a
+	jr z,dontdisplaywarning ;TI83+ not SE
+	call blackscreen
+	call DrawText
+	.dw tNoWorky
+	call ionfastcopy
+	call waitkey
+	
+	
+dontdisplaywarning:
+	
+#endif
+
+
 	;Set up game, send the I AM PLAYER 2 byte...
-	ld a,Linkver
-	call Sendbyte
+	call SendThis
+	.db Linkver
 
 ImPlayer1:	
 	call NewLinkGameScreen
@@ -103,19 +101,30 @@ LinkGameStarter:
 
 StartLinkGame:
 	
-	ld a,$c1
-	call Sendbyte
+	call SendThis
+	.db $c1
+;	ld a,$c1
+;	call Sendbyte
 	jp BubNewGame
+
+WaitGet:
+	call LinkActivity
+	ret nz
+	ei \ halt
+	call CheckForClear
+	jr WaitGet
 
 	
 WaitLink:
 ;	ld de,0
 WaitLinkLoop:
 ;	inc de
+	call WaitGet
 	call GetByte
-	ret nz
+	ret
+;	ret nz
 
-	call CheckForClear
+;	call CheckForClear
 ;Check for Clear
 ;	ld a,255
 ;	out (1),a
@@ -128,7 +137,7 @@ WaitLinkLoop:
 ;	ld a,e
 ;	or d
 ;	ret z
-	jp WaitLinkLoop
+;	jp WaitLinkLoop
 
 WaitSend:
 	ld e,a
@@ -152,6 +161,7 @@ WaitSendLoop:
 	jp WaitSendLoop
 
 SendSeed:
+#IFNDEF NEWRANDOM
 	ld a,(randdata1)
 	call sendbyte
 	ld hl,(randdata2)
@@ -161,9 +171,19 @@ SendSeed:
 	pop hl
 	ld a,h
 	call sendbyte
+#ELSE
+	ld hl,(RandSeed)
+	push hl
+	ld a,l
+	call sendbyte
+	pop hl
+	ld a,h
+	call sendbyte
+#ENDIF
 	ret
 	
 Getseed:
+#IFNDEF NEWRANDOM
 	call getbyte
 	ld (randdata1),a
 	call getbyte
@@ -173,25 +193,53 @@ Getseed:
 	pop hl
 	ld h,a
 	ld (randdata2),hl
+#ELSE
+	call GetByte
+	ld l,a
+	push hl
+	call GetByte
+	pop hl
+	ld h,a
+	ld (RandSeed),hl
+#endif
 	ret
 
 
 BubNewGame:
+;	ei \ halt
+;	TRACE("BUBNEWGAME")  ;DELETEME
 	call ResetGame
 	
 	ld a,1
 	ld (linkgame),a
 
+#IFDEF EXTERNAL
+	call SelectWorld
+;	ld a,(levelcount)
+;	call WaitSend
+#else
+#ifdef SENDLEVELS
+	ld a,level_count
+	ld (levelcount),a
+#endif
+#ENDIF
+
 	call SelectSuperGame
 
-	ld a,(supergame)
-	call WaitSend
+;	ld a,(supergame)
+;	call WaitSend
 
-	call SetInitalLevel
+	call SetInitialLevel
 		
 	push af
 		call WaitSend
-
+#IFDEF SENDLEVELS
+		ld a,(levelcount)
+		call sendbyte
+#ENDIF
+		ld a,(supergame)
+		call sendbyte
+		
 		call SendSeed
 	
 		ld a,10
@@ -203,7 +251,7 @@ BubNewGame:
 	;Load Level
 	call NewLevel
 	;Save level gfx
-	call DrawMap
+	call DisplayOverlay ;changed
 	call SwapAPD
 	
 	;Scroll the Display
@@ -222,41 +270,50 @@ BobNewGame:
 	;Display WAITING FOR LEVEL SELECTION
 	call Blackscreen
 
-	ld de,0
-	ld hl,tLink7
-	call fastvputs
-
-#IFNDEF LESSTEXT
-	ld de,8*256
-	ld hl,tLink8
-	call fastvputs
-
-	ld de,14*256
-	ld hl,tLink9
-	call fastvputs
-#ENDIF
+	call DrawText
+	.dw tLink7
+;	
+;	ld de,0
+;	ld hl,tLink7
+;	call fastvputs
+;
+;#IFNDEF LESSTEXT
+;	ld de,8*256
+;	ld hl,tLink8
+;	call fastvputs
+;
+;	ld de,14*256
+;	ld hl,tLink9
+;	call fastvputs
+;#ENDIF
 
 	call Ionfastcopy
 	call Copy2APD
 	
-	;Get selected level
-	call WaitLink
-	
-	ld (supergame),a
-
-	ld a,$BB
-	call sendbyte
-	
+	;Get initial level number
 	call WaitLink
 	push af
 	
-		ld a,$BB
-		call sendbyte
+	call sendthis
+	.db $BB
+;		ld a,$BB
+;		call sendbyte
+
+#IFDEF SENDLEVELS
+		;Get number of levels...
+		call getbyte
+		ld (levelcount),a
+#endif
+		;get super game status
+		call getbyte
+		ld (supergame),a
 
 		call Getseed
+
 	pop af
-	
-	call SetInitalLevel2
+
+
+	call SetInitialLevel2
 
 	
 	
@@ -267,7 +324,7 @@ BobNewGame:
 	;Load Level
 	call NewLevel
 	;Save level gfx
-	call DrawMap
+	call DisplayOverlay ;changed
 	call SwapAPD
 	
 	;Scroll the Display
@@ -288,11 +345,14 @@ Bobkeys:
 #IFDEF SUPPRESS
 	call WaitLink
 	cp $BB
-#ELSE
-	call Getbyte
-	cp $BB
-#endif
 	jp nz,LinkErrorQuit
+#ELSE
+	call GetThis2
+	.db $BB
+;	call Getbyte
+;	cp $BB
+;	jp nz,LinkErrorQuit
+#endif
 	call sendbyte
 	call SwapKeys
 	ld de,keys
@@ -310,13 +370,18 @@ Bubkeys:
 #ifdef SUPPRESS
 	ld a,$BB
 	call waitsend
-#ELSE
-	ld a,$BB
-	call sendbyte
-	call Getbyte
-	cp $BB
-#ENDIF
 	jp nz,LinkErrorQuit
+#ELSE
+	call SendThis
+	.db $BB
+;	ld a,$BB
+;	call sendbyte
+	call GetThis2
+	.db $BB
+;	call Getbyte
+;	cp $BB
+;	jp nz,LinkErrorQuit
+#ENDIF
 	ld de,keys
 	ld bc,7
 	call Sendblock
@@ -364,8 +429,10 @@ LinkWaitKey:
 	jp z,WaitKey
 	dec a
 	jr z,BubWaitKey
-	ld a,$BB
-	call Sendbyte
+	call SendThis
+	.db $BB
+;	ld a,$BB
+;	call Sendbyte
 	call WaitLink
 	push af
 	call Getseed
@@ -373,9 +440,11 @@ LinkWaitKey:
 	ret
 	
 BubWaitKey:
-	call GetByte
-	cp $BB
-	jp nz,LinkErrorQuit	
+	call GetThis2
+	.db $BB
+;	call GetByte
+;	cp $BB
+;	jp nz,LinkErrorQuit	
 	call Waitkey
 	push af
 	call SendByte
@@ -476,26 +545,17 @@ BubWaitKey:
 
 ResumeSync:
 	;Set up game, send the I AM PLAYER 2 byte...
-	ld a,-Linkver
-	call Sendbyte
+	call SendThis
+	.db -Linkver
+;	ld a,-Linkver
+;	call Sendbyte
 	call blackscreen
 
+	call DrawText
+	.dw tLink0
 #IFNDEF LESSTEXT
-	ld de,2*256+31
-	ld hl,tLink0
-	call fastvputs
-
-	ld de,14*256+1
-	ld hl,tLink1
-	call fastvputs
-
-	ld de,20*256+1
-	ld hl,tLink2b
-	call fastvputs
-#ELSE
-	ld de,0*256+1
-	ld hl,tLink0
-	call fastvputs
+	call DrawText
+	.dw tLink2b
 #ENDIF
 	
 	call ionfastcopy
@@ -512,8 +572,10 @@ ResumeSyncGame:
 	or a
 	jp z,StartLinkGame
 
-	ld a,$c2
-	call Sendbyte
+	call SendThis
+	.db $c2
+;	ld a,$c2
+;	call Sendbyte
 ResumeSync2:
 ;	call BlackScreen
 ;	ld hl,0
@@ -548,33 +610,153 @@ BobResume:
 	ld a,2
 	ld (linkgame),a
 	
-	call GetByte
-	cp LinkVer
-	jp nz,LinkErrorQuit
-	ld a,$BB
-	call SendByte
+	call GetThis2
+	.db LinkVer
+;	call GetByte
+;	cp LinkVer
+;	jp nz,LinkErrorQuit
+	call SendThis
+	.db $BB
+;	ld a,$BB
+;	call SendByte
 	
 	call GetSeed
+#IFDEF SENDLEVELS
+	call GetThis2
+	.db 42
+#ENDIF
+
 	
 	jp ResumeSyncDone
 
 BubResume:
 	ld a,(linkgame)
 	call sendbyte
-	call getbyte
-	cp 2
-	jp nz,LinkErrorQuit
+	call GetThis2
+	.db 2
+;	call getbyte
+;	cp 2
+;	jp nz,LinkErrorQuit
 	
 	pop de
 	pop bc
 	call SendBlock
 
-	ld a,linkver
-	call SendByte
-	call GetByte
-	cp $BB
-	jp nz,LinkErrorQuit
+	call SendThis
+	.db linkver
+;	ld a,linkver
+;	call SendByte
+	call GetThis2
+	.db $BB
+;	call GetByte
+;	cp $BB
+;	jp nz,LinkErrorQuit
 	
 	call SendSeed
+
+#IFDEF EXTERNAL
+	call ReloadWorld
+	jr nc, LinkReloadGood
+	call SendThis
+	.db $FB
+;	ld a,$FB
+;	call sendbyte
+	jp linkerrorquit
+#ENDIF
+#IFDEF SENDLEVELS
+LinkReloadGood
+	call SendThis
+	.db 42
+#ENDIF
 	
 	jp ResumeSyncDone
+
+#IFDEF SENDLEVELS
+ReceiveLevel:
+	call WaitLink
+	cp 69
+	jp nz,LinkErrorQuit
+	call SendThis
+	.db $BB
+	ld hl,Plotsscreen
+	push hl
+ReceiveLevelLoop:
+		push hl
+			call getbyte
+		pop hl
+		ld (hl),a
+		inc hl
+		cp $FF
+		jr nz,ReceiveLevelLoop
+	pop hl
+	ret
+
+SendLevel:
+	push hl
+		push hl
+			ld a,69
+			call WaitSend
+		pop hl
+SendLevelLoop:
+		push hl
+			ld a,(hl)
+			call sendbyte
+		pop hl
+		ld a,(hl)
+		inc hl
+		cp $FF
+		jr nz,SendLevelLoop
+	pop hl
+	ret
+#endif	
+
+#IFDEF LOUDSEED
+GetSpriteTableChecksum
+	ld de,SpriteTable
+	ld bc,SpriteTotal*8
+;	jp GetChecksum
+	
+
+
+GetCheckSum:
+	ld hl,0
+GetCheckSumLoop:
+	push bc
+	ld a,(de)
+	ld b,0
+	ld c,a
+	add hl,bc
+	pop bc
+	inc de
+	dec bc
+	ld a,b
+	or c
+	jr nz,GetCheckSumLoop
+	ret
+
+
+
+
+#ENDIF
+
+SendThis:
+	ex (sp),hl
+	ld a,(hl)
+	inc hl
+	ex (sp),hl
+	jp sendbyte
+GetThis2:
+	call GetByte
+	ex (sp),hl
+	cp (hl)
+	inc hl
+	ex (sp),hl
+	jp nz,LinkErrorQuit
+	ret
+;GetThis:
+;	call GetByte
+;	ex (sp),hl
+;	cp (hl)
+;	inc hl
+;	ex (sp),hl
+;	ret

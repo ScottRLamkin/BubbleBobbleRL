@@ -1,11 +1,3 @@
-;Information About 'Level':
-;==============================
-;   384 bytes, 1 byte>tile
-;
-;   0=wall, 1-4 = airspace
-;1= Up, 2=Left, 3=Right, 4=Down
-;==============================
-
 level = saferam2
 map = level
 
@@ -29,9 +21,12 @@ SavedFlag = P2keys+7
 StartLevel = SavedFlag+1
 ContinueLevel = SavedFlag+2
 TodaysRecord = SavedFlag+3
+TodaysRecordSuper = SavedFlag+4
+SuperUnlocked = SavedFlag+5
+SuperGame = SavedFlag+6
 
-RandData = SavedFlag+4
-Vars = RandData+2
+RandSeed = SavedFlag+7
+Vars = RandSeed+2
 
 ScoreUpdateFlag = Vars
 
@@ -90,12 +85,24 @@ backuphl = op1
 
 EndOfVars = Barron+1
 
-SuperGame = EndOfVars
-Halts = SuperGame+1
+#IFDEF EXTERNAL
+WorldCount = EndOfVars
+OnWorld = WorldCount+1
+MapRoot = OnWorld+1
+LevelCount = MapRoot+2
+LoadedMap = LevelCount+1
+Halts = LoadedMap+10
+#ELSE
+Halts = EndOfVars
+#ENDIF
 
 
 HighScoreTable = EndOfVars+200
+#IFDEF WIDESCORES
+EndOfHighScores = HighScoreTable + 87
+#ELSE
 EndOfHighScores = HighScoreTable + 61
+#ENDIF
 
 AppVarLen = EndOfHighScores-UserMem
 

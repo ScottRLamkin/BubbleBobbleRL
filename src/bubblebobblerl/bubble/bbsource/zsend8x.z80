@@ -32,15 +32,12 @@
 
 SendByte:
 ;#IFDEF TI83P
-;	push af
-;	in a,(2)
-;	and 128
-;	jr z,SendBytev
-;	pop af
-;
+;  ld (op4),a
 ;  AppOnErr(SendByteError)
+;  ld a,(op4)
 ;  bcall(_Sendabyte)
 ;  AppOffErr
+;  ld a,(op4)
 ;  or a
 ;  ret
 ;SendByteError:
@@ -49,7 +46,7 @@ SendByte:
 ;
 ;SendByteV:
 ;	pop af
-;#ENDIF
+;#ELSE
 	ld	b,8
 	ld	c,a
 vnSendByteLoop:
@@ -61,20 +58,20 @@ vnSendBit1:
 	ld  a,linkE8
 vnSendBit:
 	ld	hl,0
-	out	(0),a
+	out	(link_port),a
 vnSendBitLoop1:
 	dec	hl
 	ld	a,l
 	or	h
 	jr	z,vnSendQuit
-	in	a,(0)
+	in	a,(link_port)
 	and	link3
 	jr	nz,vnSendBitLoop1
 	ld	l,a
 vnSendQuit:
 	or	h
 	ld	a,linkC0
-	out	(0),a
+	out	(link_port),a
 	ret	z
 	ld	h,l
 vnSendBitLoop2:
@@ -82,9 +79,10 @@ vnSendBitLoop2:
 	ld	a,h
 	or	l
 	ret	z
-	in	a,(0)
+	in	a,(link_port)
 	and	link3
 	cp	link3
 	jr	nz,vnSendBitLoop2
 	djnz	vnSendByteLoop
 	ret
+;#ENDIF
