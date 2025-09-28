@@ -1,0 +1,334 @@
+#ifdef ENDING
+Ending:
+;INSERT handle which ending here...
+	ld hl,SpriteTable
+	ld de,SpriteTable+1
+	ld bc,EndOfSprites-SpriteTable-1
+	ld (hl),0
+	ldir
+	ld hl,0
+	ld (timer),hl
+	;make the trapped girls
+	ld bc,256*0 + 3
+	ld a,$80
+	call createsprite
+	ld c,69
+	call createsprite
+	inc (ix+3)
+	;make the bubble dragons
+	ld bc,256*200+31
+	ld a,$87
+	call createsprite
+	ld c,49
+	ld a,$86
+	call createsprite
+	
+	ld de,endingtile
+	call newpattern
+	
+	ld hl,map
+	ld de,map+1
+	ld bc,24*15
+	ld (hl),1
+	ldir
+	ld (hl),0
+	ld bc,24-1
+	ldir
+	call drawmap
+	call drawendsprites
+	call swapscroll
+	call drawmap
+	call copy2apd
+EndingLoop:
+	call copyapd
+	call readkeys
+	call handleendsprites
+	call drawendsprites
+	ld de,0
+	ld (pencol),de
+	ld hl,(timer)
+	call vdisphl
+	call ionfastcopy
+	jr EndingLoop
+
+;=======================
+;    HandleEndEnemies  
+;=======================
+;Checks if enemy is 0, otherwise calls HandleEnemy
+HandleEndsprites:
+	;Increment Internal Timer
+	ld hl,(timer)
+	inc hl
+	ld (timer),hl
+	;Start at entry -1
+	ld ix,spritetable-8
+	;Set up sprite counterz
+	ld b,SpriteTotal+1
+HandleEndspritesLoop:
+	;Count down, quit when done
+	dec b
+	ret z
+	;Next Sprite
+	ld de,8
+	add ix,de
+	;Get Sprite
+	ld a,(ix+3)
+	or a
+	;If 0 (nothing) then ignore
+	jp z,HandleEndspritesLoop
+	;Otherwise save regs and call HandleEnemy
+	push bc
+	push ix
+	call HandleEndsprite
+	pop ix
+	pop bc
+	;Loop
+	jp HandleEndspritesLoop
+
+HandleEndSprite:
+	push ix
+	pop hl
+	ld d,h
+	ld e,l
+	inc de
+	
+	ld a,(ix+3)
+	cp $80
+	jr z,handletrappedgirl
+	cp $81
+	jr z,handletrappedgirl2
+	cp $87
+	jp z,handleendbub
+	cp $86
+	jp z,handleendbob
+	cp $88
+	jp z,handleendgirl
+	cp $90+break
+	jp z,handleEndPop
+	ret
+HandleTrappedGirl2:
+	set 0,(ix+7)
+	ld de,TrappedGrilCircleTable2
+	jr HandleTrappedGirlShared
+HandleTrappedGirl:
+	ld de,TrappedGrilCircleTable
+HandleTrappedGirlShared:
+	ex de,hl
+	
+	bit 7,(ix+7)
+	jr nz,PopTrappedGirl
+	
+	ld a,(timer)
+	and 1
+	ret nz
+	
+	ld a,(ix+4)
+	add a,2
+	and 30
+	ld (ix+4),a
+	ld b,0
+	ld c,a
+	add hl,bc
+	
+	ld a,(de)
+	add a,(hl)
+	ld (de),a
+	inc hl
+	inc de
+	ld a,(de)
+	add a,(hl)
+	ld (de),a
+	ret
+	
+PopTrappedGirl:
+	ld (ix+2),$90+break
+	ld (ix+3),$90+break
+	ld a,(de)
+	add a,4
+	ld (de),a
+	inc de
+	ld a,(de)
+	add a,4
+	ld (de),a
+	bit 0,(ix+7)
+	ret
+EndBubGravity:
+	ex de,hl
+	ld a,(hl)
+	cp 64-4-16
+	ret z
+	inc (hl)
+	pop af
+	ret
+
+HandleEndPop:
+	inc (ix+5)
+	ld a,(ix+5)
+	cp 16
+	ret c
+	xor a
+	ld (ix+4),a
+	ld (ix+5),a
+	ld a,$88
+	ld (ix+2),a
+	ld (ix+3),a
+	bit 0,(ix+7)
+	ret z
+	inc (ix+2)
+	ret
+
+Checktimer200:
+	ex de,hl
+	push hl
+	ld hl,(timer)
+	ld a,l
+	ld bc,200
+	sbc hl,bc
+	pop hl
+	ret nc
+	pop af
+	ret
+
+HandleEndBub:
+	call EndBubGravity
+	set 7,(ix-16+7)
+	call CheckTimer200
+	and 1
+	ret nz
+	ld a,(ix+4)
+	cp 10
+	jr nc,Skipphase1
+	bit 0,(ix+7)
+	jr z,HEBDecHLInstead
+	inc (hl)
+	jr HEBSkipDECHL
+HEBDecHLInstead:
+	dec (hl)
+HEBSkipDECHL:
+	inc (ix+4)
+SkipPhase1:
+	
+	ret
+HandleEndBob:
+	set 0,(ix+7)
+	jr HandleEndBub
+HandleEndGirl:
+	call EndBubGravity
+	call CheckTimer200
+	and 1
+	ret nz
+	ld a,(ix+4)
+	cp 5
+	jr c,HEGJustIncIX4
+	cp 10
+	jr nc,HEGSkipphase1
+	
+	bit 0,(ix+7)
+	jr z,HEGDecHLInstead
+	inc (hl)
+	jr HEGJustIncIX4
+HEGDecHLInstead:
+	dec (hl)
+HEGJustIncIX4:
+	inc (ix+4)
+	ret
+HEGSkipPhase1:
+	ret
+
+DrawEndSprites:
+	ld hl,SpriteTable
+	ld b,SpriteTotal
+DrawEndSpritesLoop:
+	;Get Sprite
+	push bc
+	xor a
+	ld b,(hl)
+	inc hl
+	ld c,(hl)
+	inc hl
+	push hl
+	ld l,(hl)
+	ld h,a
+	or l
+	jr z,SkipEndDisp
+	cp $80
+	jr z,DrawTrappedGirl
+	jr c,DrawEndNormalsprite
+	
+	ld (bigspritey),bc
+	cp $90
+	jr c,DrawEndBuiltinLargeSprite
+	
+DrawEndNormalsprite:
+	add hl,hl   ;mult by 8
+	add hl,hl
+	add hl,hl
+	ld de,Player
+	add hl,de
+	cp $80
+	jr nc,DrawEndStretchedSprite
+	
+	call PutSprClpAnd
+SkipEndDisp:
+	pop hl
+	ld bc,6
+	add hl,bc
+	pop bc
+	djnz DrawEndSpritesLoop
+	ret
+DrawEndBuiltinLargeSprite:
+	sub $80
+	ld b,a
+	ld hl,SuperDrunkGFX-32
+	ld de,32
+DRAWENDmult16loop:
+	add hl,de
+	djnz DRAWENDmult16loop
+	ld bc,32
+	ld de,bigsprite
+	ldir
+DispEndBigsprite:
+	call Disp16sprite
+	jr SkipEndDisp
+DrawEndStretchedSprite:
+	ld de,-(8*$90)
+	add hl,de
+	ld de,bigsprite
+	call stretch
+	jr DispEndBigsprite
+
+DrawTrappedGirl:
+	ld a,b
+	ld l,c
+	ld bc,24*256 + 3
+	ld ix,GirlTrapped
+	call ionlargesprite
+	jr SkipEndDisp
+	
+#ELSE
+Ending:
+#ENDIF
+;================
+;    Bad End!
+;================
+BadEnd:
+#IFDEF HIGHSCORE
+	call DoHighScore
+#ENDIF
+	call BlackScreen
+	ld a,1
+	ld (SuperUnlocked),a
+	
+	call DrawText
+	.dw tBadEnd1
+;	
+;	ld de,10*256+30
+;	ld hl,tBadEnd1
+;	call FastVputs
+;	ld de,21*256+8
+;	ld hl,tBadEnd2
+;	call FastVputs
+	call SwapScroll
+	call WaitKey
+	jp Quit
+
