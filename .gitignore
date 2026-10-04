@@ -212,3 +212,4 @@ src/bubblebobblerl/bubble/.DS_Store
 runs/
 *.gif
 .claude/settings.local.json
+exports/
