@@ -208,3 +208,7 @@ __marimo__/
 
 *.DS_Store
 src/bubblebobblerl/bubble/.DS_Store
+# Training outputs and local settings
+runs/
+*.gif
+.claude/settings.local.json

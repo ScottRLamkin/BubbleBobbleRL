@@ -1,29 +1,38 @@
 [project]
 name = "bubblebobblerl"
-version = "0.1.0"
-description = "Get Started with RL algorithms with the game Bubble Bobble"
+version = "0.2.0"
+description = "Gymnasium RL environment for DWedit's calculator Bubble Bobble"
 readme = "README.md"
 authors = [
     { name = "ScottRLamkin", email = "scott@example.com" }
 ]
-requires-python = ">=3.8"
-dependencies = []
+requires-python = ">=3.10"
+dependencies = [
+    "gymnasium>=1.1.1",
+    "numpy>=1.24.4",
+]
 license = {file = "LICENSE"}
-keywords = ["reinforcement-learning", "bubble-bobble", "rl", "game"]
+keywords = ["reinforcement-learning", "bubble-bobble", "rl", "game", "gymnasium"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
 
+[project.optional-dependencies]
+play = ["pygame>=2.5"]
+train = ["torch>=2.2", "tensorboard>=2.15"]
+
+[dependency-groups]
+dev = ["pytest>=8", "imageio>=2.34"]
+
 [project.scripts]
 bubblebobblerl = "bubblebobblerl:main"
+bubblebobblerl-play = "bubblebobblerl.play:main"
 
 [build-system]
 requires = ["uv_build>=0.8.22,<0.9.0"]
