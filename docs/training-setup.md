@@ -122,6 +122,8 @@ All runs are 2M steps.
 | All levels, time penalty 0.002 (`ppo_state_all`) | 0 | 61 | 39 |
 | All levels, same, no pop reward (`ppo_state_all_nopop`) | 1 | 91 | 8 |
 | All levels, time penalty 0.002, **50M steps** (`ppo_state_all_50M`) | 29 | 19 | 52 |
+| Same model, greedy playback (`--greedy`) | 18 | 14 | 68 |
+| All levels, 50M steps, decaying learning rate (`ppo_state_all_50M_anneal`) | 15 | 26 | 59 |
 
 Multi-level training fails at 2M steps (about 20k per level) and works at
 50M. The 2M `ppo_state_all` agent dies in the first seconds of most episodes;
@@ -132,3 +134,13 @@ steps and then hovered around 50. Under training conditions (4-minute limit)
 it clears 37 of 200 episodes, dies in 92 and runs out the clock in 71, so
 finishing levels rather than surviving and collecting points is the remaining
 weakness.
+
+Decaying the learning rate (`--anneal-lr`) raised the reward but lowered the
+clear rate: under training conditions the annealed agent averages a return of
+61.9 against 55.4, yet clears 18 of 200 episodes against 37 and runs out the
+clock in 97 against 71. It is better at what the reward pays for, which is
+staying alive and collecting points for four minutes, not finishing levels.
+Each configuration was run once, so differences this size are not firm.
+
+Greedy playback (always the most likely action) does worse than sampling on
+the same model, so sampling stays the default.

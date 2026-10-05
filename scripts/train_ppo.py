@@ -40,6 +40,7 @@ def parse_args():
     p.add_argument("--num-envs", type=int, default=16)
     p.add_argument("--rollout-len", type=int, default=128)
     p.add_argument("--lr", type=float, default=2.5e-4)
+    p.add_argument("--anneal-lr", action="store_true", help="decay lr linearly to 0")
     p.add_argument("--gamma", type=float, default=0.99)
     p.add_argument("--gae-lambda", type=float, default=0.95)
     p.add_argument("--clip", type=float, default=0.1)
@@ -50,6 +51,7 @@ def parse_args():
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--run-name", default=None)
     p.add_argument("--play", default=None, help="path to a model.pt to watch")
+    p.add_argument("--greedy", action="store_true", help="with --play: most likely action, no sampling")
     return p.parse_args()
 
 
@@ -117,16 +119,16 @@ class Agent(nn.Module):
     def value(self, x):
         return self.critic(self._encode(x)).squeeze(-1)
 
-    def action_value(self, x, action=None):
+    def action_value(self, x, action=None, greedy=False):
         hidden = self._encode(x)
         logits = self.actor(hidden)
         dist = torch.distributions.Categorical(logits=logits)
         if action is None:
-            action = dist.sample()
+            action = logits.argmax(-1) if greedy else dist.sample()
         return action, dist.log_prob(action), dist.entropy(), self.critic(hidden).squeeze(-1)
 
 
-def watch(model_path: str, level: int, obs: str):
+def watch(model_path: str, level: int, obs: str, greedy: bool = False):
     env = gym.make("BubbleBobble-v0", level=level, obs_type=obs)
     agent = Agent(env.observation_space, env.action_space.n)
     agent.load_state_dict(torch.load(model_path, map_location="cpu"))
@@ -140,7 +142,7 @@ def watch(model_path: str, level: int, obs: str):
     frames, total = [], 0.0
     for _ in range(3000):
         with torch.no_grad():
-            a, *_ = agent.action_value(torch.as_tensor(o[None]))
+            a, *_ = agent.action_value(torch.as_tensor(o[None]), greedy=greedy)
         o, r, term, trunc, info = env.step(int(a))
         total += r
         if iio:
@@ -156,7 +158,7 @@ def watch(model_path: str, level: int, obs: str):
 def main():
     args = parse_args()
     if args.play:
-        watch(args.play, args.level, args.obs)
+        watch(args.play, args.level, args.obs, args.greedy)
         return
 
     levels = parse_levels(args.levels) if args.levels else None
@@ -205,6 +207,9 @@ def main():
     ep_returns: list[float] = []
 
     while global_step < args.total_steps:
+        if args.anneal_lr:
+            frac = max(0.0, 1.0 - global_step / args.total_steps)
+            optimizer.param_groups[0]["lr"] = frac * args.lr
         for t in range(args.rollout_len):
             global_step += args.num_envs
             obs_t[t] = next_obs

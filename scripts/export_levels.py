@@ -28,14 +28,14 @@ except ImportError:
 from train_ppo import Agent, parse_levels
 
 
-def play_episode(env, agent, level: int, seed: int, max_steps: int, scale: int):
+def play_episode(env, agent, level: int, seed: int, max_steps: int, scale: int, greedy: bool):
     torch.manual_seed(seed)
     o, _ = env.reset(seed=seed, options={"level": level})
     game = env.unwrapped.game
     frames, total = [draw_rgb(game, scale=scale)], 0.0
     for _ in range(max_steps):
         with torch.no_grad():
-            a, *_ = agent.action_value(torch.as_tensor(o[None]))
+            a, *_ = agent.action_value(torch.as_tensor(o[None]), greedy=greedy)
         o, r, term, trunc, info = env.step(int(a))
         total += r
         frames.append(draw_rgb(game, scale=scale))
@@ -89,6 +89,7 @@ def main() -> None:
     p.add_argument("--episodes", type=int, default=3)
     p.add_argument("--max-steps", type=int, default=600, help="agent steps per episode")
     p.add_argument("--scale", type=int, default=3)
+    p.add_argument("--greedy", action="store_true", help="most likely action, no sampling")
     p.add_argument("--out", default=None)
     args = p.parse_args()
 
@@ -103,7 +104,7 @@ def main() -> None:
     rows = []
     for level in parse_levels(args.levels):
         episodes = [
-            play_episode(env, agent, level, seed, args.max_steps, args.scale)
+            play_episode(env, agent, level, seed, args.max_steps, args.scale, args.greedy)
             for seed in range(args.episodes)
         ]
         best = max(episodes, key=lambda e: (e["cleared"], e["return"]))
