@@ -144,3 +144,58 @@ Each configuration was run once, so differences this size are not firm.
 
 Greedy playback (always the most likely action) does worse than sampling on
 the same model, so sampling stays the default.
+
+## Evolutionary fine-tuning (`scripts/evolve.py`)
+
+```mermaid
+flowchart TB
+    Base["baseline model<br/>ppo_state_all_50M"]
+    Plan["30 children per generation:<br/>copy a parent's weights and settings,<br/>mutate the settings"]
+    Train["fine-tune each child<br/>10M steps, all levels, 8 in parallel"]
+    Score["score children + parents + baseline<br/>100 levels x 5 episodes, 1-minute cap,<br/>same seeds, rank by episodes cleared"]
+    Select["keep the top 10,<br/>delete the other models"]
+    Base --> Plan --> Train --> Score --> Select
+    Select -- "next generation (3 total)" --> Plan
+```
+
+Settings that mutate: clear bonus, time penalty, pop reward on/off, death
+penalty, learning rate, entropy coefficient. Generation 1 also includes
+hand-picked variants (clear bonus 30/100, time penalty 0.01/0.03, pops off,
+and combinations).
+
+Run `overnight1` (3 generations, about 3 hours, 890M steps):
+
+| Generation | Best member (cleared / 500) | Baseline on the same seeds |
+|---|---|---|
+| 1 | 120 | 103 |
+| 2 | 129 | 93 |
+| 3 | 142 | 112 |
+
+Those "best" figures are picked as the maximum of about 40 models, so they are
+inflated. Re-scored on fresh seeds (100 levels x 10 episodes):
+
+| Model | Cleared / 1000 | Died | Timed out | Levels cleared at least once |
+|---|---|---|---|---|
+| Baseline (`ppo_state_all_50M`) | 217 | 317 | 466 | 43 |
+| Champion `g3m05` | 302 | 378 | 320 | 48 |
+| Runner-up `g3m15` | 268 | 349 | 383 | 48 |
+| Third `g3m21` | 245 | 335 | 420 | 45 |
+
+The champion is at `runs/evolve/overnight1/gen_03/g3m05/model.pt`.
+
+What the search found:
+
+- The winning line kept the baseline reward unchanged. Its only mutation was
+  a lower learning rate (1.5e-4 instead of 2.5e-4), followed by two unmutated
+  continuations. 8 of the final 10 survivors descend from that one
+  generation-1 child.
+- Turning the pop reward off was consistently among the worst choices
+  (39 to 71 of 500), and a clear bonus of 100 on its own also did badly (42).
+- A steep time penalty (0.03) won generation 1 but did not keep up. One
+  line with clear bonus about 32 and time penalty 0.01 survived to the end; it
+  times out least but dies most.
+- So the earlier guess that the reward settings were the bottleneck was not
+  borne out: more training at a lower learning rate, plus selection, gave the
+  gain.
+
+One generation-3 child failed when the disk filled up; it was skipped.
