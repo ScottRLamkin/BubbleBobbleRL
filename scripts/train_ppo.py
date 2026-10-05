@@ -29,12 +29,14 @@ except ImportError:
     raise SystemExit("torch is required: uv sync --extra train")
 
 
-def parse_args():
+def parse_args(argv: list[str] | None = None):
     p = argparse.ArgumentParser()
     p.add_argument("--level", type=int, default=1)
     p.add_argument("--levels", default=None, help='train on a pool, e.g. "1-100" or "1,5,20-30"')
     p.add_argument("--time-penalty", type=float, default=0.0, help="reward lost per step")
     p.add_argument("--no-pop-reward", action="store_true", help="no reward for bare bubble pops")
+    p.add_argument("--clear-bonus", type=float, default=10.0)
+    p.add_argument("--death-penalty", type=float, default=1.0)
     p.add_argument("--obs", choices=["state", "screen"], default="state")
     p.add_argument("--total-steps", type=int, default=2_000_000)
     p.add_argument("--num-envs", type=int, default=16)
@@ -50,9 +52,13 @@ def parse_args():
     p.add_argument("--vf-coef", type=float, default=0.5)
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--run-name", default=None)
+    p.add_argument("--run-dir", default=None, help="output directory (default runs/<run-name>)")
+    p.add_argument("--init-model", default=None, help="model.pt to fine-tune from")
+    p.add_argument("--no-tensorboard", action="store_true")
+    p.add_argument("--quiet", action="store_true", help="one progress line per ~1M steps")
     p.add_argument("--play", default=None, help="path to a model.pt to watch")
     p.add_argument("--greedy", action="store_true", help="with --play: most likely action, no sampling")
-    return p.parse_args()
+    return p.parse_args(argv)
 
 
 def parse_levels(spec: str) -> list[int]:
@@ -63,7 +69,7 @@ def parse_levels(spec: str) -> list[int]:
     return levels
 
 
-def make_env(level, levels, obs, time_penalty, reward_pops, seed):
+def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_penalty, seed):
     def thunk():
         env = gym.make(
             "BubbleBobble-v0",
@@ -72,6 +78,8 @@ def make_env(level, levels, obs, time_penalty, reward_pops, seed):
             obs_type=obs,
             time_penalty=time_penalty,
             reward_pops=reward_pops,
+            clear_bonus=clear_bonus,
+            death_penalty=death_penalty,
         )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env.reset(seed=seed)
@@ -155,22 +163,20 @@ def watch(model_path: str, level: int, obs: str, greedy: bool = False):
         print("wrote agent.gif")
 
 
-def main():
-    args = parse_args()
-    if args.play:
-        watch(args.play, args.level, args.obs, args.greedy)
-        return
-
+def train(args) -> Path:
+    """Run PPO with the given parsed args; returns the path of the saved model."""
     levels = parse_levels(args.levels) if args.levels else None
     run_name = args.run_name or f"ppo_{args.obs}_L{args.levels or args.level}_{int(time.time())}"
-    run_dir = Path("runs") / run_name
+    run_dir = Path(args.run_dir) if args.run_dir else Path("runs") / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
-    try:
-        from torch.utils.tensorboard import SummaryWriter
+    writer = None
+    if not args.no_tensorboard:
+        try:
+            from torch.utils.tensorboard import SummaryWriter
 
-        writer = SummaryWriter(str(run_dir))
-    except ImportError:
-        writer = None
+            writer = SummaryWriter(str(run_dir))
+        except ImportError:
+            pass
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -180,12 +186,15 @@ def main():
         [
             make_env(
                 args.level, levels, args.obs, args.time_penalty,
-                not args.no_pop_reward, args.seed + i,
+                not args.no_pop_reward, args.clear_bonus, args.death_penalty,
+                args.seed + i,
             )
             for i in range(args.num_envs)
         ]
     )
     agent = Agent(envs.single_observation_space, envs.single_action_space.n).to(device)
+    if args.init_model:
+        agent.load_state_dict(torch.load(args.init_model, map_location=device))
     optimizer = torch.optim.Adam(agent.parameters(), lr=args.lr, eps=1e-5)
 
     batch = args.num_envs * args.rollout_len
@@ -271,13 +280,26 @@ def main():
 
         sps = int(global_step / (time.time() - start))
         recent = np.mean(ep_returns[-20:]) if ep_returns else float("nan")
-        print(f"step {global_step:>9}  return(20ep) {recent:7.2f}  sps {sps}")
+        per_update = args.num_envs * args.rollout_len
+        if not args.quiet or global_step % 1_000_000 < per_update:
+            print(f"step {global_step:>9}  return(20ep) {recent:7.2f}  sps {sps}", flush=True)
         if writer:
             writer.add_scalar("charts/sps", sps, global_step)
         torch.save(agent.state_dict(), run_dir / "model.pt")
 
     envs.close()
+    if writer:
+        writer.close()
     print(f"saved {run_dir / 'model.pt'}")
+    return run_dir / "model.pt"
+
+
+def main():
+    args = parse_args()
+    if args.play:
+        watch(args.play, args.level, args.obs, args.greedy)
+        return
+    train(args)
 
 
 if __name__ == "__main__":
