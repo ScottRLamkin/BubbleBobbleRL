@@ -1,8 +1,10 @@
 # What the agent is trained on
 
-The current model (`runs/ppo_state_L1/model.pt`) was trained with
-`scripts/train_ppo.py` at its defaults: PPO, the structured **state**
-observation (not pixels), **level 1 only**, 2M agent steps.
+The best model so far (`runs/ppo_state_all_50M/model.pt`) was trained with
+`scripts/train_ppo.py`: PPO, the structured **state** observation (not
+pixels), a random level from all 100 each episode (`--levels 1-100`), time
+penalty 0.002, 50M agent steps. Earlier models trained on level 1 only for 2M
+steps; results for all of them are at the bottom.
 
 ## The interaction loop
 
@@ -16,34 +18,33 @@ flowchart LR
     end
     Agent["PPO agent<br/>(train_ppo.py)"]
     Agent -- "action: 1 of 9<br/>button combos" --> Env
-    Env -- "observation:<br/>552 floats" --> Agent
+    Env -- "observation:<br/>616 floats" --> Agent
     Env -- "reward:<br/>summed over 4 frames" --> Agent
     Env -- "terminated / truncated" --> Agent
 ```
 
 The agent picks one action every 4 game frames, so it acts at 15 Hz.
 
-## Observation: the 552-number state vector
+## Observation: the 616-number state vector
 
 Built in `BubbleBobbleEnv._obs` (`src/bubblebobblerl/env.py`). The agent never
 sees the picture; it reads the game's internal state directly.
 
 ```mermaid
 flowchart TB
-    Obs["state observation<br/>552 x float32"]
+    Obs["state observation<br/>616 x float32"]
     Obs --> P["Player: 8<br/>x, y, facing, jump mode,<br/>shoot cooldown, invincible,<br/>dead, enemies alive / 8"]
-    Obs --> G["Tile grid: 384<br/>16 rows x 24 cols,<br/>1 = wall, 0 = air"]
-    Obs --> E["Enemies: 80<br/>16 slots x 5:<br/>present, x, y, facing,<br/>angry / falling-in"]
+    Obs --> G["Tile grid: 384<br/>16 rows x 24 cols,<br/>0 = wall, 0.25 to 1 = air<br/>with up/left/right/down current"]
+    Obs --> E["Enemies: 96<br/>16 slots x 6:<br/>present, x, y, facing,<br/>angry / falling-in, kind"]
     Obs --> B["Bubbles: 80<br/>16 slots x 5:<br/>present, x, y,<br/>holds enemy, life left"]
+    Obs --> L["Loot: 32<br/>8 slots x 4:<br/>present, x, y, value<br/>(fruit and untaken pickups)"]
+    Obs --> F["Bubbles in flight: 16<br/>4 slots x 4:<br/>present, x, y, facing"]
 ```
 
-Things the game tracks that are **not** in the observation:
-
-- Fruit dropped by dead enemies, and the two static pickups per level. Fruit is
-  where most of the score comes from, and the agent cannot see it.
-- Bubbles still in flight (the "prebubble" phase before they start floating).
-- Air-current direction of each tile (only wall vs air is exposed).
-- Enemy kind.
+The first model (`runs/ppo_state_L1`, 552 inputs) had no loot, in-flight
+bubbles, enemy kind or air currents. It no longer loads with the current env.
+Still not in the observation: dead enemies mid-arc (about a quarter second
+before they become fruit).
 
 ## Actions
 
@@ -59,13 +60,18 @@ flowchart LR
     C["+0.1 per enemy<br/>captured in a bubble"] --> R
     D["-1.0 on death"] --> R
     L["+10 on level clear"] --> R
+    T["- time_penalty per step<br/>(default 0)"] --> R
 ```
+
+Two optional knobs, both off by default: `time_penalty` (stands in for the
+unimplemented hurry-up) and `reward_pops=False`, which stops paying the
+10 points per bare bubble pop or bounce, since those can be farmed forever.
 
 ## Episode lifecycle
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Playing: reset(), level 1, 1 life, random seed
+    [*] --> Playing: reset(), level 1 or random from pool, 1 life
     Playing --> Playing: step (4 game frames)
     Playing --> Cleared: last enemy killed, then 256-frame delay
     Playing --> Dead: touched by an enemy
@@ -75,8 +81,9 @@ stateDiagram-v2
     Truncated --> [*]: truncated
 ```
 
-One life and one level per episode. The agent has never seen levels 2 to 100
-during training.
+One life and one level per episode. With `levels=[...]` (script flag
+`--levels 1-100`) each reset draws a level from the pool; otherwise every
+episode is level 1.
 
 ## Training run
 
@@ -99,7 +106,29 @@ during training.
 |---|---|---|---|
 | Random | 1.46 | 185 | 1 / 20 |
 | Scripted hunter | 3.58 | 230 | 4 / 20 |
-| PPO, 2M steps | 23.05 | 1719 | 30 / 50 |
+| PPO, 2M steps, 552-input obs (`ppo_state_L1`) | 23.05 | 1719 | 30 / 50 |
+| PPO, 2M steps, 616-input obs (`ppo_state_L1_v2`) | 22.93 | 1660 | 32 / 50 |
 
-Return plateaued at about 400k steps. On the other 99 levels (never trained
-on), a best-of-3 export cleared 15.
+The richer observation made no measurable difference on level 1.
+
+## Results across all 100 levels
+
+Best of 3 episodes per level, 600-step cap, from `scripts/export_levels.py`.
+All runs are 2M steps.
+
+| Model | Cleared | Died | Timed out |
+|---|---|---|---|
+| Level 1 only, old obs (`ppo_state_L1`) | 16 | 30 | 54 |
+| All levels, time penalty 0.002 (`ppo_state_all`) | 0 | 61 | 39 |
+| All levels, same, no pop reward (`ppo_state_all_nopop`) | 1 | 91 | 8 |
+| All levels, time penalty 0.002, **50M steps** (`ppo_state_all_50M`) | 29 | 19 | 52 |
+
+Multi-level training fails at 2M steps (about 20k per level) and works at
+50M. The 2M `ppo_state_all` agent dies in the first seconds of most episodes;
+removing the pop reward made it learn almost nothing, so pops are its main
+early learning signal. The 50M agent also clears level 1 in 48 of 50 episodes,
+better than the level-1 specialists. Its training return rose until about 16M
+steps and then hovered around 50. Under training conditions (4-minute limit)
+it clears 37 of 200 episodes, dies in 92 and runs out the clock in 71, so
+finishing levels rather than surviving and collecting points is the remaining
+weakness.

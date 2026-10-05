@@ -32,6 +32,9 @@ except ImportError:
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--level", type=int, default=1)
+    p.add_argument("--levels", default=None, help='train on a pool, e.g. "1-100" or "1,5,20-30"')
+    p.add_argument("--time-penalty", type=float, default=0.0, help="reward lost per step")
+    p.add_argument("--no-pop-reward", action="store_true", help="no reward for bare bubble pops")
     p.add_argument("--obs", choices=["state", "screen"], default="state")
     p.add_argument("--total-steps", type=int, default=2_000_000)
     p.add_argument("--num-envs", type=int, default=16)
@@ -50,9 +53,24 @@ def parse_args():
     return p.parse_args()
 
 
-def make_env(level: int, obs: str, seed: int):
+def parse_levels(spec: str) -> list[int]:
+    levels: list[int] = []
+    for part in spec.split(","):
+        lo, _, hi = part.partition("-")
+        levels.extend(range(int(lo), int(hi or lo) + 1))
+    return levels
+
+
+def make_env(level, levels, obs, time_penalty, reward_pops, seed):
     def thunk():
-        env = gym.make("BubbleBobble-v0", level=level, obs_type=obs)
+        env = gym.make(
+            "BubbleBobble-v0",
+            level=level,
+            levels=levels,
+            obs_type=obs,
+            time_penalty=time_penalty,
+            reward_pops=reward_pops,
+        )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env.reset(seed=seed)
         return env
@@ -141,7 +159,8 @@ def main():
         watch(args.play, args.level, args.obs)
         return
 
-    run_name = args.run_name or f"ppo_{args.obs}_L{args.level}_{int(time.time())}"
+    levels = parse_levels(args.levels) if args.levels else None
+    run_name = args.run_name or f"ppo_{args.obs}_L{args.levels or args.level}_{int(time.time())}"
     run_dir = Path("runs") / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
     try:
@@ -156,7 +175,13 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     envs = gym.vector.SyncVectorEnv(
-        [make_env(args.level, args.obs, args.seed + i) for i in range(args.num_envs)]
+        [
+            make_env(
+                args.level, levels, args.obs, args.time_penalty,
+                not args.no_pop_reward, args.seed + i,
+            )
+            for i in range(args.num_envs)
+        ]
     )
     agent = Agent(envs.single_observation_space, envs.single_action_space.n).to(device)
     optimizer = torch.optim.Adam(agent.parameters(), lr=args.lr, eps=1e-5)

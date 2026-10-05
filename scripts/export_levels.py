@@ -25,15 +25,7 @@ try:
 except ImportError:
     raise SystemExit("torch and imageio are required: uv sync --extra train")
 
-from train_ppo import Agent
-
-
-def parse_levels(spec: str) -> list[int]:
-    levels: list[int] = []
-    for part in spec.split(","):
-        lo, _, hi = part.partition("-")
-        levels.extend(range(int(lo), int(hi or lo) + 1))
-    return levels
+from train_ppo import Agent, parse_levels
 
 
 def play_episode(env, agent, level: int, seed: int, max_steps: int, scale: int):

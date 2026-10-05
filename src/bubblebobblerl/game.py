@@ -138,6 +138,7 @@ class Pickup:
 @dataclass
 class StepEvents:
     score_delta: int = 0
+    pop_score: int = 0  # part of score_delta from bare pops and bubble bounces
     died: bool = False
     captured: int = 0
     killed: int = 0
@@ -343,6 +344,7 @@ class Game:
         if p.on_bubble and jump_held:  # bubble bounce
             self.score += POP_EVENT_SCORE
             ev.score_delta += POP_EVENT_SCORE
+            ev.pop_score += POP_EVENT_SCORE
             p.jump = JUMP_COUNTER_START
 
     def _blow_bubbles(self, p: Player, shoot_held: bool, shoot_pressed: bool) -> None:
@@ -586,6 +588,7 @@ class Game:
         self.bubbles.remove(bub)
         self.score += POP_EVENT_SCORE
         ev.score_delta += POP_EVENT_SCORE
+        ev.pop_score += POP_EVENT_SCORE
         ev.popped += 1
         e = bub.captured
         if e is None:

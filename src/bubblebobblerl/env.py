@@ -8,7 +8,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
-from .game import Buttons, Game, SCREEN_H, SCREEN_W
+from .game import Buttons, Game, PICKUP_SCORE, SCREEN_H, SCREEN_W
 from .levels import GRID_COLS, GRID_ROWS, load_levels
 from .render import draw_rgb, draw_screen
 
@@ -31,6 +31,8 @@ ACTION_MEANINGS = (
 
 MAX_ENEMIES = 16
 MAX_BUBBLES = 16
+MAX_LOOT = 8  # dropped fruit plus the two static pickups
+MAX_PREBUBBLES = 4
 
 
 class BubbleBobbleEnv(gym.Env):
@@ -38,11 +40,19 @@ class BubbleBobbleEnv(gym.Env):
 
     obs_type:
       "screen" - (64, 96) uint8 binary frame, the 1-bit LCD picture.
-      "state"  - flat float32 vector: player state, tile grid, and fixed
-                 slots for enemies and bubbles (positions scaled to [0, 1]).
+      "state"  - flat float32 vector: player state, tile grid (with air
+                 currents), and fixed slots for enemies, bubbles, loot
+                 (fruit and pickups) and in-flight bubbles (positions
+                 scaled to [0, 1]).
+
+    levels: optional pool of level numbers; each reset() draws one at random
+    (an explicit ``options={"level": n}`` still wins).
 
     Reward is the in-game score delta (display points / 100 to keep
-    magnitudes sane), with small optional shaping terms.
+    magnitudes sane), with small optional shaping terms. time_penalty is
+    subtracted once per step; it stands in for the unimplemented hurry-up.
+    reward_pops=False drops the 10 points per bubble pop or bounce from the
+    reward (not from the score), since they can be farmed forever.
     """
 
     metadata = {"render_modes": ["rgb_array", "ansi"], "render_fps": 60}
@@ -50,6 +60,7 @@ class BubbleBobbleEnv(gym.Env):
     def __init__(
         self,
         level: int = 1,
+        levels: list[int] | None = None,
         obs_type: str = "screen",
         frame_skip: int = 4,
         lives: int = 1,
@@ -58,6 +69,8 @@ class BubbleBobbleEnv(gym.Env):
         death_penalty: float = 1.0,
         clear_bonus: float = 10.0,
         capture_bonus: float = 0.1,
+        time_penalty: float = 0.0,
+        reward_pops: bool = True,
         render_mode: str | None = None,
     ):
         super().__init__()
@@ -69,6 +82,9 @@ class BubbleBobbleEnv(gym.Env):
         self.death_penalty = death_penalty
         self.clear_bonus = clear_bonus
         self.capture_bonus = capture_bonus
+        self.time_penalty = time_penalty
+        self.reward_pops = reward_pops
+        self.level_pool = list(levels) if levels else None
         self.render_mode = render_mode
 
         self._levels = load_levels()
@@ -82,7 +98,14 @@ class BubbleBobbleEnv(gym.Env):
                 0, 1, shape=(SCREEN_H, SCREEN_W), dtype=np.uint8
             )
         else:
-            n = 8 + GRID_ROWS * GRID_COLS + MAX_ENEMIES * 5 + MAX_BUBBLES * 5
+            n = (
+                8
+                + GRID_ROWS * GRID_COLS
+                + MAX_ENEMIES * 6
+                + MAX_BUBBLES * 5
+                + MAX_LOOT * 4
+                + MAX_PREBUBBLES * 4
+            )
             self.observation_space = spaces.Box(
                 -1.0, 1.0, shape=(n,), dtype=np.float32
             )
@@ -104,9 +127,10 @@ class BubbleBobbleEnv(gym.Env):
             1.0 if p.dead_ticks >= 0 else 0.0,
             g.alive_enemies / 8.0,
         ]
-        grid = (g.grid == 0).astype(np.float32).ravel()
+        # 0 = wall, 0.25/0.5/0.75/1 = air with an up/left/right/down current.
+        grid = (g.grid / 4.0).astype(np.float32).ravel()
 
-        enemies = np.zeros((MAX_ENEMIES, 5), dtype=np.float32)
+        enemies = np.zeros((MAX_ENEMIES, 6), dtype=np.float32)
         for i, e in enumerate(g.enemies[:MAX_ENEMIES]):
             enemies[i] = (
                 1.0,
@@ -114,6 +138,7 @@ class BubbleBobbleEnv(gym.Env):
                 (e.y + 16) / 92.0,
                 e.facing,
                 1.0 if e.angry else (0.5 if e.falling_in else 0.0),
+                e.kind / 7.0,
             )
         bubbles = np.zeros((MAX_BUBBLES, 5), dtype=np.float32)
         for i, bub in enumerate(g.bubbles[:MAX_BUBBLES]):
@@ -124,8 +149,23 @@ class BubbleBobbleEnv(gym.Env):
                 1.0 if bub.captured is not None else 0.0,
                 min(bub.life or 256, 256) / 256.0,
             )
+        loot = np.zeros((MAX_LOOT, 4), dtype=np.float32)
+        items = [(fr.x, fr.y, fr.value) for fr in g.fruits]
+        items += [(pk.x, pk.y, PICKUP_SCORE) for pk in g.pickups if not pk.taken]
+        for i, (x, y, value) in enumerate(items[:MAX_LOOT]):
+            loot[i] = (1.0, x / SCREEN_W, (y + 16) / 92.0, min(value / 8000.0, 1.0))
+        prebubbles = np.zeros((MAX_PREBUBBLES, 4), dtype=np.float32)
+        for i, pb in enumerate(g.prebubbles[:MAX_PREBUBBLES]):
+            prebubbles[i] = (1.0, pb.x / SCREEN_W, (pb.y + 16) / 92.0, pb.facing)
         return np.concatenate(
-            [np.array(player, dtype=np.float32), grid, enemies.ravel(), bubbles.ravel()]
+            [
+                np.array(player, dtype=np.float32),
+                grid,
+                enemies.ravel(),
+                bubbles.ravel(),
+                loot.ravel(),
+                prebubbles.ravel(),
+            ]
         )
 
     # ------------------------------------------------------------ api
@@ -133,18 +173,21 @@ class BubbleBobbleEnv(gym.Env):
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         super().reset(seed=seed)
         level = (options or {}).get("level")
+        if level is None and self.level_pool:
+            level = int(self.np_random.choice(self.level_pool))
         self.game.reset(level=level, seed=int(self.np_random.integers(2**31)))
         self._frames = 0
         return self._obs(), self._info()
 
     def step(self, action: int):
         buttons = ACTIONS[int(action)]
-        reward = 0.0
+        reward = -self.time_penalty
         terminated = False
         for _ in range(self.frame_skip):
             ev = self.game.step(buttons)
             self._frames += 1
-            reward += ev.score_delta / 100.0
+            score = ev.score_delta if self.reward_pops else ev.score_delta - ev.pop_score
+            reward += score / 100.0
             reward += ev.captured * self.capture_bonus
             if ev.died:
                 reward -= self.death_penalty

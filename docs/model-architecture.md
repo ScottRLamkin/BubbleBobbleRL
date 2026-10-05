@@ -2,15 +2,15 @@
 
 The model is the `Agent` class in `scripts/train_ppo.py`: a shared encoder
 feeding two linear heads (actor-critic). The trained model uses the MLP
-encoder. About 210,000 parameters in total.
+encoder. About 226,000 parameters in total.
 
 ## Current model (state observation)
 
 ```mermaid
 flowchart TB
-    In["state observation<br/>552 floats"]
+    In["state observation<br/>616 floats"]
     subgraph Encoder["shared encoder"]
-        L1["Linear 552 -> 256<br/>141,568 params"]
+        L1["Linear 616 -> 256<br/>157,952 params"]
         T1["Tanh"]
         L2["Linear 256 -> 256<br/>65,792 params"]
         T2["Tanh"]
