@@ -149,13 +149,33 @@ rate under 1e-4 averaged 128 cleared, 1e-4 to 2e-4 averaged 117, and above
 
 ## Experiments prompted by this
 
-Running as of 2026-10-06 (results to be added):
+All scored on fresh seeds, 100 levels x 10 episodes, one-minute cap, from the
+normal start. Reference: baseline 217 / 1000, champion `g3m05` 302 / 1000.
 
-1. **Control**: 30M-step plain continuation of the baseline at lr 1.5e-4, no
-   selection. Separates "lower learning rate" from "selection".
-2. **Random start** (`--random-start`): fine-tune the champion with the player
-   placed on a random platform each episode, so camping at the spawn point is
-   not an option during training. Scored from the normal start.
-3. **From the mover**: fine-tune the level-1 specialist, which does move, on all
-   100 levels, to see whether movement survives multi-level training.
-4. **Evolution, generations 4-6**, continuing the overnight run.
+| Experiment | Cleared / 1000 | Died | Timed out | Moves? |
+|---|---|---|---|---|
+| **Control**: baseline + 30M steps at lr 1.5e-4, no selection | 211 | 412 | 377 | no (x = 4) |
+| **Random start**: champion + 30M steps with `--random-start` | 167 | 585 | 248 | no (x = 4) |
+| **From the mover**: level-1 specialist + 30M steps on all levels | 59 | 622 | 319 | yes (x up to 84) |
+| Level-1 specialist as is, for reference | 70 | 684 | 246 | yes |
+
+- **The champion's gain came from selection, not the learning rate.** The
+  control, which is exactly the champion's recipe minus the selection step,
+  scores the same as the baseline (211 vs 217). The evolutionary loop earned
+  its +85.
+- **Random starts did not teach movement.** Trained from random platforms, the
+  agent still walks to a wall and camps; from the normal start it is worse than
+  before (167), and under random starts it clears 44 / 300 against 45 for the
+  control, so it gained nothing from the training condition either.
+- **A moving agent does not become a good one in 30M steps.** Starting from the
+  level-1 specialist keeps the movement (it still crosses the screen) but it
+  dies in 62% of episodes and ends up below the camping agents. Camping is not
+  an accident of the start position: it is the easier policy for this
+  network to find across 100 layouts.
+
+The flat MLP sees the 16 x 24 tile grid as 384 unrelated numbers, which may be
+why a moving policy fails to generalise across layouts. Next experiment
+(running as of 2026-10-06 midday): `--arch conv`, a small CNN over the grid
+plus an MLP over the rest (about 500k parameters), trained from scratch for
+50M steps, with and without random starts. Evolution generations 4-6 are also
+still running.

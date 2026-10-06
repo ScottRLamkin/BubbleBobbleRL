@@ -39,6 +39,7 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--death-penalty", type=float, default=1.0)
     p.add_argument("--random-start", action="store_true", help="random player start position")
     p.add_argument("--obs", choices=["state", "screen"], default="state")
+    p.add_argument("--arch", choices=["mlp", "conv"], default="mlp", help="state-obs encoder")
     p.add_argument("--total-steps", type=int, default=2_000_000)
     p.add_argument("--num-envs", type=int, default=16)
     p.add_argument("--rollout-len", type=int, default=128)
@@ -97,9 +98,45 @@ def layer_init(layer, std=np.sqrt(2), bias=0.0):
     return layer
 
 
-class Agent(nn.Module):
-    def __init__(self, obs_space, n_actions: int):
+class GridEncoder(nn.Module):
+    """State-vector encoder that reads the 16x24 tile grid with a small CNN.
+
+    The flat MLP sees the grid as 384 unrelated numbers; convolutions give it
+    the notion that neighbouring tiles form platforms, which is what a moving
+    agent needs to generalise across 100 layouts.
+    """
+
+    def __init__(self, n_inputs: int):
         super().__init__()
+        from bubblebobblerl.levels import GRID_COLS, GRID_ROWS
+
+        self.grid_slice = slice(8, 8 + GRID_ROWS * GRID_COLS)
+        self.shape = (GRID_ROWS, GRID_COLS)
+        self.grid = nn.Sequential(
+            layer_init(nn.Conv2d(1, 16, 3, padding=1)),
+            nn.ReLU(),
+            layer_init(nn.Conv2d(16, 32, 3, stride=2, padding=1)),
+            nn.ReLU(),
+            nn.Flatten(),
+            layer_init(nn.Linear(32 * (GRID_ROWS // 2) * (GRID_COLS // 2), 128)),
+            nn.ReLU(),
+        )
+        self.rest = nn.Sequential(
+            layer_init(nn.Linear(n_inputs - GRID_ROWS * GRID_COLS, 128)),
+            nn.Tanh(),
+        )
+        self.head = nn.Sequential(layer_init(nn.Linear(256, 256)), nn.Tanh())
+
+    def forward(self, x):
+        grid = x[:, self.grid_slice].reshape(-1, 1, *self.shape)
+        rest = torch.cat([x[:, : self.grid_slice.start], x[:, self.grid_slice.stop :]], 1)
+        return self.head(torch.cat([self.grid(grid), self.rest(rest)], 1))
+
+
+class Agent(nn.Module):
+    def __init__(self, obs_space, n_actions: int, arch: str = "mlp"):
+        super().__init__()
+        self.arch = arch
         if len(obs_space.shape) == 2:  # screen: 64x96 binary
             self.encoder = nn.Sequential(
                 layer_init(nn.Conv2d(1, 16, 8, stride=4)),
@@ -111,6 +148,9 @@ class Agent(nn.Module):
                 nn.ReLU(),
             )
             self._is_image = True
+        elif arch == "conv":
+            self.encoder = GridEncoder(int(np.prod(obs_space.shape)))
+            self._is_image = False
         else:
             self.encoder = nn.Sequential(
                 layer_init(nn.Linear(int(np.prod(obs_space.shape)), 256)),
@@ -121,6 +161,16 @@ class Agent(nn.Module):
             self._is_image = False
         self.actor = layer_init(nn.Linear(256, n_actions), std=0.01)
         self.critic = layer_init(nn.Linear(256, 1), std=1.0)
+
+    @classmethod
+    def load(cls, path: str, obs_space, n_actions: int) -> "Agent":
+        """Build the right architecture for a saved model.pt and load it."""
+        state = torch.load(path, map_location="cpu")
+        arch = "conv" if any(k.startswith("encoder.grid.") for k in state) else "mlp"
+        agent = cls(obs_space, n_actions, arch)
+        agent.load_state_dict(state)
+        agent.eval()
+        return agent
 
     def _encode(self, x):
         if self._is_image:
@@ -141,9 +191,7 @@ class Agent(nn.Module):
 
 def watch(model_path: str, level: int, obs: str, greedy: bool = False):
     env = gym.make("BubbleBobble-v0", level=level, obs_type=obs)
-    agent = Agent(env.observation_space, env.action_space.n)
-    agent.load_state_dict(torch.load(model_path, map_location="cpu"))
-    agent.eval()
+    agent = Agent.load(model_path, env.observation_space, env.action_space.n)
     try:
         import imageio.v3 as iio
         from bubblebobblerl.render import draw_rgb
@@ -195,9 +243,15 @@ def train(args) -> Path:
             for i in range(args.num_envs)
         ]
     )
-    agent = Agent(envs.single_observation_space, envs.single_action_space.n).to(device)
     if args.init_model:
-        agent.load_state_dict(torch.load(args.init_model, map_location=device))
+        agent = Agent.load(
+            args.init_model, envs.single_observation_space, envs.single_action_space.n
+        ).to(device)
+        agent.train()
+    else:
+        agent = Agent(
+            envs.single_observation_space, envs.single_action_space.n, args.arch
+        ).to(device)
     optimizer = torch.optim.Adam(agent.parameters(), lr=args.lr, eps=1e-5)
 
     batch = args.num_envs * args.rollout_len

@@ -97,9 +97,7 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
 
     env = gym.make("BubbleBobble-v0", obs_type=args.obs)
-    agent = Agent(env.observation_space, env.action_space.n)
-    agent.load_state_dict(torch.load(args.model, map_location="cpu"))
-    agent.eval()
+    agent = Agent.load(args.model, env.observation_space, env.action_space.n)
 
     rows = []
     for level in parse_levels(args.levels):

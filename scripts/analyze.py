@@ -61,10 +61,7 @@ ABLATIONS = {
 
 def load_agent(model_path: str) -> Agent:
     env = BubbleBobbleEnv(obs_type="state")
-    agent = Agent(env.observation_space, env.action_space.n)
-    agent.load_state_dict(torch.load(model_path, map_location="cpu"))
-    agent.eval()
-    return agent
+    return Agent.load(model_path, env.observation_space, env.action_space.n)
 
 
 def pick(agent: Agent, obs: np.ndarray, gen: torch.Generator) -> int:

@@ -32,9 +32,7 @@ def evaluate(
     obs: str = "state",
 ) -> dict:
     env = gym.make("BubbleBobble-v0", obs_type=obs)
-    agent = Agent(env.observation_space, env.action_space.n)
-    agent.load_state_dict(torch.load(model_path, map_location="cpu"))
-    agent.eval()
+    agent = Agent.load(model_path, env.observation_space, env.action_space.n)
     game = env.unwrapped.game
     # Own generator, so results do not depend on the caller's torch RNG state.
     gen = torch.Generator().manual_seed(seed)
