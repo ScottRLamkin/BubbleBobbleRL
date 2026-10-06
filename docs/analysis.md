@@ -184,9 +184,32 @@ normal start. Reference: baseline 217 / 1000, champion `g3m05` 302 / 1000.
   an accident of the start position: it is the easier policy for this
   network to find across 100 layouts.
 
-The flat MLP sees the 16 x 24 tile grid as 384 unrelated numbers, which may be
-why a moving policy fails to generalise across layouts. Next experiment
-(running as of 2026-10-06 midday): `--arch conv`, a small CNN over the grid
-plus an MLP over the rest (about 500k parameters), trained from scratch for
-50M steps, with and without random starts. Evolution generations 4-6 are also
-still running.
+Two follow-ups, same scoring:
+
+| Experiment | Cleared / 1000 | Died | Timed out | Moves? |
+|---|---|---|---|---|
+| **Mover, 100M steps**: level-1 specialist + 100M on all levels | 116 | 293 | 591 | **no** (x = 4) |
+| **Random start from scratch**: MLP, 50M steps with `--random-start` | 15 | 923 | 62 | yes (x std 26) |
+
+- **Camping is an attractor.** Given 100M steps instead of 30M, the moving
+  specialist did not get better at moving: it stopped moving. By the end it
+  stands at the spawn point facing the wall 99% of the time, exactly like the
+  agents trained from scratch, and is worse than the baseline because it
+  camps less effectively.
+- **Forcing movement from the start gives an agent that moves and dies.**
+  Trained from random platforms from scratch, the agent crosses the screen but
+  dies in 92% of episodes from the normal start.
+
+So within this network and training setup, every road leads to the corner.
+The likeliest reason it is such a good corner: six of the eight enemy kinds
+are stand-ins without their projectiles (`game.py`). In the real game a
+Stoner's rocks, a Hidegonsu's fireballs or an Invader's lasers would punish a
+stationary player; here nothing does, so standing in a spot that enemies walk
+into while bubbles rise around you is close to optimal. Implementing the
+projectile enemies is probably the single change most likely to produce an
+agent that plays like a person, and it is a fidelity fix rather than an RL
+trick.
+
+Still running as of 2026-10-06 afternoon: `--arch conv` (a small CNN over the
+grid plus an MLP over the rest, about 500k parameters), from scratch for 50M
+steps, with and without random starts. Results to be added.
