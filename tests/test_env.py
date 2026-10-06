@@ -119,3 +119,14 @@ def test_reward_pops_off_ignores_bare_pop_score():
 
     assert pop_reward(True) == (pytest.approx(0.1), 10)
     assert pop_reward(False) == (pytest.approx(0.0), 10)
+
+
+def test_random_start_puts_player_on_a_platform():
+    env = BubbleBobbleEnv(random_start=True)
+    starts = set()
+    for seed in range(20):
+        env.reset(seed=seed, options={"level": 3})
+        p = env.game.player
+        assert env.game.standing(p.x, p.y)
+        starts.add((p.x, p.y))
+    assert len(starts) > 5

@@ -53,6 +53,8 @@ class BubbleBobbleEnv(gym.Env):
     subtracted once per step; it stands in for the unimplemented hurry-up.
     reward_pops=False drops the 10 points per bubble pop or bounce from the
     reward (not from the score), since they can be farmed forever.
+    random_start=True puts the player on a random platform at reset instead
+    of the fixed start, so a policy cannot rely on always starting bottom-left.
     """
 
     metadata = {"render_modes": ["rgb_array", "ansi"], "render_fps": 60}
@@ -71,6 +73,7 @@ class BubbleBobbleEnv(gym.Env):
         capture_bonus: float = 0.1,
         time_penalty: float = 0.0,
         reward_pops: bool = True,
+        random_start: bool = False,
         render_mode: str | None = None,
     ):
         super().__init__()
@@ -84,6 +87,7 @@ class BubbleBobbleEnv(gym.Env):
         self.capture_bonus = capture_bonus
         self.time_penalty = time_penalty
         self.reward_pops = reward_pops
+        self.random_start = random_start
         self.level_pool = list(levels) if levels else None
         self.render_mode = render_mode
 
@@ -176,10 +180,27 @@ class BubbleBobbleEnv(gym.Env):
         if level is None and self.level_pool:
             level = int(self.np_random.choice(self.level_pool))
         self.game.reset(level=level, seed=int(self.np_random.integers(2**31)))
+        if self.random_start:
+            self._randomize_start()
         self._frames = 0
         return self._obs(), self._info()
 
+    def _randomize_start(self) -> None:
+        g = self.game
+        spots = [
+            (x, y)
+            for y in range(0, SCREEN_H - 8, 4)
+            for x in range(0, SCREEN_W - 8, 4)
+            if g.standing(x, y)
+            and not any(g.solid(x + dx, y + dy) for dx in (0, 7) for dy in (0, 7))
+        ]
+        if spots:
+            x, y = spots[int(self.np_random.integers(len(spots)))]
+            g.player.x, g.player.y = x, y
+        g.player.facing = 1 if self.np_random.random() < 0.5 else -1
+
     def step(self, action: int):
+
         buttons = ACTIONS[int(action)]
         reward = -self.time_penalty
         terminated = False

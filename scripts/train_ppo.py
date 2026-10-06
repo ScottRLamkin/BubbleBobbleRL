@@ -37,6 +37,7 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--no-pop-reward", action="store_true", help="no reward for bare bubble pops")
     p.add_argument("--clear-bonus", type=float, default=10.0)
     p.add_argument("--death-penalty", type=float, default=1.0)
+    p.add_argument("--random-start", action="store_true", help="random player start position")
     p.add_argument("--obs", choices=["state", "screen"], default="state")
     p.add_argument("--total-steps", type=int, default=2_000_000)
     p.add_argument("--num-envs", type=int, default=16)
@@ -69,7 +70,8 @@ def parse_levels(spec: str) -> list[int]:
     return levels
 
 
-def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_penalty, seed):
+def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_penalty, seed,
+             random_start=False):
     def thunk():
         env = gym.make(
             "BubbleBobble-v0",
@@ -80,6 +82,7 @@ def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_p
             reward_pops=reward_pops,
             clear_bonus=clear_bonus,
             death_penalty=death_penalty,
+            random_start=random_start,
         )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env.reset(seed=seed)
@@ -187,7 +190,7 @@ def train(args) -> Path:
             make_env(
                 args.level, levels, args.obs, args.time_penalty,
                 not args.no_pop_reward, args.clear_bonus, args.death_penalty,
-                args.seed + i,
+                args.seed + i, args.random_start,
             )
             for i in range(args.num_envs)
         ]
