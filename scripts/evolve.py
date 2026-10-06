@@ -275,6 +275,8 @@ class Run:
                 self.log(f"  SCORING FAILED {res['id']}: {res['error'].strip()}")
 
         scored = [dict(candidates[i], result=results[i]) for i in candidates if i in results]
+        if not scored:
+            raise RuntimeError(f"generation {gen}: nothing could be scored, see evolve.log")
         survivors = select(scored, a.survivors)
         keep = {s["id"] for s in survivors}
         for m in scored:  # kill the rest
