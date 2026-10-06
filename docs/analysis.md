@@ -33,7 +33,18 @@ flowchart LR
 
 This explains most of the other findings: which levels get cleared is a
 property of whether that level's enemies path through the bottom-left column,
-not of anything the agent decides. It is also why the agent's play looked
+not of anything the agent decides. A direct check: simulating each level for
+four minutes with an immortal, idle player and measuring how much time enemies
+spend in the leftmost 16 pixels:
+
+| Enemy time in the left column | Levels | Champion clears (of 5) | Never cleared |
+|---|---|---|---|
+| under 5% | 20 | 0.00 | 20 of 20 |
+| 5-10% | 8 | 1.12 | 4 |
+| 10-20% | 31 | 1.26 | 18 |
+| over 20% | 41 | 2.27 | 14 |
+
+Every level whose enemies rarely visit the corner is never cleared. It is also why the agent's play looked
 "weird and non-human" in the galleries.
 
 The level-1 specialist moves normally. Training on all 100 levels at once
