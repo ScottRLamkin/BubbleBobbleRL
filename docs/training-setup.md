@@ -199,3 +199,18 @@ What the search found:
   gain.
 
 One generation-3 child failed when the disk filled up; it was skipped.
+
+Generations 4-6 (run the next day, about 3.5 hours more):
+
+| Generation | Best member (cleared / 500) | Baseline on the same seeds |
+|---|---|---|
+| 4 | 156 | 104 |
+| 5 | 158 (still `g3m05`) | 100 |
+| 6 | 163 | 109 |
+
+On the fresh seed set used above (100 levels x 10 episodes), the later
+survivors are no better than `g3m05`: `g6m16` 298, `g6m06` 316, `g4m11` 298
+against `g3m05` 302 and the baseline 217. Three more generations bought
+nothing measurable; the search has plateaued at about 30% of episodes.
+`docs/analysis.md` explains why: every one of these agents plays the same
+stationary strategy, and the plateau is that strategy's ceiling.
