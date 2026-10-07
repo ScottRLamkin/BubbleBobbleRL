@@ -262,5 +262,33 @@ lasers and beer each killed more often than enemies did. These models cannot
 see projectiles (their observation predates them), so this is a lower bound
 on how much the new enemies change the game.
 
-Three fresh 50M-step runs (seeds 1-3) in the new game are training; whether
-they move is the question that matters.
+Agents trained in the new game (same scoring; the old baseline made 217 in
+the old game at 50M steps):
+
+| Run | Cleared / 1000 | Died | Timed out | Moves? |
+|---|---|---|---|---|
+| From scratch, 50M, seed 1 | 30 | 656 | 314 | barely (x within 16 px) |
+| From scratch, 50M, seed 2 | 12 | 788 | 200 | no |
+| From scratch, 50M, seed 3 | 38 | 675 | 287 | no |
+| Seed 3 continued to 200M | 115 | 636 | 249 | no (x = 4, facing left 99%) |
+| Level-1 mover transplanted, +100M (new inputs start at zero weight) | 108 | 418 | 474 | no (collapsed into camping) |
+| Curriculum (pool grows 1 -> 100 levels over 120M of 200M steps) | 5 | 912 | 83 | yes (x std 22) |
+
+Projectiles lowered the ceiling of camping (115 instead of 217) but did not
+make movement learnable: the agents that camp still beat the agents that
+move by a wide margin, and a moving initialisation collapses into camping
+again. The curriculum run learned to move on level 1, then fell apart as the
+pool grew (its training return went from 44 at 26M steps to under 10 for
+the rest of the run).
+
+So the fidelity fix was necessary but not sufficient. The remaining suspect
+is the representation: in the "state" observation every object is an
+absolute (x, y) in a fixed slot and the layout is 384 unrelated numbers, so
+"a platform two tiles above me with an enemy walking toward me" looks
+completely different on every level. A person sees that situation the same
+way everywhere.
+
+Next experiment (running as of 2026-10-07 early morning): `obs_type="ego"`,
+an egocentric observation - an 11 x 15 tile window centred on the player
+instead of the whole grid, and every object given as its offset from the
+player. 100M steps, two seeds plus one with the curriculum.
