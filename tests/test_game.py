@@ -215,3 +215,115 @@ def test_fuzz_random_play(level):
         p = g.player
         assert 0 <= p.x <= 88
         assert -16 <= p.y < 76
+
+
+# ---------------------------------------------------------------- projectiles
+
+
+def _active_enemy(game, kind, x=48, y=52, facing=1):
+    from bubblebobblerl.game import Enemy
+
+    e = Enemy(kind=kind, x=x, y=y, facing=facing, spawn_delay=0, falling_in=False, state=1)
+    game.enemies = [e]
+    game.alive_enemies = 1
+    return e
+
+
+def _run(game, frames, buttons=None):
+    from bubblebobblerl.game import Buttons
+
+    for _ in range(frames):
+        game.step(buttons or Buttons())
+
+
+def test_stoner_throws_rock_when_level_with_player_and_rock_breaks_on_wall():
+    from bubblebobblerl.game import STONER, Game
+
+    g = Game(level=1, seed=3, auto_advance=False)
+    g.player.x, g.player.y = 20, 52
+    e = _active_enemy(g, STONER, x=60, y=52, facing=-1)
+    for _ in range(2000):
+        g.step(__import__("bubblebobblerl.game", fromlist=["Buttons"]).Buttons())
+        if any(p.kind == "stone" for p in g.projectiles):
+            break
+    stones = [p for p in g.projectiles if p.kind == "stone"]
+    assert stones, "stoner never threw a rock"
+    assert stones[0].dx == -1  # thrown the way it faces
+    _run(g, 200)
+    assert not any(p.kind == "stone" and not p.breaking for p in g.projectiles)
+
+
+def test_fireball_kills_player_and_passes_through_walls():
+    from bubblebobblerl.game import Game, Projectile
+
+    g = Game(level=1, seed=0, auto_advance=False)
+    g.enemies, g.alive_enemies = [], 1  # keep the level alive, no enemies in the way
+    g.player.x, g.player.y = 40, 52
+    g.projectiles.append(Projectile("fire", x=0, y=52, dx=1))  # starts inside the left wall
+    _run(g, 30)
+    assert g.player.dead_ticks >= 0
+
+
+def test_laser_falls_and_disappears_at_the_bottom():
+    from bubblebobblerl.game import Game, Projectile
+
+    g = Game(level=1, seed=0, auto_advance=False)
+    g.enemies, g.alive_enemies = [], 1
+    g.projectiles.append(Projectile("laser", x=48, y=10))
+    _run(g, 40)
+    assert g.projectiles[0].y == 50
+    _run(g, 20)
+    assert not g.projectiles
+
+
+def test_invader_fires_lasers_on_a_timer():
+    from bubblebobblerl.game import INVADER, Game
+
+    g = Game(level=1, seed=1, auto_advance=False)
+    g.player.x, g.player.y = 8, 52  # out of the way
+    _active_enemy(g, INVADER, x=60, y=20)
+    fired = 0
+    for _ in range(200):
+        _run(g, 1)
+        fired += any(p.kind == "laser" and p.age == 1 for p in g.projectiles)
+    assert 2 <= fired <= 5  # one laser every 43-46 frames
+
+
+def test_beer_returns_to_the_drunk_and_frees_it():
+    from bubblebobblerl.game import DRUNK, STATE_SHOOT, Game
+
+    g = Game(level=1, seed=0, auto_advance=False)
+    g.player.x, g.player.y = 8, 20  # far away, so nothing dies
+    e = _active_enemy(g, DRUNK, x=60, y=52, facing=1)
+    e.state = STATE_SHOOT
+    _run(g, 2)
+    beers = [p for p in g.projectiles if p.kind == "beer"]
+    assert beers and e.beer_out
+    _run(g, 400)
+    assert not g.projectiles and not e.beer_out and e.state != STATE_SHOOT
+
+
+def test_banebou_hops_and_lands():
+    from bubblebobblerl.game import BANEBOU, Game
+
+    g = Game(level=1, seed=0, auto_advance=False)
+    g.player.x, g.player.y = 8, 20
+    e = _active_enemy(g, BANEBOU, x=48, y=52)
+    e.state = 0
+    ys = set()
+    for _ in range(200):
+        _run(g, 1)
+        ys.add(e.y)
+    assert min(ys) < 52 and g.standing(e.x, e.y) or e.y <= 52
+
+
+def test_all_levels_run_with_every_enemy_kind():
+    from bubblebobblerl.game import Buttons, Game
+
+    g = Game(level=1, lives=1, auto_advance=False)
+    for level in range(1, 101):
+        g.reset(level=level, seed=level)
+        for _ in range(300):
+            g.step(Buttons(shoot=True))
+            if g.game_over:
+                break

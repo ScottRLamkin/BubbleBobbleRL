@@ -8,7 +8,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 
-from .game import Buttons, Game, PICKUP_SCORE, SCREEN_H, SCREEN_W
+from .game import BEER_IDLE, Buttons, Game, PICKUP_SCORE, SCREEN_H, SCREEN_W
 from .levels import GRID_COLS, GRID_ROWS, load_levels
 from .render import draw_rgb, draw_screen
 
@@ -33,6 +33,7 @@ MAX_ENEMIES = 16
 MAX_BUBBLES = 16
 MAX_LOOT = 8  # dropped fruit plus the two static pickups
 MAX_PREBUBBLES = 4
+MAX_PROJECTILES = 8
 
 
 class BubbleBobbleEnv(gym.Env):
@@ -42,8 +43,8 @@ class BubbleBobbleEnv(gym.Env):
       "screen" - (64, 96) uint8 binary frame, the 1-bit LCD picture.
       "state"  - flat float32 vector: player state, tile grid (with air
                  currents), and fixed slots for enemies, bubbles, loot
-                 (fruit and pickups) and in-flight bubbles (positions
-                 scaled to [0, 1]).
+                 (fruit and pickups), in-flight bubbles and enemy
+                 projectiles (positions scaled to [0, 1]).
 
     levels: optional pool of level numbers; each reset() draws one at random
     (an explicit ``options={"level": n}`` still wins).
@@ -109,6 +110,7 @@ class BubbleBobbleEnv(gym.Env):
                 + MAX_BUBBLES * 5
                 + MAX_LOOT * 4
                 + MAX_PREBUBBLES * 4
+                + MAX_PROJECTILES * 5
             )
             self.observation_space = spaces.Box(
                 -1.0, 1.0, shape=(n,), dtype=np.float32
@@ -161,6 +163,19 @@ class BubbleBobbleEnv(gym.Env):
         prebubbles = np.zeros((MAX_PREBUBBLES, 4), dtype=np.float32)
         for i, pb in enumerate(g.prebubbles[:MAX_PREBUBBLES]):
             prebubbles[i] = (1.0, pb.x / SCREEN_W, (pb.y + 16) / 92.0, pb.facing)
+        shots = np.zeros((MAX_PROJECTILES, 5), dtype=np.float32)
+        live = [
+            pr for pr in g.projectiles
+            if not pr.breaking and (pr.kind != "beer" or pr.age > BEER_IDLE)
+        ]
+        for i, pr in enumerate(live[:MAX_PROJECTILES]):
+            shots[i] = (
+                1.0,
+                pr.x / SCREEN_W,
+                (pr.y + 16) / 92.0,
+                pr.dx * (2 if pr.kind == "fire" else 1) / 2.0,  # x speed / 2
+                1.0 if pr.kind == "laser" else 0.0,  # falls
+            )
         return np.concatenate(
             [
                 np.array(player, dtype=np.float32),
@@ -169,6 +184,7 @@ class BubbleBobbleEnv(gym.Env):
                 bubbles.ravel(),
                 loot.ravel(),
                 prebubbles.ravel(),
+                shots.ravel(),
             ]
         )
 

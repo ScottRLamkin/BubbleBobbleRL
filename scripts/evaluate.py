@@ -46,7 +46,7 @@ def evaluate(
             o, _ = env.reset(seed=seed * 100_003 + level * 101 + ep, options={"level": level})
             for _ in range(max_steps):
                 with torch.no_grad():
-                    logits = agent.actor(agent._encode(torch.as_tensor(o[None])))
+                    logits = agent.actor(agent._encode(torch.as_tensor(agent.obs_in(o)[None])))
                 a = torch.multinomial(torch.softmax(logits, -1), 1, generator=gen)
                 o, _, term, trunc, info = env.step(int(a))
                 if term or trunc:

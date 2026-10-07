@@ -66,7 +66,7 @@ def load_agent(model_path: str) -> Agent:
 
 def pick(agent: Agent, obs: np.ndarray, gen: torch.Generator) -> int:
     with torch.no_grad():
-        logits = agent.actor(agent._encode(torch.as_tensor(obs[None])))
+        logits = agent.actor(agent._encode(torch.as_tensor(agent.obs_in(obs)[None])))
     return int(torch.multinomial(torch.softmax(logits, -1), 1, generator=gen))
 
 

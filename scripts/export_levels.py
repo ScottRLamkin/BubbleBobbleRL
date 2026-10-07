@@ -35,7 +35,7 @@ def play_episode(env, agent, level: int, seed: int, max_steps: int, scale: int, 
     frames, total = [draw_rgb(game, scale=scale)], 0.0
     for _ in range(max_steps):
         with torch.no_grad():
-            a, *_ = agent.action_value(torch.as_tensor(o[None]), greedy=greedy)
+            a, *_ = agent.action_value(torch.as_tensor(agent.obs_in(o)[None]), greedy=greedy)
         o, r, term, trunc, info = env.step(int(a))
         total += r
         frames.append(draw_rgb(game, scale=scale))

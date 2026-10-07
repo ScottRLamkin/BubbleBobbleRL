@@ -83,6 +83,46 @@ _FRUIT = [
     "..XXX...",
     "........",
 ]
+_STONE = [
+    "........",
+    "........",
+    "...XX...",
+    "..XXXX..",
+    "..XXXX..",
+    "...XX...",
+    "........",
+    "........",
+]
+_FIRE = [
+    "........",
+    "........",
+    "........",
+    "X.XXXX..",
+    ".XXXXXXX",
+    "X.XXXX..",
+    "........",
+    "........",
+]
+_LASER = [
+    "...X....",
+    "...X....",
+    "...X....",
+    "...X....",
+    "...X....",
+    "...X....",
+    "...X....",
+    "...X....",
+]
+_BEER = [
+    "........",
+    ".XXXXX..",
+    ".X...XX.",
+    ".X...X.X",
+    ".X...XX.",
+    ".X...X..",
+    ".XXXXX..",
+    "........",
+]
 _DEAD = [
     "X......X",
     ".X....X.",
@@ -103,6 +143,7 @@ GLYPHS = {name: _glyph(g) for name, g in {
     "player": _PLAYER, "enemy": _ENEMY, "bubble": _BUBBLE,
     "captured": _CAPTURED, "prebubble": _PREBUBBLE, "fruit": _FRUIT,
     "dead": _DEAD, "pickup": _FRUIT,
+    "stone": _STONE, "fire": _FIRE, "laser": _LASER, "beer": _BEER,
 }.items()}
 
 # 4x4 wall texture (light brick on the dark background, like the LCD).
@@ -143,6 +184,10 @@ def draw_screen(game: Game) -> np.ndarray:
         _blit(screen, GLYPHS[name], bub.x, bub.y)
     for e in game.enemies:
         _blit(screen, GLYPHS["enemy"], e.x, e.y)
+    for pr in game.projectiles:
+        if pr.breaking and pr.age % 2:
+            continue
+        _blit(screen, GLYPHS[pr.kind], pr.x, pr.y)
     for de in game.dead_enemies:
         _blit(screen, GLYPHS["dead"], de.x, de.y)
 

@@ -167,10 +167,29 @@ class Agent(nn.Module):
         """Build the right architecture for a saved model.pt and load it."""
         state = torch.load(path, map_location="cpu")
         arch = "conv" if any(k.startswith("encoder.grid.") for k in state) else "mlp"
+        n_inputs = None
+        if len(obs_space.shape) == 1:
+            if arch == "conv":
+                n_inputs = state["encoder.rest.0.weight"].shape[1] + 16 * 24
+            else:
+                n_inputs = state["encoder.0.weight"].shape[1]
+            if n_inputs != obs_space.shape[0]:
+                # Older model, trained before inputs were appended to the
+                # state vector: build it at its own size; callers trim the
+                # observation with obs_in().
+                from gymnasium import spaces
+
+                obs_space = spaces.Box(-1.0, 1.0, shape=(n_inputs,), dtype=np.float32)
         agent = cls(obs_space, n_actions, arch)
         agent.load_state_dict(state)
+        agent.n_inputs = n_inputs
         agent.eval()
         return agent
+
+    def obs_in(self, o):
+        """Trim an observation to the inputs this model was trained with."""
+        n = getattr(self, "n_inputs", None)
+        return o if n is None or o.shape[-1] == n else o[..., :n]
 
     def _encode(self, x):
         if self._is_image:
@@ -201,7 +220,7 @@ def watch(model_path: str, level: int, obs: str, greedy: bool = False):
     frames, total = [], 0.0
     for _ in range(3000):
         with torch.no_grad():
-            a, *_ = agent.action_value(torch.as_tensor(o[None]), greedy=greedy)
+            a, *_ = agent.action_value(torch.as_tensor(agent.obs_in(o)[None]), greedy=greedy)
         o, r, term, trunc, info = env.step(int(a))
         total += r
         if iio:
