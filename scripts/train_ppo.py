@@ -38,6 +38,8 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--clear-bonus", type=float, default=10.0)
     p.add_argument("--death-penalty", type=float, default=1.0)
     p.add_argument("--random-start", action="store_true", help="random player start position")
+    p.add_argument("--curriculum", type=float, default=0.0,
+                   help="grow the level pool from level 1 to all of --levels over this fraction of training")
     p.add_argument("--obs", choices=["state", "screen"], default="state")
     p.add_argument("--arch", choices=["mlp", "conv"], default="mlp", help="state-obs encoder")
     p.add_argument("--total-steps", type=int, default=2_000_000)
@@ -163,10 +165,18 @@ class Agent(nn.Module):
         self.critic = layer_init(nn.Linear(256, 1), std=1.0)
 
     @classmethod
-    def load(cls, path: str, obs_space, n_actions: int) -> "Agent":
+    def load(cls, path: str, obs_space, n_actions: int, pad_to: int | None = None) -> "Agent":
         """Build the right architecture for a saved model.pt and load it."""
         state = torch.load(path, map_location="cpu")
         arch = "conv" if any(k.startswith("encoder.grid.") for k in state) else "mlp"
+        if len(obs_space.shape) == 1 and arch == "mlp" and pad_to:
+            # Fine-tune a model trained on a shorter state vector: new inputs
+            # start with zero weight, so the old policy is reproduced exactly.
+            w = state["encoder.0.weight"]
+            if w.shape[1] < pad_to:
+                state["encoder.0.weight"] = torch.cat(
+                    [w, torch.zeros(w.shape[0], pad_to - w.shape[1])], 1
+                )
         n_inputs = None
         if len(obs_space.shape) == 1:
             if arch == "conv":
@@ -264,7 +274,8 @@ def train(args) -> Path:
     )
     if args.init_model:
         agent = Agent.load(
-            args.init_model, envs.single_observation_space, envs.single_action_space.n
+            args.init_model, envs.single_observation_space, envs.single_action_space.n,
+            pad_to=int(np.prod(envs.single_observation_space.shape)),
         ).to(device)
         agent.train()
     else:
@@ -291,7 +302,14 @@ def train(args) -> Path:
     start = time.time()
     ep_returns: list[float] = []
 
+    pool_size = 0
     while global_step < args.total_steps:
+        if args.curriculum and levels:
+            frac = min(1.0, global_step / (args.curriculum * args.total_steps))
+            k = max(1, round(frac * len(levels)))
+            if k != pool_size:
+                pool_size = k
+                envs.set_attr("level_pool", [levels[:k]] * args.num_envs)
         if args.anneal_lr:
             frac = max(0.0, 1.0 - global_step / args.total_steps)
             optimizer.param_groups[0]["lr"] = frac * args.lr
