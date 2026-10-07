@@ -18,31 +18,34 @@ flowchart LR
     end
     Agent["PPO agent<br/>(train_ppo.py)"]
     Agent -- "action: 1 of 9<br/>button combos" --> Env
-    Env -- "observation:<br/>616 floats" --> Agent
+    Env -- "observation:<br/>656 floats" --> Agent
     Env -- "reward:<br/>summed over 4 frames" --> Agent
     Env -- "terminated / truncated" --> Agent
 ```
 
 The agent picks one action every 4 game frames, so it acts at 15 Hz.
 
-## Observation: the 616-number state vector
+## Observation: the 656-number state vector
 
 Built in `BubbleBobbleEnv._obs` (`src/bubblebobblerl/env.py`). The agent never
 sees the picture; it reads the game's internal state directly.
 
 ```mermaid
 flowchart TB
-    Obs["state observation<br/>616 x float32"]
+    Obs["state observation<br/>656 x float32"]
     Obs --> P["Player: 8<br/>x, y, facing, jump mode,<br/>shoot cooldown, invincible,<br/>dead, enemies alive / 8"]
     Obs --> G["Tile grid: 384<br/>16 rows x 24 cols,<br/>0 = wall, 0.25 to 1 = air<br/>with up/left/right/down current"]
     Obs --> E["Enemies: 96<br/>16 slots x 6:<br/>present, x, y, facing,<br/>angry / falling-in, kind"]
     Obs --> B["Bubbles: 80<br/>16 slots x 5:<br/>present, x, y,<br/>holds enemy, life left"]
     Obs --> L["Loot: 32<br/>8 slots x 4:<br/>present, x, y, value<br/>(fruit and untaken pickups)"]
     Obs --> F["Bubbles in flight: 16<br/>4 slots x 4:<br/>present, x, y, facing"]
+    Obs --> S["Enemy projectiles: 40<br/>8 slots x 5:<br/>present, x, y, x speed, falling"]
 ```
 
-The first model (`runs/ppo_state_L1`, 552 inputs) had no loot, in-flight
-bubbles, enemy kind or air currents. It no longer loads with the current env.
+Older models: 552 inputs (`ppo_state_L1`: no loot, in-flight bubbles, enemy
+kind or air currents) and 616 inputs (everything up to the evolution runs: no
+projectiles, because the game had none). `Agent.load` trims the observation
+so they still run; the game they play now has projectiles they cannot see.
 Still not in the observation: dead enemies mid-arc (about a quarter second
 before they become fruit).
 

@@ -238,3 +238,29 @@ its MLP counterpart.
 Every agent that scores well stands in the bottom-left corner. The fix is most
 likely in the game, not the learner: give the six stand-in enemy kinds their
 projectiles so that standing still is punished the way it is in the original.
+
+## After implementing the projectiles (2026-10-06 evening)
+
+All eight enemy kinds now follow `bub_ai.z80`: Stoners throw rocks that roll
+until they hit a wall, Hidegonsus shoot fireballs that pass through walls,
+Invaders drop lasers on a timer, Drunks throw a boomerang beer and freeze
+until it returns, Hullaballoons float faster than Belugas, Banebous bounce.
+Every projectile kills the player; bubbles do not stop them.
+
+The camping agents, re-scored in the new game (same fresh seeds, 100 levels
+x 10 episodes):
+
+| Model | Old game | New game |
+|---|---|---|
+| Baseline (`ppo_state_all_50M`) | 217 | 125 |
+| Champion `g3m05` | 302 | 131 |
+| Level-1 specialist (moves) | 70 | 45 |
+
+The corner is no longer safe: the champion's deaths rose from 378 to 586 and
+its clears more than halved. Among the deaths I could attribute, rocks,
+lasers and beer each killed more often than enemies did. These models cannot
+see projectiles (their observation predates them), so this is a lower bound
+on how much the new enemies change the game.
+
+Three fresh 50M-step runs (seeds 1-3) in the new game are training; whether
+they move is the question that matters.
