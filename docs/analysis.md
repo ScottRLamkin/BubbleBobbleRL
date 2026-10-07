@@ -210,6 +210,31 @@ projectile enemies is probably the single change most likely to produce an
 agent that plays like a person, and it is a fidelity fix rather than an RL
 trick.
 
-Still running as of 2026-10-06 afternoon: `--arch conv` (a small CNN over the
-grid plus an MLP over the rest, about 500k parameters), from scratch for 50M
-steps, with and without random starts. Results to be added.
+A different network does not change the picture either. `--arch conv` (a
+small CNN over the 16 x 24 grid plus an MLP over the rest, about 500k
+parameters, from scratch, 50M steps):
+
+| Experiment | Cleared / 1000 | Died | Timed out | Moves? |
+|---|---|---|---|---|
+| conv, normal start | 151 | 227 | 622 | no (x = 4) |
+| conv, `--random-start` | 6 | 912 | 82 | yes (x std 24) |
+| MLP baseline, same budget, for reference | 217 | 317 | 466 | no |
+
+The conv agent camps like the MLP and is worse at it (the CNN also trains
+about seven times slower on CPU). With random starts it moves and dies, like
+its MLP counterpart.
+
+## Summary of the day's experiments
+
+| Lever tried | Result |
+|---|---|
+| Reward shaping (clear bonus, time penalty, pop reward, death penalty) | all hurt |
+| Lower learning rate alone | no change |
+| Evolutionary selection (6 generations, 180 fine-tunes) | +85 / 1000, then plateau at ~30% |
+| Random start position (fine-tune, from scratch, conv) | moves but dies, or camps anyway |
+| Start from a moving agent, 30M or 100M steps | collapses into camping |
+| CNN over the grid | camps, slightly worse |
+
+Every agent that scores well stands in the bottom-left corner. The fix is most
+likely in the game, not the learner: give the six stand-in enemy kinds their
+projectiles so that standing still is punished the way it is in the original.
