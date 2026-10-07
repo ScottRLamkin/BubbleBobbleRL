@@ -288,7 +288,42 @@ absolute (x, y) in a fixed slot and the layout is 384 unrelated numbers, so
 completely different on every level. A person sees that situation the same
 way everywhere.
 
-Next experiment (running as of 2026-10-07 early morning): `obs_type="ego"`,
-an egocentric observation - an 11 x 15 tile window centred on the player
-instead of the whole grid, and every object given as its offset from the
-player. 100M steps, two seeds plus one with the curriculum.
+`obs_type="ego"` (an 11 x 15 tile window centred on the player instead of the
+whole grid, every object as its offset from the player), 100M steps each:
+
+| Run | Cleared / 1000 | Died | Timed out | Moves? |
+|---|---|---|---|---|
+| ego, seed 1 | 36 | 820 | 144 | no |
+| ego, seed 2 | 23 | 887 | 90 | yes (x std 35), and dies |
+| ego + curriculum | 93 | 657 | 250 | mostly camps, occasional excursions |
+
+The egocentric view did not produce a moving agent that survives either. The
+two outcomes are the same as before: camp, or move and die. Training returns
+were low and noisy throughout, so this is not a case of a good policy that
+needs more steps; nothing was converging.
+
+## Where this leaves things (2026-10-07)
+
+Across two days: about 1.5 billion agent steps, 7 ideas, 3 observation
+designs, 2 architectures. The reimplementation now has all eight enemy kinds
+with projectiles, and the camping exploit is weaker than it was, but no
+training recipe tried here learns to move *and* survive across 100 layouts.
+The best scores in the current game are still campers (115 / 1000).
+
+What has not been tried, roughly in order of how likely it is to work:
+
+1. **Learning from Scott's own play.** Record button presses while playing
+   (`play.py` already has the loop), then pretrain the policy by behaviour
+   cloning before PPO. Human play is moving play by construction, and PPO
+   fine-tuning from a moving policy is a different starting point from the
+   ones that collapsed here, because the collapse happened when the policy
+   had never been rewarded for moving. A few hundred human episodes is enough
+   for a first attempt.
+2. **Memory.** The policy has none: with sampled actions and no recurrence it
+   cannot commit to "go right until the gap", which is what moving across a
+   level requires. A GRU over the ego observation is the standard fix.
+3. **A much bigger budget.** Atari-style agents use hundreds of millions to
+   billions of frames with much larger networks; these runs used 4-16M
+   frames per level-equivalent.
+4. **Fewer levels.** An agent for 10 levels would show whether the method
+   works at all before scaling to 100.
