@@ -34,6 +34,7 @@ MAX_BUBBLES = 16
 MAX_LOOT = 8  # dropped fruit plus the two static pickups
 MAX_PREBUBBLES = 4
 MAX_PROJECTILES = 8
+EGO_ROWS, EGO_COLS = 11, 15  # local tile window around the player, in tiles
 
 
 class BubbleBobbleEnv(gym.Env):
@@ -45,6 +46,10 @@ class BubbleBobbleEnv(gym.Env):
                  currents), and fixed slots for enemies, bubbles, loot
                  (fruit and pickups), in-flight bubbles and enemy
                  projectiles (positions scaled to [0, 1]).
+      "ego"    - like "state" but seen from the player: an 11x15 tile window
+                 centred on the player replaces the full grid, and every
+                 other object is given by its offset from the player. Meant
+                 to let one policy generalise across layouts.
 
     levels: optional pool of level numbers; each reset() draws one at random
     (an explicit ``options={"level": n}`` still wins).
@@ -78,7 +83,7 @@ class BubbleBobbleEnv(gym.Env):
         render_mode: str | None = None,
     ):
         super().__init__()
-        if obs_type not in ("screen", "state"):
+        if obs_type not in ("screen", "state", "ego"):
             raise ValueError(f"unknown obs_type {obs_type!r}")
         self.obs_type = obs_type
         self.frame_skip = frame_skip
@@ -105,7 +110,7 @@ class BubbleBobbleEnv(gym.Env):
         else:
             n = (
                 8
-                + GRID_ROWS * GRID_COLS
+                + (EGO_ROWS * EGO_COLS if obs_type == "ego" else GRID_ROWS * GRID_COLS)
                 + MAX_ENEMIES * 6
                 + MAX_BUBBLES * 5
                 + MAX_LOOT * 4
@@ -134,14 +139,22 @@ class BubbleBobbleEnv(gym.Env):
             g.alive_enemies / 8.0,
         ]
         # 0 = wall, 0.25/0.5/0.75/1 = air with an up/left/right/down current.
-        grid = (g.grid / 4.0).astype(np.float32).ravel()
+        if self.obs_type == "ego":
+            grid = self._local_window(p).ravel()
+            px, py = p.x + 4, p.y + 4
+            rx = lambda x: (x + 4 - px) / SCREEN_W  # noqa: E731  offset from the player
+            ry = lambda y: g._delta_wrapped(y + 4, py) / 92.0  # noqa: E731
+        else:
+            grid = (g.grid / 4.0).astype(np.float32).ravel()
+            rx = lambda x: x / SCREEN_W  # noqa: E731
+            ry = lambda y: (y + 16) / 92.0  # noqa: E731
 
         enemies = np.zeros((MAX_ENEMIES, 6), dtype=np.float32)
         for i, e in enumerate(g.enemies[:MAX_ENEMIES]):
             enemies[i] = (
                 1.0,
-                e.x / SCREEN_W,
-                (e.y + 16) / 92.0,
+                rx(e.x),
+                ry(e.y),
                 e.facing,
                 1.0 if e.angry else (0.5 if e.falling_in else 0.0),
                 e.kind / 7.0,
@@ -150,8 +163,8 @@ class BubbleBobbleEnv(gym.Env):
         for i, bub in enumerate(g.bubbles[:MAX_BUBBLES]):
             bubbles[i] = (
                 1.0,
-                bub.x / SCREEN_W,
-                (bub.y + 16) / 92.0,
+                rx(bub.x),
+                ry(bub.y),
                 1.0 if bub.captured is not None else 0.0,
                 min(bub.life or 256, 256) / 256.0,
             )
@@ -159,10 +172,10 @@ class BubbleBobbleEnv(gym.Env):
         items = [(fr.x, fr.y, fr.value) for fr in g.fruits]
         items += [(pk.x, pk.y, PICKUP_SCORE) for pk in g.pickups if not pk.taken]
         for i, (x, y, value) in enumerate(items[:MAX_LOOT]):
-            loot[i] = (1.0, x / SCREEN_W, (y + 16) / 92.0, min(value / 8000.0, 1.0))
+            loot[i] = (1.0, rx(x), ry(y), min(value / 8000.0, 1.0))
         prebubbles = np.zeros((MAX_PREBUBBLES, 4), dtype=np.float32)
         for i, pb in enumerate(g.prebubbles[:MAX_PREBUBBLES]):
-            prebubbles[i] = (1.0, pb.x / SCREEN_W, (pb.y + 16) / 92.0, pb.facing)
+            prebubbles[i] = (1.0, rx(pb.x), ry(pb.y), pb.facing)
         shots = np.zeros((MAX_PROJECTILES, 5), dtype=np.float32)
         live = [
             pr for pr in g.projectiles
@@ -171,8 +184,8 @@ class BubbleBobbleEnv(gym.Env):
         for i, pr in enumerate(live[:MAX_PROJECTILES]):
             shots[i] = (
                 1.0,
-                pr.x / SCREEN_W,
-                (pr.y + 16) / 92.0,
+                rx(pr.x),
+                ry(pr.y),
                 pr.dx * (2 if pr.kind == "fire" else 1) / 2.0,  # x speed / 2
                 1.0 if pr.kind == "laser" else 0.0,  # falls
             )
@@ -187,6 +200,20 @@ class BubbleBobbleEnv(gym.Env):
                 shots.ravel(),
             ]
         )
+
+    def _local_window(self, p) -> np.ndarray:
+        """Tiles around the player: rows wrap like the playfield, columns
+        outside the screen read as wall."""
+        g = self.game
+        r0 = (p.y + 4) // 4 - EGO_ROWS // 2
+        c0 = (p.x + 4) // 4 - EGO_COLS // 2
+        win = np.zeros((EGO_ROWS, EGO_COLS), dtype=np.float32)
+        rows = [(r0 + i) % GRID_ROWS for i in range(EGO_ROWS)]
+        for j in range(EGO_COLS):
+            c = c0 + j
+            if 0 <= c < GRID_COLS:
+                win[:, j] = g.grid[rows, c] / 4.0
+        return win
 
     # ------------------------------------------------------------ api
 

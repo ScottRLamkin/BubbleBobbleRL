@@ -40,7 +40,7 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--random-start", action="store_true", help="random player start position")
     p.add_argument("--curriculum", type=float, default=0.0,
                    help="grow the level pool from level 1 to all of --levels over this fraction of training")
-    p.add_argument("--obs", choices=["state", "screen"], default="state")
+    p.add_argument("--obs", choices=["state", "screen", "ego"], default="state")
     p.add_argument("--arch", choices=["mlp", "conv"], default="mlp", help="state-obs encoder")
     p.add_argument("--total-steps", type=int, default=2_000_000)
     p.add_argument("--num-envs", type=int, default=16)

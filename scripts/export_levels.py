@@ -84,7 +84,7 @@ def write_index(out: Path, rows: list[dict], model: str) -> None:
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("model", help="path to a model.pt from train_ppo.py")
-    p.add_argument("--obs", choices=["state", "screen"], default="state")
+    p.add_argument("--obs", choices=["state", "screen", "ego"], default="state")
     p.add_argument("--levels", default="1-100", help='e.g. "1-100" or "1,5,20-30"')
     p.add_argument("--episodes", type=int, default=3)
     p.add_argument("--max-steps", type=int, default=600, help="agent steps per episode")

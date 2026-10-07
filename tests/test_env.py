@@ -137,3 +137,25 @@ def test_random_start_puts_player_on_a_platform():
         assert env.game.standing(p.x, p.y)
         starts.add((p.x, p.y))
     assert len(starts) > 5
+
+
+def test_ego_obs_is_centred_on_the_player():
+    from bubblebobblerl.env import EGO_COLS, EGO_ROWS
+
+    env = BubbleBobbleEnv(obs_type="ego")
+    obs, _ = env.reset(seed=0)
+    assert env.observation_space.contains(obs)
+    win = obs[8 : 8 + EGO_ROWS * EGO_COLS].reshape(EGO_ROWS, EGO_COLS)
+    p = env.game.player
+    # the tile under the player's centre is air, the one below its feet is floor
+    assert win[EGO_ROWS // 2, EGO_COLS // 2] > 0
+    assert win[EGO_ROWS // 2 + 2, EGO_COLS // 2] == 0 or env.game.standing(p.x, p.y)
+    # columns left of the screen edge read as wall
+    assert (win[:, 0] == 0).all()
+    # an enemy straight to the right has a positive x offset, same-row y offset ~0
+    from bubblebobblerl.game import Enemy
+
+    env.game.enemies = [Enemy(kind=0, x=p.x + 20, y=p.y, facing=1, spawn_delay=0, falling_in=False)]
+    obs = env._obs()
+    e0 = 8 + EGO_ROWS * EGO_COLS
+    assert obs[e0] == 1.0 and obs[e0 + 1] == pytest.approx(20 / 96) and abs(obs[e0 + 2]) < 1e-6

@@ -77,8 +77,9 @@ def main() -> None:
     p.add_argument("--episodes", type=int, default=3)
     p.add_argument("--max-steps", type=int, default=900)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--obs", choices=["state", "ego"], default="state")
     args = p.parse_args()
-    r = evaluate(args.model, parse_levels(args.levels), args.episodes, args.max_steps, args.seed)
+    r = evaluate(args.model, parse_levels(args.levels), args.episodes, args.max_steps, args.seed, args.obs)
     print(
         f"{args.model}: cleared {r['cleared']}/{r['episodes']} episodes "
         f"({r['levels_cleared']} levels), died {r['died']}, timed out {r['timeout']}, "
