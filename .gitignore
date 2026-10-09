@@ -213,3 +213,5 @@ runs/
 *.gif
 .claude/settings.local.json
 exports/
+mlruns/
+mlflow.db

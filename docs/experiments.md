@@ -24,7 +24,7 @@ export OMP_NUM_THREADS=1
 caffeinate -is uv run python scripts/train_ppo.py \
     --levels 1-100 --time-penalty 0.01 --death-penalty 5 \
     --total-steps 100000000 --seed 1 \
-    --run-name my_first_run --no-tensorboard --quiet \
+    --run-name my_first_run --quiet \
     > runs/my_first_run.log 2>&1 &
 ```
 
@@ -36,6 +36,34 @@ log prints the average return of the last 20 episodes once per million steps:
 ```bash
 tail -3 runs/my_first_run.log
 ```
+
+### Curves: MLflow (and TensorBoard)
+
+Every run logs to a local MLflow store (`mlflow.db` in the repo, SQLite,
+nothing leaves the machine) and to TensorBoard files in its run directory.
+To browse runs, compare them and look at the curves:
+
+```bash
+uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
+```
+
+then open http://127.0.0.1:5000. Each run records all its flags as
+parameters, the final `model.pt` as an artifact, and these metrics every
+5 PPO updates (`--log-every` changes that):
+
+| Metric | What to look for |
+|---|---|
+| `charts_episodic_return`, `charts_episodic_length` | the reward the agent is actually collecting; length tells you whether it dies fast or runs out the clock |
+| `losses_policy_loss` | PPO's surrogate objective; small and noisy is normal, it is not meant to go to zero |
+| `losses_value_loss` | how well the critic predicts return; should fall, then track the reward scale |
+| `losses_entropy` | how random the policy is; falling means it is committing to actions, collapsing to ~0 means it stopped exploring |
+| `losses_approx_kl`, `losses_clipfrac` | how far each update moves the policy; KL above ~0.02 or clipfrac above ~0.3 means the learning rate is too high |
+| `losses_explained_variance` | 1 = the critic explains the returns perfectly, 0 = no better than a constant, negative = worse |
+| `charts_learning_rate`, `charts_level_pool`, `charts_sps` | the schedule (`--anneal-lr`, `--curriculum`) and speed |
+
+TensorBoard shows the same curves: `uv run tensorboard --logdir runs/`.
+`--no-mlflow` / `--no-tensorboard` turn either off; `evolve.py` turns both
+off for its children, since 30 runs per generation is noise in the UI.
 
 ### The knobs
 
@@ -126,7 +154,7 @@ an array (a plain string will not be split by zsh):
 
 ```bash
 export OMP_NUM_THREADS=1
-P=(--levels 1-100 --time-penalty 0.01 --death-penalty 5 --no-tensorboard --quiet)
+P=(--levels 1-100 --time-penalty 0.01 --death-penalty 5 --quiet)
 caffeinate -is uv run python scripts/train_ppo.py "${P[@]}" --stationary-penalty 0.02 --total-steps 100000000 --seed 1 --run-name r1_still02  > runs/r1_still02.log  2>&1 &
 uv run python scripts/train_ppo.py "${P[@]}" --stationary-penalty 0.05 --total-steps 100000000 --seed 2 --run-name r1_still05  > runs/r1_still05.log  2>&1 &
 uv run python scripts/train_ppo.py "${P[@]}" --init-model runs/v6_band32_from_bouncer_50M/model.pt --total-steps 50000000 --seed 3 --run-name r1_bouncer_more > runs/r1_bouncer_more.log 2>&1 &
@@ -178,5 +206,6 @@ top of the script if you want to change what it searches over.
 |---|---|
 | `runs/<name>/model.pt`, `runs/<name>.log` | each run's weights and progress (gitignored) |
 | `runs/analysis/` | JSON and Markdown from `analyze.py` |
+| `mlflow.db`, `mlruns/` | MLflow's run database and artifacts (gitignored) |
 | `exports/<name>/index.html` | galleries (gitignored) |
 | `docs/*.md`, `docs/report.html` | the write-ups; `uv run python scripts/build_report.py` rebuilds the report |

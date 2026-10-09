@@ -25,7 +25,11 @@ classifiers = [
 
 [project.optional-dependencies]
 play = ["pygame>=2.5"]
-train = ["torch>=2.2", "tensorboard>=2.15"]
+train = [
+    "torch>=2.2",
+ "tensorboard>=2.15",
+ "mlflow>=2.15",
+]
 
 [dependency-groups]
 dev = ["pytest>=8", "imageio>=2.34"]

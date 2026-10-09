@@ -161,6 +161,7 @@ def train_member(spec: dict) -> dict:
             "--clear-bonus", str(g["clear_bonus"]),
             "--death-penalty", str(g["death_penalty"]),
             "--no-tensorboard",
+            "--no-mlflow",
             "--quiet",
         ]
         if not g["reward_pops"]:

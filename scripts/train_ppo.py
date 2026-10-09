@@ -7,13 +7,20 @@ Defaults train an MLP on the structured "state" observation of level 1,
 which learns on a laptop CPU. Pass --obs screen for the Atari-style
 pixels-in setup (use a GPU and more steps).
 
-Watch progress:  uv run tensorboard --logdir runs/
+Watch progress:  uv run mlflow ui --backend-store-uri sqlite:///mlflow.db   (http://127.0.0.1:5000)
+                 uv run tensorboard --logdir runs/
 Watch the agent: uv run python scripts/train_ppo.py --play runs/<run>/model.pt
+
+Both trackers get the same curves: episodic return and length, policy and
+value loss, entropy, approximate KL, clip fraction, explained variance,
+learning rate and steps per second. --no-tensorboard / --no-mlflow turn
+either off (evolve.py turns both off for its 30 children per generation).
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import time
 from pathlib import Path
 
@@ -63,10 +70,16 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--run-dir", default=None, help="output directory (default runs/<run-name>)")
     p.add_argument("--init-model", default=None, help="model.pt to fine-tune from")
     p.add_argument("--no-tensorboard", action="store_true")
+    p.add_argument("--no-mlflow", action="store_true")
+    p.add_argument("--experiment", default="bubblebobble", help="MLflow experiment name")
+    p.add_argument("--log-every", type=int, default=5, help="log metrics every N PPO updates")
     p.add_argument("--quiet", action="store_true", help="one progress line per ~1M steps")
     p.add_argument("--play", default=None, help="path to a model.pt to watch")
     p.add_argument("--greedy", action="store_true", help="with --play: most likely action, no sampling")
     return p.parse_args(argv)
+
+
+MLFLOW_URI = "sqlite:///mlflow.db"
 
 
 def parse_levels(spec: str) -> list[int]:
@@ -264,6 +277,27 @@ def train(args) -> Path:
             writer = SummaryWriter(str(run_dir))
         except ImportError:
             pass
+    tracker = None
+    if not args.no_mlflow:
+        try:
+            os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
+            import mlflow
+
+            # Local SQLite store in the repo root (gitignored); artifacts go to mlruns/.
+            mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", MLFLOW_URI))
+            mlflow.set_experiment(args.experiment)
+            mlflow.start_run(run_name=run_name)
+            mlflow.log_params({k: v for k, v in vars(args).items() if k not in ("play", "greedy")})
+            tracker = mlflow
+        except Exception as exc:  # a tracker problem must never kill a run
+            print(f"mlflow disabled: {exc}", flush=True)
+
+    def log_metrics(metrics: dict, step: int) -> None:
+        if writer:
+            for k, v in metrics.items():
+                writer.add_scalar(k, v, step)
+        if tracker:
+            tracker.log_metrics({k.replace("/", "_"): float(v) for k, v in metrics.items()}, step=step)
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -309,6 +343,8 @@ def train(args) -> Path:
     global_step = 0
     start = time.time()
     ep_returns: list[float] = []
+    ep_lengths: list[float] = []
+    n_updates = 0
 
     pool_size = 0
     while global_step < args.total_steps:
@@ -336,10 +372,11 @@ def train(args) -> Path:
             )
             if "episode" in infos and "_episode" in infos:
                 mask = infos["_episode"]
-                for er in np.asarray(infos["episode"]["r"])[mask]:
+                for er, el in zip(
+                    np.asarray(infos["episode"]["r"])[mask], np.asarray(infos["episode"]["l"])[mask]
+                ):
                     ep_returns.append(float(er))
-                    if writer:
-                        writer.add_scalar("charts/episodic_return", er, global_step)
+                    ep_lengths.append(float(el))
 
         # GAE
         with torch.no_grad():
@@ -361,6 +398,7 @@ def train(args) -> Path:
         b_ret = ret_t.reshape(batch)
 
         idx = np.arange(batch)
+        stats = {"pg_loss": [], "v_loss": [], "entropy": [], "approx_kl": [], "clipfrac": []}
         for _ in range(args.epochs):
             np.random.shuffle(idx)
             for mb in np.array_split(idx, args.minibatches):
@@ -379,19 +417,43 @@ def train(args) -> Path:
                 loss.backward()
                 nn.utils.clip_grad_norm_(agent.parameters(), 0.5)
                 optimizer.step()
+                with torch.no_grad():
+                    stats["pg_loss"].append(pg_loss.item())
+                    stats["v_loss"].append(v_loss.item())
+                    stats["entropy"].append(entropy.mean().item())
+                    stats["approx_kl"].append((b_logp[mb_t] - newlogp).mean().item())
+                    stats["clipfrac"].append(((ratio - 1).abs() > args.clip).float().mean().item())
 
         sps = int(global_step / (time.time() - start))
         recent = np.mean(ep_returns[-20:]) if ep_returns else float("nan")
         per_update = args.num_envs * args.rollout_len
         if not args.quiet or global_step % 1_000_000 < per_update:
             print(f"step {global_step:>9}  return(20ep) {recent:7.2f}  sps {sps}", flush=True)
-        if writer:
-            writer.add_scalar("charts/sps", sps, global_step)
+        n_updates += 1
+        if n_updates % args.log_every == 0:
+            y_pred, y_true = val_t.ravel().cpu().numpy(), ret_t.ravel().cpu().numpy()
+            var_y = np.var(y_true)
+            log_metrics({
+                "charts/episodic_return": recent,
+                "charts/episodic_length": np.mean(ep_lengths[-20:]) if ep_lengths else float("nan"),
+                "charts/sps": sps,
+                "charts/learning_rate": optimizer.param_groups[0]["lr"],
+                "charts/level_pool": pool_size or (len(levels) if levels else 1),
+                "losses/policy_loss": np.mean(stats["pg_loss"]),
+                "losses/value_loss": np.mean(stats["v_loss"]),
+                "losses/entropy": np.mean(stats["entropy"]),
+                "losses/approx_kl": np.mean(stats["approx_kl"]),
+                "losses/clipfrac": np.mean(stats["clipfrac"]),
+                "losses/explained_variance": float("nan") if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y,
+            }, global_step)
         torch.save(agent.state_dict(), run_dir / "model.pt")
 
     envs.close()
     if writer:
         writer.close()
+    if tracker:
+        tracker.log_artifact(str(run_dir / "model.pt"))
+        tracker.end_run()
     print(f"saved {run_dir / 'model.pt'}")
     return run_dir / "model.pt"
 

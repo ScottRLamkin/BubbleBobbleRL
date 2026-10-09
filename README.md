@@ -41,7 +41,7 @@ observation, reward and episode definitions.
 
 | Script | Purpose |
 |---|---|
-| `scripts/train_ppo.py` | Single-file PPO (`--levels 1-100`, `--arch conv`, `--random-start`, `--init-model`) |
+| `scripts/train_ppo.py` | Single-file PPO (`--levels 1-100`, `--arch conv`, `--random-start`, `--init-model`); logs to local MLflow and TensorBoard |
 | `scripts/evaluate.py` | Reward-independent scoring: episodes cleared over all levels |
 | `scripts/evolve.py` | Resumable population-based fine-tuning |
 | `scripts/export_levels.py` | GIF of an agent on every level plus an HTML gallery |
