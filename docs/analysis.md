@@ -327,3 +327,76 @@ What has not been tried, roughly in order of how likely it is to work:
    frames per level-equivalent.
 4. **Fewer levels.** An agent for 10 levels would show whether the method
    works at all before scaling to 100.
+
+## Punishing time and standing still (2026-10-08/09)
+
+Scott asked for a heavier time penalty, a light penalty for standing still,
+and to keep the bubble-climbing (jumping up a wall on a column of bubbles)
+that the agents had started to show, as something they do in bursts rather
+than all the time. `stationary_penalty` was added to the env: a per-step
+charge whenever the player's x has stayed inside a band for a window of
+steps. Four rounds, all in the game with projectiles, scored on the usual
+fresh seeds (100 levels x 10 episodes) with `scripts/analyze.py`'s new
+behaviour profile (3 episodes per level). "Bouncer" is the best camper
+fine-tuned under the new penalties; "mover" is the agent the stationary
+penalty first set in motion.
+
+| Round | Death penalty | Still-penalty band | Run | Cleared / 1000 | x range | Bounces / min | Crosses screen |
+|---|---|---|---|---|---|---|---|
+| 1 | 1 | 8 px / 2 s | time 0.01 only, scratch 100M | 62 | 5 px | 26.5 | 0 / 300 |
+| 1 | 1 | 8 px / 2 s | + still 0.005, scratch 100M | 8 | 58 px | 19.4 | 180 / 300 |
+| 1 | 1 | 8 px / 2 s | + still 0.01, scratch 100M | 4 | 54 px | 28.5 | 148 / 300 |
+| 1 | 1 | 8 px / 2 s | camper fine-tuned 50M ("bouncer") | 122 | 7 px | 20.8 | 0 / 300 |
+| 2 | 15 | 8 px / 2 s | scratch 100M | 54 | 7 px | 0.0 | 0 / 300 |
+| 2 | 15 | 8 px / 2 s | from the mover 50M | 38 | 49 px | 0.0 | 139 / 300 |
+| 2 | 15 | 8 px / 2 s | from the bouncer 50M | 120 | 6 px | 0.2 | 0 / 300 |
+| 2 | 15 | 8 px / 2 s | ego obs, scratch 100M | 68 | 7 px | 3.6 | 0 / 300 |
+| 3 | 5 | 8 px / 2 s | scratch 100M | 65 | 8 px | 5.7 | 0 / 300 |
+| 3 | 5 | 8 px / 2 s | from the mover 50M | 74 | 11 px | 0.0 | 0 / 300 |
+| 3 | 5 | 8 px / 2 s | from the bouncer 50M | 126 | 9 px | 26.5 | 0 / 300 |
+| 3 | 5 | 8 px / 2 s | ego, continued 50M | 114 | 9 px | 1.6 | 0 / 300 |
+| 4 | 5 | 32 px / 8 s | scratch 100M | 35 | 6 px | 21.3 | 1 / 300 |
+| 4 | 5 | 32 px / 8 s | from the mover 50M | 68 | 3 px | 0.0 | 0 / 300 |
+| 4 | 5 | 32 px / 8 s | from the bouncer 50M | **141** | 3 px | **26.9** | 0 / 300 |
+| 4 | 5 | 32 px / 8 s | ego, continued 50M | 123 | 6 px | 17.2 | 0 / 300 |
+
+All rounds use time penalty 0.01 (five times the earlier 0.002) and
+stationary penalty 0.005 unless stated.
+
+What happened, round by round:
+
+1. **The heavier time penalty brought the climbing.** Bubble bounces went
+   from 3 a minute (the old camper) to 20-28 in every run, and the fine-tuned
+   camper became the best agent in the game. **The stationary penalty did
+   make agents move**, crossing the screen in half to two-thirds of
+   episodes, but they died within seconds: median death at 4 s, 60% of
+   actions RIGHT. With per-step charges of 0.015 and a death penalty of 1,
+   a minute alive costs 13.5 and dying costs 1, so running into the first
+   enemy was the optimal policy. A reward bug, not a behaviour.
+2. **Death penalty 15 fixed the suicide and killed the climbing.** Bounces
+   dropped to zero; with death that expensive a jump is a risk not worth
+   taking. And a new loophole: agents travelled 350-650 px per episode
+   while staying within 7 px, wiggling in place to dodge the "still" charge.
+3. **Death penalty 5 restored the climbing** (bouncer: 26.5 bounces/min, 126
+   cleared) but every run, including the former mover, settled into
+   wiggling.
+4. **A band wiggling cannot satisfy** (32 px of range over 8 s) ended the
+   wiggling, and the agents simply paid the penalty instead: 91-94% of
+   steps still, x range 3-6 px. The bouncer improved again (141 cleared, 27
+   bounces/min, 46 px of vertical range); the mover gave up moving and
+   jumping both.
+
+So the two asks pull against each other at these strengths. A stationary
+penalty light enough to leave the climbing alone is also light enough to
+ignore; one heavy enough to force movement produces running and dying,
+because a moving policy that survives has still not been learned by any
+method tried here. The time penalty, on the other hand, did exactly what
+was hoped: the best agent now climbs its bubble columns constantly
+(gallery: `exports/v6_bouncer_band32/index.html`), and it is the strongest
+agent in the current game at 141 / 1000.
+
+Not tried: a stationary penalty in the 0.02-0.05 range with death penalty 5
+(would force movement, probably at the cost of the climbing and of clears);
+rewarding distance covered rather than charging for its absence; and the
+imitation route from the previous section, which remains the most likely way
+to get a moving agent that survives.
