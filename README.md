@@ -54,3 +54,5 @@ observation, reward and episode definitions.
 - `docs/model-architecture.md`: the network and the PPO update.
 - `docs/analysis.md`: behaviour analysis, including why early agents learned to
   stand in a corner and what changed once enemies could shoot.
+- `docs/experiments.md`: how to train, score, profile and watch your own agents.
+- `docs/report.html`: all of the above as one page (`uv run python scripts/build_report.py`).

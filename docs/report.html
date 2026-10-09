@@ -49,7 +49,7 @@ p { margin: 10px 0; }
 </style>
 <body>
 <div class="wrap">
-<nav><div class="part"><a href="#analysis">Behaviour analysis</a></div><a class="l2" href="#analysis-the-headline-the-agent-is-a-turret">The headline: the agent is a turret</a><a class="l2" href="#analysis-how-episodes-end">How episodes end</a><a class="l2" href="#analysis-what-the-agent-uses-from-its-observation">What the agent uses from its observation</a><a class="l2" href="#analysis-which-levels-get-cleared">Which levels get cleared</a><a class="l2" href="#analysis-what-the-evolutionary-search-learned">What the evolutionary search learned</a><a class="l2" href="#analysis-experiments-prompted-by-this">Experiments prompted by this</a><a class="l2" href="#analysis-summary-of-the-day-s-experiments">Summary of the day's experiments</a><a class="l2" href="#analysis-after-implementing-the-projectiles-2026-10-06-evening">After implementing the projectiles (2026-10-06 evening)</a><a class="l2" href="#analysis-where-this-leaves-things-2026-10-07">Where this leaves things (2026-10-07)</a><a class="l2" href="#analysis-punishing-time-and-standing-still-2026-10-08-09">Punishing time and standing still (2026-10-08/09)</a><div class="part"><a href="#training-setup">Training setup and results</a></div><a class="l2" href="#training-setup-the-interaction-loop">The interaction loop</a><a class="l2" href="#training-setup-observation-the-656-number-state-vector">Observation: the 656-number state vector</a><a class="l2" href="#training-setup-actions">Actions</a><a class="l2" href="#training-setup-reward">Reward</a><a class="l2" href="#training-setup-episode-lifecycle">Episode lifecycle</a><a class="l2" href="#training-setup-training-run">Training run</a><a class="l2" href="#training-setup-results-on-level-1">Results on level 1</a><a class="l2" href="#training-setup-results-across-all-100-levels">Results across all 100 levels</a><a class="l2" href="#training-setup-evolutionary-fine-tuning-scripts-evolve-py">Evolutionary fine-tuning (<code>scripts/evolve.py</code>)</a><div class="part"><a href="#model-architecture">Model architecture</a></div><a class="l2" href="#model-architecture-current-model-state-observation">Current model (state observation)</a><a class="l2" href="#model-architecture-how-a-ppo-update-flows">How a PPO update flows</a><a class="l2" href="#model-architecture-pixel-variant-obs-screen-not-yet-working">Pixel variant (<code>--obs screen</code>, not yet working)</a></nav>
+<nav><div class="part"><a href="#analysis">Behaviour analysis</a></div><a class="l2" href="#analysis-the-headline-the-agent-is-a-turret">The headline: the agent is a turret</a><a class="l2" href="#analysis-how-episodes-end">How episodes end</a><a class="l2" href="#analysis-what-the-agent-uses-from-its-observation">What the agent uses from its observation</a><a class="l2" href="#analysis-which-levels-get-cleared">Which levels get cleared</a><a class="l2" href="#analysis-what-the-evolutionary-search-learned">What the evolutionary search learned</a><a class="l2" href="#analysis-experiments-prompted-by-this">Experiments prompted by this</a><a class="l2" href="#analysis-summary-of-the-day-s-experiments">Summary of the day's experiments</a><a class="l2" href="#analysis-after-implementing-the-projectiles-2026-10-06-evening">After implementing the projectiles (2026-10-06 evening)</a><a class="l2" href="#analysis-where-this-leaves-things-2026-10-07">Where this leaves things (2026-10-07)</a><a class="l2" href="#analysis-punishing-time-and-standing-still-2026-10-08-09">Punishing time and standing still (2026-10-08/09)</a><div class="part"><a href="#training-setup">Training setup and results</a></div><a class="l2" href="#training-setup-the-interaction-loop">The interaction loop</a><a class="l2" href="#training-setup-observation-the-656-number-state-vector">Observation: the 656-number state vector</a><a class="l2" href="#training-setup-actions">Actions</a><a class="l2" href="#training-setup-reward">Reward</a><a class="l2" href="#training-setup-episode-lifecycle">Episode lifecycle</a><a class="l2" href="#training-setup-training-run">Training run</a><a class="l2" href="#training-setup-results-on-level-1">Results on level 1</a><a class="l2" href="#training-setup-results-across-all-100-levels">Results across all 100 levels</a><a class="l2" href="#training-setup-evolutionary-fine-tuning-scripts-evolve-py">Evolutionary fine-tuning (<code>scripts/evolve.py</code>)</a><div class="part"><a href="#model-architecture">Model architecture</a></div><a class="l2" href="#model-architecture-current-model-state-observation">Current model (state observation)</a><a class="l2" href="#model-architecture-how-a-ppo-update-flows">How a PPO update flows</a><a class="l2" href="#model-architecture-pixel-variant-obs-screen-not-yet-working">Pixel variant (<code>--obs screen</code>, not yet working)</a><div class="part"><a href="#experiments">Running your own experiments</a></div><a class="l2" href="#experiments-setup-once">Setup, once</a><a class="l2" href="#experiments-1-train">1. Train</a><a class="l3" href="#experiments-the-knobs">The knobs</a><a class="l2" href="#experiments-2-score-on-the-same-seeds-every-time">2. Score, on the same seeds every time</a><a class="l2" href="#experiments-3-see-what-it-actually-does">3. See what it actually does</a><a class="l2" href="#experiments-4-watch-it">4. Watch it</a><a class="l2" href="#experiments-running-a-round-of-several-at-once">Running a round of several at once</a><a class="l2" href="#experiments-letting-evolution-do-the-rounds">Letting evolution do the rounds</a><a class="l2" href="#experiments-ideas-that-have-not-been-tried">Ideas that have not been tried</a><a class="l2" href="#experiments-where-things-live">Where things live</a></nav>
 <main>
 <h1>BubbleBobbleRL: what the agents learned</h1>
 <p class="subtitle">Built from <code>docs/*.md</code> by <code>scripts/build_report.py</code>. Diagrams need an internet connection the first time they render.</p>
@@ -388,7 +388,90 @@ p { margin: 10px 0; }
     FC["Linear -&gt; 256&lt;br/&gt;(code expects 2,464 inputs: bug)"]
     Heads["same actor and critic heads"]
     Img --&gt; C1 -- ReLU --&gt; C2 -- ReLU --&gt; F --&gt; FC -- ReLU --&gt; Heads</pre>
-<p>A single frame also hides motion (jump phase, which way a bubble is drifting), so a working pixel setup would want frame stacking on top of the size fix.</p></section>
+<p>A single frame also hides motion (jump phase, which way a bubble is drifting), so a working pixel setup would want frame stacking on top of the size fix.</p></section><section class="part" id="experiments"><h1>Running your own experiments</h1>
+<p>Everything here is one command each, runs unattended, and leaves its results under <code>runs/</code>. A full "round" is: train one or more agents, score them on the same fresh seeds, profile what they do, and watch the interesting ones.</p>
+<h2 id="experiments-setup-once">Setup, once</h2>
+<pre><code>uv sync --extra play --extra train</code></pre>
+<p>Two habits that matter when several runs share the machine:</p>
+<ul><li><code>export OMP_NUM_THREADS=1</code> before launching. Each run then uses one core; without it every run grabs all 12 and they crawl.</li><li><code>caffeinate -is</code> in front of the first run keeps the Mac awake (lid open, plugged in). Everything else can go on in the background with <code>&amp;</code>.</li></ul>
+<h2 id="experiments-1-train">1. Train</h2>
+<pre><code>export OMP_NUM_THREADS=1
+caffeinate -is uv run python scripts/train_ppo.py \
+    --levels 1-100 --time-penalty 0.01 --death-penalty 5 \
+    --total-steps 100000000 --seed 1 \
+    --run-name my_first_run --no-tensorboard --quiet \
+    &gt; runs/my_first_run.log 2&gt;&amp;1 &amp;</code></pre>
+<p>Speed is about 14,000 agent steps per second per run, so 100M steps is roughly two hours. The model lands at <code>runs/my_first_run/model.pt</code> (saved continuously, so you can score a run before it finishes), and the log prints the average return of the last 20 episodes once per million steps:</p>
+<pre><code>tail -3 runs/my_first_run.log</code></pre>
+<h3 id="experiments-the-knobs">The knobs</h3>
+<p>Reward shaping (what the agent is paid for):</p>
+<table><thead><tr><th>Flag</th><th>Default</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>--time-penalty</code></td><td>0</td><td>charge per step; 0.01 is what produced the bubble-climbing</td></tr>
+<tr><td><code>--death-penalty</code></td><td>1</td><td>charge on death; use 5 with per-step penalties (1 makes suicide optimal, 15 makes the agent timid)</td></tr>
+<tr><td><code>--clear-bonus</code></td><td>10</td><td>reward for clearing a level</td></tr>
+<tr><td><code>--stationary-penalty</code></td><td>0</td><td>charge per step while x stays inside <code>--stationary-band</code> px for <code>--stationary-window</code> steps (15 steps = 1 s)</td></tr>
+<tr><td><code>--no-pop-reward</code></td><td>off</td><td>stop paying for popping empty bubbles (hurt badly when tried)</td></tr>
+</tbody></table>
+<p>The task:</p>
+<table><thead><tr><th>Flag</th><th>Default</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>--levels 1-100</code></td><td>level 1 only</td><td>pool of levels, one drawn per episode; <code>"1,5,20-30"</code> works</td></tr>
+<tr><td><code>--curriculum 0.6</code></td><td>off</td><td>grow the pool from level 1 to all of them over the first 60% of training</td></tr>
+<tr><td><code>--random-start</code></td><td>off</td><td>player starts on a random platform</td></tr>
+<tr><td>`--obs state</td><td>ego</td><td>screen`</td><td>state</td><td>what the agent sees: absolute positions, player-relative positions, or pixels (pixels are untested)</td></tr>
+<tr><td>`--arch mlp</td><td>conv`</td><td>mlp</td><td>flat network, or a small CNN over the tile grid (7x slower on CPU)</td></tr>
+</tbody></table>
+<p>Continuing from an existing agent:</p>
+<table><thead><tr><th>Flag</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>--init-model runs/&lt;run&gt;/model.pt</code></td><td>start from those weights (an older, shorter observation is padded with zero weights)</td></tr>
+</tbody></table>
+<p>PPO itself (<code>--lr</code>, <code>--ent-coef</code>, <code>--clip</code>, <code>--gamma</code>, <code>--num-envs</code>, ...) rarely needs touching; <code>--lr 1.5e-4</code> and lower helped slightly in the evolution runs.</p>
+<h2 id="experiments-2-score-on-the-same-seeds-every-time">2. Score, on the same seeds every time</h2>
+<pre><code>uv run python scripts/evaluate.py runs/my_first_run/model.pt --episodes 10 --seed 4242</code></pre>
+<p>Every level, 10 episodes, one life, one-minute cap: "cleared N/1000". Seed 4242 is the set every number in <code>docs/</code> uses, so your result is directly comparable. Reference points in the current game (with projectiles):</p>
+<table><thead><tr><th>Agent</th><th>Cleared / 1000</th></tr></thead><tbody>
+<tr><td>random play</td><td>about 10</td></tr>
+<tr><td>best camper (<code>runs/v6_band32_from_bouncer_50M</code>)</td><td>141</td></tr>
+<tr><td>anything that moves</td><td>under 80 so far</td></tr>
+</tbody></table>
+<p>Noise: re-scoring the same model on different seeds moves it by about 15-20. Differences smaller than that are not real. Add <code>--obs ego</code> for ego models.</p>
+<h2 id="experiments-3-see-what-it-actually-does">3. See what it actually does</h2>
+<pre><code>uv run python scripts/analyze.py runs/my_first_run/model.pt --episodes 3 --sections behaviour,outcomes</code></pre>
+<p>The behaviour profile is the quickest read: horizontal distance and x range per episode (a camper has an x range under 10 px), share of time still, bubble bounces per minute (3 for the old camper, 27 for the climber), and how many episodes cross the screen. <code>--sections</code> can also include <code>ablation</code> (which inputs it relies on), <code>levels</code> (clear rate by level features) and <code>cap</code> (does more time help). The default runs them all and takes about 20 minutes.</p>
+<h2 id="experiments-4-watch-it">4. Watch it</h2>
+<pre><code>uv run python scripts/export_levels.py runs/my_first_run/model.pt --out exports/my_first_run
+open exports/my_first_run/index.html</code></pre>
+<p>A GIF per level (best of 3 tries) in a page with green/red/grey bars for cleared/died/timed out. About 2 minutes and 30 MB. For a single level at full speed:</p>
+<pre><code>uv run python scripts/train_ppo.py --play runs/my_first_run/model.pt --level 7</code></pre>
+<p>writes <code>agent.gif</code>. And to play the game yourself: <code>uv run bubblebobblerl-play --level 7</code>.</p>
+<h2 id="experiments-running-a-round-of-several-at-once">Running a round of several at once</h2>
+<p>Four runs fit comfortably on the 8 performance cores. Put the shared flags in an array (a plain string will not be split by zsh):</p>
+<pre><code>export OMP_NUM_THREADS=1
+P=(--levels 1-100 --time-penalty 0.01 --death-penalty 5 --no-tensorboard --quiet)
+caffeinate -is uv run python scripts/train_ppo.py "${P[@]}" --stationary-penalty 0.02 --total-steps 100000000 --seed 1 --run-name r1_still02  &gt; runs/r1_still02.log  2&gt;&amp;1 &amp;
+uv run python scripts/train_ppo.py "${P[@]}" --stationary-penalty 0.05 --total-steps 100000000 --seed 2 --run-name r1_still05  &gt; runs/r1_still05.log  2&gt;&amp;1 &amp;
+uv run python scripts/train_ppo.py "${P[@]}" --init-model runs/v6_band32_from_bouncer_50M/model.pt --total-steps 50000000 --seed 3 --run-name r1_bouncer_more &gt; runs/r1_bouncer_more.log 2&gt;&amp;1 &amp;</code></pre>
+<p>Then, when they are done, score them all with one loop:</p>
+<pre><code>for r in r1_still02 r1_still05 r1_bouncer_more; do
+  uv run python scripts/evaluate.py runs/$r/model.pt --episodes 10 --seed 4242 &amp;
+done; wait</code></pre>
+<p>Do not edit <code>scripts/</code> or <code>src/</code> while runs are going: a run that imports a module late (the evolution workers do) can pick up a half-changed codebase.</p>
+<h2 id="experiments-letting-evolution-do-the-rounds">Letting evolution do the rounds</h2>
+<p><code>scripts/evolve.py</code> automates "train a population, keep the best, reseed":</p>
+<pre><code>caffeinate -is uv run python scripts/evolve.py \
+    --base runs/v6_band32_from_bouncer_50M/model.pt --name myevo \
+    --generations 3 --population 30 --survivors 10 --steps 10000000 --workers 8</code></pre>
+<p>Each generation mutates reward settings and learning rates, fine-tunes 30 children in parallel, scores everyone on the same seeds, and keeps the top</p>
+<ol><li>About an hour per generation; <code>runs/evolve/myevo/leaderboard.md</code> has the</li></ol>
+<p>ranked table and re-running the same command resumes after a crash. The genome it mutates and the hand-picked first-generation variants are at the top of the script if you want to change what it searches over.</p>
+<h2 id="experiments-ideas-that-have-not-been-tried">Ideas that have not been tried</h2>
+<ul><li>A stationary penalty of 0.02-0.05 with death penalty 5: forces movement, probably at the cost of the climbing and the clear rate. Worth seeing.</li><li>Paying for distance covered instead of charging for standing still (a few lines in <code>BubbleBobbleEnv.step</code>, next to <code>stationary_penalty</code>).</li><li>A pool of 10 levels instead of 100, to find out whether a moving agent can be learned at all on fewer layouts.</li><li>Longer runs: nothing here went past 200M steps.</li><li>Recording your own play in <code>play.py</code> and pretraining from it (the most likely route to a moving agent that survives, in my view).</li></ul>
+<h2 id="experiments-where-things-live">Where things live</h2>
+<table><thead><tr><th>Path</th><th>Contents</th></tr></thead><tbody>
+<tr><td><code>runs/&lt;name&gt;/model.pt</code>, <code>runs/&lt;name&gt;.log</code></td><td>each run's weights and progress (gitignored)</td></tr>
+<tr><td><code>runs/analysis/</code></td><td>JSON and Markdown from <code>analyze.py</code></td></tr>
+<tr><td><code>exports/&lt;name&gt;/index.html</code></td><td>galleries (gitignored)</td></tr>
+<tr><td><code>docs/*.md</code>, <code>docs/report.html</code></td><td>the write-ups; <code>uv run python scripts/build_report.py</code> rebuilds the report</td></tr>
+</tbody></table></section>
 </main>
 </div>
 <script type="module">

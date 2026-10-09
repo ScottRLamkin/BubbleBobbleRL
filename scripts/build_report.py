@@ -18,6 +18,7 @@ SOURCES = [
     ("analysis.md", "Behaviour analysis"),
     ("training-setup.md", "Training setup and results"),
     ("model-architecture.md", "Model architecture"),
+    ("experiments.md", "Running your own experiments"),
 ]
 
 
