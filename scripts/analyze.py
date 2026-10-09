@@ -174,13 +174,15 @@ def main() -> None:
     p.add_argument("--max-steps", type=int, default=900)
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--out", default=None)
+    p.add_argument("--obs", choices=["state", "ego"], default="state",
+                   help="ego models: only the outcomes/behaviour/actions/cap sections apply")
     p.add_argument("--sections", default="outcomes,timeouts,behaviour,actions,ablation,levels,cap")
     args = p.parse_args()
     sections = set(args.sections.split(","))
 
     levels = parse_levels(args.levels)
-    env = BubbleBobbleEnv(obs_type="state")
-    agent = load_agent(args.model)
+    env = BubbleBobbleEnv(obs_type=args.obs)
+    agent = Agent.load(args.model, env.observation_space, env.action_space.n)
     report: dict = {"model": args.model}
 
     def episodes(agent, ablation="none", grid_wall_only=False, max_steps=None, eps=None):
