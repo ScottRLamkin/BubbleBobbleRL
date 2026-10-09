@@ -170,3 +170,12 @@ def test_stationary_penalty_after_window_without_horizontal_movement():
     assert all(r == pytest.approx(-0.5) for r in rewards[5:])
     walked = [env.step(2)[1] for _ in range(10)]  # walk right: band widens past 8 px
     assert walked[-1] == pytest.approx(0.0)
+
+
+def test_stationary_band_is_configurable():
+    env = BubbleBobbleEnv(stationary_penalty=0.5, stationary_window=5, stationary_band=32, frame_skip=4)
+    env.reset(seed=0)
+    env.game.enemies, env.game.alive_enemies = [], 1
+    for _ in range(5):
+        env.step(2)  # walk right 4 px per step: 16 px over the window, under the 32 px band
+    assert env.step(2)[1] == pytest.approx(-0.5)

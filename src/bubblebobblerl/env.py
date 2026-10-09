@@ -57,11 +57,12 @@ class BubbleBobbleEnv(gym.Env):
     Reward is the in-game score delta (display points / 100 to keep
     magnitudes sane), with small optional shaping terms. time_penalty is
     subtracted once per step; it stands in for the unimplemented hurry-up.
-    stationary_penalty is subtracted on every step at which the player has
-    not left an 8-pixel band of x for the last stationary_window steps
-    (default 30 steps = 2 s). Vertical movement does not count as moving, so
-    hopping in place or riding bubbles up a wall is penalised unless it is
-    part of getting somewhere.
+    stationary_penalty is subtracted on every step at which the player's x
+    has stayed within a stationary_band-pixel band for the last
+    stationary_window steps (defaults 8 px over 30 steps = 2 s). Vertical
+    movement does not count as moving. A short band is easy to game by
+    wiggling in place; 32 px over 120 steps (8 s) demands real travel while
+    still allowing a few seconds of bubble-climbing in one column.
     reward_pops=False drops the 10 points per bubble pop or bounce from the
     reward (not from the score), since they can be farmed forever.
     random_start=True puts the player on a random platform at reset instead
@@ -85,6 +86,7 @@ class BubbleBobbleEnv(gym.Env):
         time_penalty: float = 0.0,
         stationary_penalty: float = 0.0,
         stationary_window: int = 30,
+        stationary_band: int = 8,
         reward_pops: bool = True,
         random_start: bool = False,
         render_mode: str | None = None,
@@ -101,6 +103,7 @@ class BubbleBobbleEnv(gym.Env):
         self.time_penalty = time_penalty
         self.stationary_penalty = stationary_penalty
         self.stationary_window = stationary_window
+        self.stationary_band = stationary_band
         self.reward_pops = reward_pops
         self.random_start = random_start
         self.level_pool = list(levels) if levels else None
@@ -277,7 +280,7 @@ class BubbleBobbleEnv(gym.Env):
             self._xs.append(self.game.player.x)
             if len(self._xs) > self.stationary_window:
                 del self._xs[0]
-                if max(self._xs) - min(self._xs) < 8:
+                if max(self._xs) - min(self._xs) < self.stationary_band:
                     reward -= self.stationary_penalty
         truncated = self._frames >= self.max_episode_frames and not terminated
         return self._obs(), reward, terminated, truncated, self._info()
