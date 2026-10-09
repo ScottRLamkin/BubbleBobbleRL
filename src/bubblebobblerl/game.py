@@ -233,6 +233,7 @@ class Game:
         self.clear_countdown = -1
         self.chain = 0
         self.chain_timer = 0
+        self.bounces = 0  # jumps off the top of a bubble (statistics only)
 
     # ------------------------------------------------------------ tiles
 
@@ -375,6 +376,7 @@ class Game:
     def _fall(self, p: Player, jump_held: bool, ev) -> None:
         p.y += 1
         if p.on_bubble and jump_held:  # bubble bounce
+            self.bounces += 1
             self.score += POP_EVENT_SCORE
             ev.score_delta += POP_EVENT_SCORE
             ev.pop_score += POP_EVENT_SCORE

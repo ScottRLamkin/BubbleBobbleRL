@@ -87,7 +87,7 @@ def run_episode(agent, env, level, seed, gen, max_steps, ablation="none", grid_w
     actions = collections.Counter()
     pops = kills = captures = 0
     first_capture = first_kill = None
-    xs = []
+    xs, ys = [], []
     killer = None
     for step in range(max_steps):
         obs = mask_obs(o, ablation)
@@ -99,6 +99,7 @@ def run_episode(agent, env, level, seed, gen, max_steps, ablation="none", grid_w
         before_dead = g.player.dead_ticks >= 0
         o, r, term, trunc, info = env.step(a)
         xs.append(g.player.x)
+        ys.append(g.player.y)
         # Events are summed inside env.step; recover them from the score and
         # counters we can see on the game object.
         kills_now = len(g.levels[g.level_num - 1].spawns) - g.alive_enemies
@@ -134,6 +135,13 @@ def run_episode(agent, env, level, seed, gen, max_steps, ablation="none", grid_w
         "killer": killer,
         "actions": dict(actions),
         "x_std": float(np.std(xs)) if xs else 0.0,
+        "x_travel": int(np.abs(np.diff(xs)).sum()) if len(xs) > 1 else 0,
+        "x_range": int(max(xs) - min(xs)) if xs else 0,
+        "y_range": int(max(ys) - min(ys)) if ys else 0,
+        "still_steps": int(sum(
+            1 for i in range(30, len(xs)) if max(xs[i - 30 : i + 1]) - min(xs[i - 30 : i + 1]) < 8
+        )),
+        "bounces": g.bounces,
     }
 
 
@@ -166,7 +174,7 @@ def main() -> None:
     p.add_argument("--max-steps", type=int, default=900)
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--out", default=None)
-    p.add_argument("--sections", default="outcomes,timeouts,actions,ablation,levels,cap")
+    p.add_argument("--sections", default="outcomes,timeouts,behaviour,actions,ablation,levels,cap")
     args = p.parse_args()
     sections = set(args.sections.split(","))
 
@@ -232,6 +240,22 @@ def main() -> None:
             print(md_table(["Enemies left at timeout", "Episodes"], sorted(left.items())))
             print(f"\nOf {len(tos)} timeouts: {no_kill} with no kill at all, {one_left} with a single "
                   f"enemy left, {still} where the player barely moved (x std < 4 px).")
+
+    if "behaviour" in sections:
+        n = len(base)
+        steps = sum(r["steps"] for r in base)
+        still = sum(r["still_steps"] for r in base)
+        rows = [
+            ("horizontal distance per episode (px)", f"{np.mean([r['x_travel'] for r in base]):.0f}"),
+            ("x range per episode (px, screen is 96)", f"{np.mean([r['x_range'] for r in base]):.0f}"),
+            ("y range per episode (px, playfield is 92)", f"{np.mean([r['y_range'] for r in base]):.0f}"),
+            ("steps spent still (no x movement for 2 s)", f"{100 * still / max(steps, 1):.0f}%"),
+            ("bubble bounces per minute", f"{60 * 15 * sum(r['bounces'] for r in base) / max(steps, 1):.1f}"),
+            ("episodes that cross the screen (x range >= 64)", f"{sum(r['x_range'] >= 64 for r in base)} of {n}"),
+        ]
+        report["behaviour"] = rows
+        print("\n### Behaviour profile\n")
+        print(md_table(["Measure", "Value"], rows))
 
     if "actions" in sections:
         total = collections.Counter()
