@@ -281,6 +281,7 @@ def train(args) -> Path:
     if not args.no_mlflow:
         try:
             os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
+            os.environ.setdefault("MLFLOW_DISABLE_TELEMETRY", "true")  # keep it fully local
             import mlflow
 
             # Local SQLite store in the repo root (gitignored); artifacts go to mlruns/.
