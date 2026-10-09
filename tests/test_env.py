@@ -159,3 +159,14 @@ def test_ego_obs_is_centred_on_the_player():
     obs = env._obs()
     e0 = 8 + EGO_ROWS * EGO_COLS
     assert obs[e0] == 1.0 and obs[e0 + 1] == pytest.approx(20 / 96) and abs(obs[e0 + 2]) < 1e-6
+
+
+def test_stationary_penalty_after_window_without_horizontal_movement():
+    env = BubbleBobbleEnv(stationary_penalty=0.5, stationary_window=5, frame_skip=4)
+    env.reset(seed=0)
+    env.game.enemies, env.game.alive_enemies = [], 1  # nothing to die from
+    rewards = [env.step(3)[1] for _ in range(8)]  # jump in place: y moves, x does not
+    assert all(r == pytest.approx(0.0) for r in rewards[:5])
+    assert all(r == pytest.approx(-0.5) for r in rewards[5:])
+    walked = [env.step(2)[1] for _ in range(10)]  # walk right: band widens past 8 px
+    assert walked[-1] == pytest.approx(0.0)
