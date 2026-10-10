@@ -12,6 +12,12 @@ the top --survivors are kept. Losers' model files are deleted.
 
 Everything lives in runs/evolve/<name>/. The run is resumable: re-running the
 same command skips members and generations that already finished.
+
+Tracking: every child is an MLflow run in experiment "evolve-<name>" (same
+local mlflow.db as plain training), with its genome as parameters, training
+curves, and after scoring its evaluation (eval_cleared, eval_rank, ...) and
+a "survived" tag. Each generation adds a summary run. Workers log through a
+local MLflow server that evolve.py starts and stops itself.
 """
 
 from __future__ import annotations
@@ -21,6 +27,7 @@ import contextlib
 import json
 import math
 import multiprocessing as mp
+import os
 import random
 import shutil
 import time
@@ -33,36 +40,59 @@ LEVELS = "1-100"
 
 @dataclass(frozen=True)
 class Genome:
+    """Everything a child may differ in from its parent. Defaults are the
+    recipe of the current best agent (time 0.01, still 0.005 over 32 px,
+    death 5), so an unmutated child is a plain continuation of it."""
+
+    # reward shaping
     clear_bonus: float = 10.0
-    time_penalty: float = 0.002
+    time_penalty: float = 0.01
+    stationary_penalty: float = 0.005
+    stationary_band: int = 32
+    death_penalty: float = 5.0
+    capture_bonus: float = 0.1
     reward_pops: bool = True
-    death_penalty: float = 1.0
+    # PPO
     lr: float = 2.5e-4
     ent_coef: float = 0.01
+    clip: float = 0.1
+    gamma: float = 0.99
+    vf_coef: float = 0.5
 
 
-# (low, high) for the continuous genes. Mutation jitters on a log scale.
+# (low, high) for the continuous genes. Mutation jitters on a log scale;
+# gamma is jittered as (1 - gamma), stationary_band is rounded to pixels.
 RANGES = {
-    "clear_bonus": (10.0, 200.0),
+    "clear_bonus": (5.0, 200.0),
     "time_penalty": (0.0, 0.05),
-    "death_penalty": (0.5, 5.0),
-    "lr": (5e-5, 5e-4),
-    "ent_coef": (0.003, 0.03),
+    "stationary_penalty": (0.0, 0.05),
+    "stationary_band": (8, 64),
+    "death_penalty": (0.5, 20.0),
+    "capture_bonus": (0.0, 1.0),
+    "lr": (3e-5, 5e-4),
+    "ent_coef": (0.002, 0.03),
+    "clip": (0.05, 0.3),
+    "gamma": (0.95, 0.997),
+    "vf_coef": (0.25, 1.0),
 }
-TIME_PENALTY_FLOOR = 0.001  # so a zero time penalty can still mutate upward
-POP_FLIP_PROB = 0.15
+FLOORS = {"time_penalty": 0.001, "stationary_penalty": 0.001, "capture_bonus": 0.01}
+STATIONARY_WINDOW = 120  # steps (8 s); fixed, the band is the gene
+POP_FLIP_PROB = 0.1
 
 
 def mutate(genome: Genome, rng: random.Random) -> Genome:
-    """Jitter one or two continuous genes by x0.5-2, and maybe flip reward_pops."""
+    """Jitter one to three continuous genes by x0.5-2, and maybe flip reward_pops."""
     changes: dict = {}
-    for gene in rng.sample(sorted(RANGES), rng.choice((1, 2))):
+    for gene in rng.sample(sorted(RANGES), rng.choice((1, 2, 3))):
         lo, hi = RANGES[gene]
         value = getattr(genome, gene)
-        if gene == "time_penalty":
-            value = max(value, TIME_PENALTY_FLOOR)
-        value *= math.exp(rng.uniform(math.log(0.5), math.log(2.0)))
-        changes[gene] = min(max(value, lo), hi)
+        factor = math.exp(rng.uniform(math.log(0.5), math.log(2.0)))
+        if gene == "gamma":
+            value = 1.0 - (1.0 - value) * factor
+        else:
+            value = max(value, FLOORS.get(gene, 0.0)) * factor
+        value = min(max(value, lo), hi)
+        changes[gene] = int(round(value)) if gene == "stationary_band" else value
     if rng.random() < POP_FLIP_PROB:
         changes["reward_pops"] = not genome.reward_pops
     return replace(genome, **changes)
@@ -72,17 +102,19 @@ def seed_variants(base: Genome) -> list[Genome]:
     """Hand-picked first-generation genomes: the obvious ideas get a slot each."""
     return [
         base,  # control: plain continuation of the baseline
+        replace(base, stationary_penalty=0.02),
+        replace(base, stationary_penalty=0.05),
+        replace(base, stationary_penalty=0.02, death_penalty=10.0),
+        replace(base, time_penalty=0.02),
+        replace(base, time_penalty=0.005, stationary_penalty=0.0),
         replace(base, clear_bonus=30.0),
-        replace(base, clear_bonus=100.0),
-        replace(base, time_penalty=0.01),
-        replace(base, time_penalty=0.03),
-        replace(base, reward_pops=False),
-        replace(base, clear_bonus=30.0, time_penalty=0.01),
-        replace(base, clear_bonus=100.0, time_penalty=0.01),
-        replace(base, clear_bonus=100.0, time_penalty=0.03),
-        replace(base, reward_pops=False, clear_bonus=30.0),
-        replace(base, reward_pops=False, clear_bonus=100.0),
-        replace(base, reward_pops=False, clear_bonus=100.0, time_penalty=0.01),
+        replace(base, capture_bonus=0.5),
+        replace(base, death_penalty=2.0),
+        replace(base, lr=1e-4),
+        replace(base, ent_coef=0.02),
+        replace(base, gamma=0.98),
+        replace(base, clip=0.2),
+        replace(base, reward_pops=False, capture_bonus=0.5),
     ]
 
 
@@ -104,7 +136,7 @@ def plan_generation(
         base = parents[0]
         genomes = seed_variants(Genome(**base["genome"]))[:population]
         while len(genomes) < population:
-            genomes.append(mutate(rng.choice(genomes[:12]), rng))
+            genomes.append(mutate(rng.choice(genomes[:14]), rng))
         pairs = [(base, g) for g in genomes]
     else:
         pairs = []
@@ -154,18 +186,32 @@ def train_member(spec: dict) -> dict:
             "--total-steps", str(spec["steps"]),
             "--init-model", spec["parent_model"],
             "--run-dir", str(member_dir),
+            "--run-name", spec["id"],
             "--seed", str(spec["seed"]),
             "--lr", str(g["lr"]),
             "--ent-coef", str(g["ent_coef"]),
+            "--clip", str(g["clip"]),
+            "--gamma", str(g["gamma"]),
+            "--vf-coef", str(g["vf_coef"]),
             "--time-penalty", str(g["time_penalty"]),
+            "--stationary-penalty", str(g["stationary_penalty"]),
+            "--stationary-band", str(g["stationary_band"]),
+            "--stationary-window", str(STATIONARY_WINDOW),
             "--clear-bonus", str(g["clear_bonus"]),
             "--death-penalty", str(g["death_penalty"]),
+            "--capture-bonus", str(g["capture_bonus"]),
             "--no-tensorboard",
-            "--no-mlflow",
             "--quiet",
         ]
         if not g["reward_pops"]:
             argv.append("--no-pop-reward")
+        if spec.get("experiment"):
+            argv += ["--experiment", spec["experiment"], "--log-every", "10"]
+            for k in ("generation", "parent"):
+                argv += ["--mlflow-tag", f"{k}={spec.get(k, '')}"]
+            argv += ["--mlflow-tag", "lineage=" + ">".join(spec["lineage"])]
+        else:
+            argv.append("--no-mlflow")
         with open(member_dir / "train.log", "w") as log, contextlib.redirect_stdout(log):
             train(parse_args(argv))
     except Exception:
@@ -196,9 +242,50 @@ def score_member(job: dict) -> dict:
 class Run:
     def __init__(self, args):
         self.args = args
+        self.mlflow = False
         self.dir = Path("runs") / "evolve" / args.name
         self.dir.mkdir(parents=True, exist_ok=True)
         self.state_path = self.dir / "state.json"
+
+    def start_mlflow_server(self):
+        """Workers log through a local MLflow server so SQLite sees one writer.
+        The server keeps the same mlflow.db that plain training runs use."""
+        self.mlflow = False
+        if self.args.no_mlflow:
+            return None
+        try:
+            import mlflow  # noqa: F401
+        except ImportError:
+            self.log("mlflow not installed: tracking off (uv sync --extra train)")
+            return None
+        import subprocess
+        import urllib.request
+
+        from train_ppo import MLFLOW_URI
+
+        url = f"http://127.0.0.1:{self.args.mlflow_port}"
+        env = dict(os.environ, MLFLOW_DISABLE_AGENT_HINT="1", MLFLOW_DISABLE_TELEMETRY="true")
+        server = subprocess.Popen(
+            ["uv", "run", "mlflow", "server", "--backend-store-uri", MLFLOW_URI,
+             "--default-artifact-root", "./mlruns", "--host", "127.0.0.1",
+             "--port", str(self.args.mlflow_port), "--workers", "1"],
+            env=env, stdout=open(self.dir / "mlflow_server.log", "w"), stderr=subprocess.STDOUT,
+        )
+        for _ in range(60):
+            try:
+                urllib.request.urlopen(url + "/health", timeout=1)
+                break
+            except Exception:
+                time.sleep(1)
+        else:
+            self.log("mlflow server did not start: tracking off")
+            server.terminate()
+            return None
+        os.environ["MLFLOW_TRACKING_URI"] = url  # inherited by the spawned workers
+        os.environ["MLFLOW_DISABLE_AGENT_HINT"] = "1"
+        self.mlflow = True
+        self.log(f"mlflow server at {url} (experiment evolve-{self.args.name})")
+        return server
 
     def log(self, msg: str) -> None:
         line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}"
@@ -242,6 +329,9 @@ class Run:
             for c in children:
                 c["dir"] = str(gen_dir / c["id"])
                 c["model"] = str(gen_dir / c["id"] / "model.pt")
+                c["generation"] = gen
+                if self.mlflow:
+                    c["experiment"] = f"evolve-{a.name}"
             plan_path.write_text(json.dumps(children, indent=2))
 
         self.log(f"generation {gen}: training {len(children)} children, {a.steps:,} steps each")
@@ -286,6 +376,7 @@ class Run:
                 model.unlink(missing_ok=True)
 
         ranked = sorted(scored, key=lambda m: fitness(m["result"]), reverse=True)
+        self.track_generation(gen, ranked, keep, results.get("base"))
         state["generation"] = gen
         state["survivors"] = [
             {k: s[k] for k in ("id", "lineage", "model", "genome")} for s in survivors
@@ -309,6 +400,41 @@ class Run:
             f"best {best['id']} cleared {best['result']['cleared']}/{best['result']['episodes']}, "
             f"baseline {base_r.get('cleared', '?')}/{base_r.get('episodes', '?')}"
         )
+
+    def track_generation(self, gen: int, ranked: list[dict], keep: set, base_result) -> None:
+        """Attach the evaluation to each member's MLflow run and add a
+        generation summary run, so curves and fitness live in one place."""
+        if not self.mlflow:
+            return
+        try:
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+            for rank, m in enumerate(ranked, 1):
+                run_id_file = Path(m.get("dir", "")) / "mlflow_run_id.txt" if m.get("dir") else None
+                if not run_id_file or not run_id_file.exists():
+                    continue
+                run_id = run_id_file.read_text().strip()
+                r = m["result"]
+                for k in ("cleared", "died", "timeout", "levels_cleared", "mean_score"):
+                    client.log_metric(run_id, f"eval_{k}", float(r[k]), step=gen)
+                client.log_metric(run_id, "eval_rank", rank, step=gen)
+                client.set_tag(run_id, "survived", str(m["id"] in keep))
+            mlflow.set_experiment(f"evolve-{self.args.name}")
+            with mlflow.start_run(run_name=f"generation_{gen:02d}"):
+                mlflow.set_tags({"generation": gen, "summary": "true"})
+                cleared = [m["result"]["cleared"] for m in ranked]
+                mlflow.log_metrics({
+                    "best_cleared": max(cleared),
+                    "mean_cleared": sum(cleared) / len(cleared),
+                    "survivor_floor_cleared": min(m["result"]["cleared"] for m in ranked if m["id"] in keep),
+                    "baseline_cleared": (base_result or {}).get("cleared", float("nan")),
+                }, step=gen)
+                mlflow.log_dict({m["id"]: {"genome": m["genome"], "result": m["result"]} for m in ranked},
+                                f"generation_{gen:02d}.json")
+        except Exception as exc:  # tracking must never stop the evolution
+            self.log(f"  mlflow tracking failed: {exc}")
 
     def write_leaderboard(self, state: dict) -> None:
         lines = [f"# Evolution leaderboard: {self.args.name}", ""]
@@ -343,10 +469,15 @@ class Run:
         if state["generation"] >= a.generations:
             self.log(f"already complete ({state['generation']} generations)")
             return
-        ctx = mp.get_context("spawn")
-        with ctx.Pool(a.workers, initializer=_init_worker) as pool:
-            for gen in range(state["generation"] + 1, a.generations + 1):
-                self.generation(gen, state, pool)
+        server = self.start_mlflow_server()
+        try:
+            ctx = mp.get_context("spawn")
+            with ctx.Pool(a.workers, initializer=_init_worker) as pool:
+                for gen in range(state["generation"] + 1, a.generations + 1):
+                    self.generation(gen, state, pool)
+        finally:
+            if server:
+                server.terminate()
         champion = state["survivors"][0]
         self.log(f"finished. champion {champion['id']}: {champion['model']}")
         self.log(f"leaderboard: {self.dir / 'leaderboard.md'}")
@@ -364,6 +495,8 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--eval-episodes", type=int, default=5, help="episodes per level when scoring")
     p.add_argument("--eval-max-steps", type=int, default=900)
     p.add_argument("--seed", type=int, default=1)
+    p.add_argument("--no-mlflow", action="store_true", help="skip MLflow tracking")
+    p.add_argument("--mlflow-port", type=int, default=5001)
     return p.parse_args(argv)
 
 

@@ -68,3 +68,17 @@ def test_plan_is_deterministic_for_resume():
     a = plan_generation(2, parents, 9, 1000, random.Random(7))
     b = plan_generation(2, parents, 9, 1000, random.Random(7))
     assert a == b
+
+
+def test_genome_has_at_least_ten_parameters_and_mutations_respect_types():
+    from dataclasses import fields
+
+    assert len(fields(Genome)) >= 10
+    rng = random.Random(3)
+    g = Genome()
+    for _ in range(300):
+        g = mutate(g, rng)
+        assert isinstance(g.stationary_band, int) and 8 <= g.stationary_band <= 64
+        assert 0.95 <= g.gamma <= 0.997
+        for gene, (lo, hi) in RANGES.items():
+            assert lo <= getattr(g, gene) <= hi

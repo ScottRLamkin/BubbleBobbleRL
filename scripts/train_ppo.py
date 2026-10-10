@@ -48,6 +48,7 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--no-pop-reward", action="store_true", help="no reward for bare bubble pops")
     p.add_argument("--clear-bonus", type=float, default=10.0)
     p.add_argument("--death-penalty", type=float, default=1.0)
+    p.add_argument("--capture-bonus", type=float, default=0.1)
     p.add_argument("--random-start", action="store_true", help="random player start position")
     p.add_argument("--curriculum", type=float, default=0.0,
                    help="grow the level pool from level 1 to all of --levels over this fraction of training")
@@ -72,6 +73,8 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--no-tensorboard", action="store_true")
     p.add_argument("--no-mlflow", action="store_true")
     p.add_argument("--experiment", default="bubblebobble", help="MLflow experiment name")
+    p.add_argument("--mlflow-tag", action="append", default=[], metavar="KEY=VALUE",
+                   help="tag the MLflow run (repeatable)")
     p.add_argument("--log-every", type=int, default=5, help="log metrics every N PPO updates")
     p.add_argument("--quiet", action="store_true", help="one progress line per ~1M steps")
     p.add_argument("--play", default=None, help="path to a model.pt to watch")
@@ -91,7 +94,8 @@ def parse_levels(spec: str) -> list[int]:
 
 
 def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_penalty, seed,
-             random_start=False, stationary_penalty=0.0, stationary_window=30, stationary_band=8):
+             random_start=False, stationary_penalty=0.0, stationary_window=30, stationary_band=8,
+             capture_bonus=0.1):
     def thunk():
         env = gym.make(
             "BubbleBobble-v0",
@@ -106,6 +110,7 @@ def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_p
             stationary_penalty=stationary_penalty,
             stationary_window=stationary_window,
             stationary_band=stationary_band,
+            capture_bonus=capture_bonus,
         )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env.reset(seed=seed)
@@ -287,8 +292,10 @@ def train(args) -> Path:
             # Local SQLite store in the repo root (gitignored); artifacts go to mlruns/.
             mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", MLFLOW_URI))
             mlflow.set_experiment(args.experiment)
-            mlflow.start_run(run_name=run_name)
+            active = mlflow.start_run(run_name=run_name)
             mlflow.log_params({k: v for k, v in vars(args).items() if k not in ("play", "greedy")})
+            mlflow.set_tags(dict(t.split("=", 1) for t in args.mlflow_tag))
+            (run_dir / "mlflow_run_id.txt").write_text(active.info.run_id)
             tracker = mlflow
         except Exception as exc:  # a tracker problem must never kill a run
             print(f"mlflow disabled: {exc}", flush=True)
@@ -310,7 +317,7 @@ def train(args) -> Path:
                 args.level, levels, args.obs, args.time_penalty,
                 not args.no_pop_reward, args.clear_bonus, args.death_penalty,
                 args.seed + i, args.random_start, args.stationary_penalty,
-                args.stationary_window, args.stationary_band,
+                args.stationary_window, args.stationary_band, args.capture_bonus,
             )
             for i in range(args.num_envs)
         ]
