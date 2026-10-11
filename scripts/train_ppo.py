@@ -308,7 +308,10 @@ def train(args) -> Path:
             for k, v in metrics.items():
                 writer.add_scalar(k, v, step)
         if tracker:
-            tracker.log_metrics({k.replace("/", "_"): float(v) for k, v in metrics.items()}, step=step)
+            try:  # a busy SQLite file or a hiccup in the server must not kill the run
+                tracker.log_metrics({k.replace("/", "_"): float(v) for k, v in metrics.items()}, step=step)
+            except Exception as exc:
+                print(f"mlflow log failed at step {step}: {exc}", flush=True)
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
