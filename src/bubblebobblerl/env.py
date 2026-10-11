@@ -57,6 +57,9 @@ class BubbleBobbleEnv(gym.Env):
     Reward is the in-game score delta (display points / 100 to keep
     magnitudes sane), with small optional shaping terms. time_penalty is
     subtracted once per step; it stands in for the unimplemented hurry-up.
+    explore_bonus is paid once per episode for each new 8-pixel column of x
+    the player reaches (12 columns across the screen), so it rewards covering
+    ground without rewarding wiggling.
     stationary_penalty is subtracted on every step at which the player's x
     has stayed within a stationary_band-pixel band for the last
     stationary_window steps (defaults 8 px over 30 steps = 2 s). Vertical
@@ -87,6 +90,7 @@ class BubbleBobbleEnv(gym.Env):
         stationary_penalty: float = 0.0,
         stationary_window: int = 30,
         stationary_band: int = 8,
+        explore_bonus: float = 0.0,
         reward_pops: bool = True,
         random_start: bool = False,
         render_mode: str | None = None,
@@ -104,6 +108,7 @@ class BubbleBobbleEnv(gym.Env):
         self.stationary_penalty = stationary_penalty
         self.stationary_window = stationary_window
         self.stationary_band = stationary_band
+        self.explore_bonus = explore_bonus
         self.reward_pops = reward_pops
         self.random_start = random_start
         self.level_pool = list(levels) if levels else None
@@ -239,6 +244,7 @@ class BubbleBobbleEnv(gym.Env):
             self._randomize_start()
         self._frames = 0
         self._xs: list[int] = []
+        self._visited: set[int] = {self.game.player.x // 8}
         return self._obs(), self._info()
 
     def _randomize_start(self) -> None:
@@ -276,6 +282,11 @@ class BubbleBobbleEnv(gym.Env):
                 terminated = True
             if terminated:
                 break
+        if self.explore_bonus:
+            band = self.game.player.x // 8
+            if band not in self._visited:
+                self._visited.add(band)
+                reward += self.explore_bonus
         if self.stationary_penalty:
             self._xs.append(self.game.player.x)
             if len(self._xs) > self.stationary_window:

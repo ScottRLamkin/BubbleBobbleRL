@@ -179,3 +179,13 @@ def test_stationary_band_is_configurable():
     for _ in range(5):
         env.step(2)  # walk right 4 px per step: 16 px over the window, under the 32 px band
     assert env.step(2)[1] == pytest.approx(-0.5)
+
+
+def test_explore_bonus_pays_once_per_new_column():
+    env = BubbleBobbleEnv(explore_bonus=1.0, frame_skip=4)
+    env.reset(seed=0)
+    env.game.enemies, env.game.alive_enemies = [], 1
+    rewards = [env.step(2)[1] for _ in range(6)]  # walk right 4 px per step from x=8
+    assert sum(r >= 1.0 for r in rewards) == 3  # columns 2, 3 and 4 (x=16, 24, 32)
+    back = [env.step(1)[1] for _ in range(6)]  # walk back over visited ground
+    assert all(r < 1.0 for r in back)

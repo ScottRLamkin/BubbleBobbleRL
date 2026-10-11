@@ -49,6 +49,8 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--clear-bonus", type=float, default=10.0)
     p.add_argument("--death-penalty", type=float, default=1.0)
     p.add_argument("--capture-bonus", type=float, default=0.1)
+    p.add_argument("--explore-bonus", type=float, default=0.0,
+                   help="reward per new 8-px column of x reached in an episode")
     p.add_argument("--random-start", action="store_true", help="random player start position")
     p.add_argument("--curriculum", type=float, default=0.0,
                    help="grow the level pool from level 1 to all of --levels over this fraction of training")
@@ -95,7 +97,7 @@ def parse_levels(spec: str) -> list[int]:
 
 def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_penalty, seed,
              random_start=False, stationary_penalty=0.0, stationary_window=30, stationary_band=8,
-             capture_bonus=0.1):
+             capture_bonus=0.1, explore_bonus=0.0):
     def thunk():
         env = gym.make(
             "BubbleBobble-v0",
@@ -111,6 +113,7 @@ def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_p
             stationary_window=stationary_window,
             stationary_band=stationary_band,
             capture_bonus=capture_bonus,
+            explore_bonus=explore_bonus,
         )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env.reset(seed=seed)
@@ -318,6 +321,7 @@ def train(args) -> Path:
                 not args.no_pop_reward, args.clear_bonus, args.death_penalty,
                 args.seed + i, args.random_start, args.stationary_penalty,
                 args.stationary_window, args.stationary_band, args.capture_bonus,
+                args.explore_bonus,
             )
             for i in range(args.num_envs)
         ]
