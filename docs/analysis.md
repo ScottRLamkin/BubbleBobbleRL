@@ -400,3 +400,71 @@ Not tried: a stationary penalty in the 0.02-0.05 range with death penalty 5
 rewarding distance covered rather than charging for its absence; and the
 imitation route from the previous section, which remains the most likely way
 to get a moving agent that survives.
+
+## Ten generations, twelve genes, tracked in MLflow (2026-10-10)
+
+`scripts/evolve.py` now mutates twelve parameters (clear bonus, capture
+bonus, time penalty, stationary penalty and band, death penalty, pop reward,
+learning rate, entropy, clip, gamma, value coefficient) and records every
+child as an MLflow run: genome as parameters, the full training curves, and
+after scoring its evaluation and a `survived` tag, plus a summary run per
+generation. Run `evo10`: 10 generations x 24 children x 8M steps from the
+climbing camper (`v6_band32_from_bouncer_50M`), 33 minutes per generation,
+249 MLflow runs in experiment `evolve-evo10`.
+
+| Generation | Best (cleared / 500) | Mean of all scored | Baseline on the same seeds |
+|---|---|---|---|
+| 1 | 70 (the baseline itself) | 55 | 70 |
+| 2 | 83 | 59 | 72 |
+| 3 | 90 | 71 | 77 |
+| 4 | 89 | 74 | 72 |
+| 5 | 85 | 74 | 64 |
+| 6 | 82 | 72 | 68 |
+| 7 | 89 | 76 | 72 |
+| 8 | 90 | 76 | 66 |
+| 9 | 89 | 78 | 70 |
+| 10 | 86 | 75 | 65 |
+
+On the fresh seed set (100 levels x 10 episodes):
+
+| Model | Cleared / 1000 | Died | Timed out |
+|---|---|---|---|
+| Base (`v6_band32_from_bouncer_50M`) | 141 | 501 | 358 |
+| Champion `g10m08` | **170** | 473 | 357 |
+| `g10m19` | 166 | 501 | 333 |
+| `g10m16` | 155 | 474 | 371 |
+
+A real but modest gain (+29, about twice the seed noise), the best agent in
+the current game. Its behaviour is the climbing camper's, more so: 31
+bubble bounces a minute, 48 px of vertical range, 6 px of horizontal range.
+Gallery: `exports/evo10_champion/index.html`.
+
+What the ten generations found:
+
+- **No child beat the baseline in generation 1**, and the unmutated
+  continuation scored 45 against the baseline's 70. Resuming a trained agent
+  with a fresh optimiser at the default learning rate (2.5e-4) damages it
+  for the first several million steps. Every eventual survivor had a
+  learning rate of 1e-4 or lower (the final ten: 3e-5 to 6e-5), and "lr
+  down" was the only mutation that was neutral on average (-2.9 against
+  -4.7 for leaving the genome alone). The search mostly discovered the
+  right fine-tuning learning rate.
+- **Everything else hurt**, averaged over all children against their
+  parents on the same seeds: both directions of time penalty, death
+  penalty, capture bonus, clip and gamma lost 6-14 episodes; turning the
+  pop reward off lost 28. The reward recipe the run started from is a
+  local optimum for this agent.
+- **Heavier stationary penalties did not make it move.** Hand-picked
+  variants with still-penalty 0.02 and 0.05 scored 55-67 of 500 in
+  generation 1 and were not kept; the one line with 0.02 that survived a
+  while (death penalty 10) was gone by generation 4. Nothing in the final
+  ten strays far from the base recipe except the learning rate and a
+  slightly higher gamma (0.993-0.995).
+- Gains flattened after generation 3: best-of-generation sat at 82-90 for
+  the remaining seven, with the mean of the population creeping up as the
+  low-learning-rate lines took over.
+
+How to look at it: `uv run mlflow ui --backend-store-uri sqlite:///mlflow.db`,
+experiment `evolve-evo10`. Sort by `eval_cleared`, filter
+`tags.survived = "True"`, or open a child to see its policy loss, entropy
+and value loss over its 8M steps next to its evaluation.

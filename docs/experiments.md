@@ -181,12 +181,20 @@ caffeinate -is uv run python scripts/evolve.py \
     --generations 3 --population 30 --survivors 10 --steps 10000000 --workers 8
 ```
 
-Each generation mutates reward settings and learning rates, fine-tunes 30
-children in parallel, scores everyone on the same seeds, and keeps the top
-10. About an hour per generation; `runs/evolve/myevo/leaderboard.md` has the
-ranked table and re-running the same command resumes after a crash. The
-genome it mutates and the hand-picked first-generation variants are at the
-top of the script if you want to change what it searches over.
+Each generation mutates twelve settings (reward shaping and PPO
+hyperparameters), fine-tunes 30 children in parallel, scores everyone on the
+same seeds, and keeps the top 10. About an hour per generation;
+`runs/evolve/myevo/leaderboard.md` has the ranked table and re-running the
+same command resumes after a crash. The genome it mutates and the
+hand-picked first-generation variants are at the top of the script if you
+want to change what it searches over.
+
+Every child becomes an MLflow run in experiment `evolve-myevo` (curves,
+genome, evaluation, `survived` tag) and each generation adds a summary run.
+While it runs, the server it starts serves http://127.0.0.1:5001; afterwards
+the usual `mlflow ui` command shows the same runs. One lesson from `evo10`:
+fine-tuning from a trained agent wants a learning rate of about 5e-5 to
+1e-4, not the 2.5e-4 default, or the first few million steps undo it.
 
 ## Ideas that have not been tried
 
