@@ -6,13 +6,7 @@
 set -e
 cd "$(dirname "$0")/../.."
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 MLFLOW_DISABLE_AGENT_HINT=1 MLFLOW_DISABLE_TELEMETRY=true
-# Eight runs writing to one SQLite file collide; log through a local server instead.
-uv run mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns \
-    --host 127.0.0.1 --port 5002 --workers 1 > runs/mlflow_server_5002.log 2>&1 &
-SERVER=$!
-until curl -sf http://127.0.0.1:5002/health > /dev/null; do sleep 1; done
-export MLFLOW_TRACKING_URI=http://127.0.0.1:5002
-trap 'kill $SERVER' EXIT
+source scripts/campaigns/mlflow_env.sh
 CHAMP=runs/evolve/evo10/gen_10/g10m08/model.pt
 BASE=(--time-penalty 0.01 --stationary-penalty 0.005 --stationary-window 120 --stationary-band 32 --death-penalty 5 --no-tensorboard --quiet --experiment campaign-1011)
 run() { local name=$1; shift; uv run python scripts/train_ppo.py "$@" --run-name $name > runs/$name.log 2>&1 & }

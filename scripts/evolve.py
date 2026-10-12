@@ -261,8 +261,14 @@ class Run:
         import subprocess
         import urllib.request
 
-        from train_ppo import MLFLOW_URI
+        from train_ppo import MLFLOW_UI, MLFLOW_URI, mlflow_tracking_uri
 
+        if mlflow_tracking_uri().startswith("http"):  # the UI (or $MLFLOW_TRACKING_URI) is up: use it
+            os.environ["MLFLOW_TRACKING_URI"] = mlflow_tracking_uri()
+            os.environ["MLFLOW_DISABLE_AGENT_HINT"] = "1"
+            self.mlflow = True
+            self.log(f"mlflow via {os.environ['MLFLOW_TRACKING_URI']} (experiment evolve-{self.args.name})")
+            return None
         url = f"http://127.0.0.1:{self.args.mlflow_port}"
         env = dict(os.environ, MLFLOW_DISABLE_AGENT_HINT="1", MLFLOW_DISABLE_TELEMETRY="true")
         server = subprocess.Popen(

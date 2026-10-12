@@ -85,6 +85,22 @@ def parse_args(argv: list[str] | None = None):
 
 
 MLFLOW_URI = "sqlite:///mlflow.db"
+MLFLOW_UI = "http://127.0.0.1:5000"  # a running `mlflow ui` accepts logging too
+
+
+def mlflow_tracking_uri() -> str:
+    """Where to log: $MLFLOW_TRACKING_URI, else the UI on port 5000 if one is
+    up (several runs logging straight into the SQLite file collide; a server
+    serialises them), else the SQLite file directly."""
+    if os.environ.get("MLFLOW_TRACKING_URI"):
+        return os.environ["MLFLOW_TRACKING_URI"]
+    try:
+        import urllib.request
+
+        urllib.request.urlopen(MLFLOW_UI + "/health", timeout=0.5)
+        return MLFLOW_UI
+    except Exception:
+        return MLFLOW_URI
 
 
 def parse_levels(spec: str) -> list[int]:
@@ -293,7 +309,7 @@ def train(args) -> Path:
             import mlflow
 
             # Local SQLite store in the repo root (gitignored); artifacts go to mlruns/.
-            mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", MLFLOW_URI))
+            mlflow.set_tracking_uri(mlflow_tracking_uri())
             mlflow.set_experiment(args.experiment)
             active = mlflow.start_run(run_name=run_name)
             mlflow.log_params({k: v for k, v in vars(args).items() if k not in ("play", "greedy")})
