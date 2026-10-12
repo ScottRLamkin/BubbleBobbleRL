@@ -56,6 +56,8 @@ def parse_args(argv: list[str] | None = None):
                    help="grow the level pool from level 1 to all of --levels over this fraction of training")
     p.add_argument("--obs", choices=["state", "screen", "ego"], default="state")
     p.add_argument("--frame-skip", type=int, default=4, help="game frames per agent step")
+    p.add_argument("--nearest-first", action="store_true",
+                   help="order observation slots by distance from the player")
     p.add_argument("--lives", type=int, default=1, help="lives per training episode")
     p.add_argument("--arch", choices=["mlp", "conv"], default="mlp", help="state-obs encoder")
     p.add_argument("--total-steps", type=int, default=2_000_000)
@@ -118,7 +120,7 @@ def parse_levels(spec: str) -> list[int]:
 
 def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_penalty, seed,
              random_start=False, stationary_penalty=0.0, stationary_window=30, stationary_band=8,
-             capture_bonus=0.1, explore_bonus=0.0, frame_skip=4, lives=1):
+             capture_bonus=0.1, explore_bonus=0.0, frame_skip=4, lives=1, nearest_first=False):
     def thunk():
         env = gym.make(
             "BubbleBobble-v0",
@@ -137,6 +139,7 @@ def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_p
             explore_bonus=explore_bonus,
             frame_skip=frame_skip,
             lives=lives,
+            nearest_first=nearest_first,
         )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env.reset(seed=seed)
@@ -347,7 +350,7 @@ def train(args) -> Path:
                 not args.no_pop_reward, args.clear_bonus, args.death_penalty,
                 args.seed + i, args.random_start, args.stationary_penalty,
                 args.stationary_window, args.stationary_band, args.capture_bonus,
-                args.explore_bonus, args.frame_skip, args.lives,
+                args.explore_bonus, args.frame_skip, args.lives, args.nearest_first,
             )
             for i in range(args.num_envs)
         ]
@@ -494,7 +497,7 @@ def train(args) -> Path:
             agent.eval()
             ev = evaluate(str(run_dir / "model.pt"), eval_levels, args.eval_episodes,
                           900 * 4 // args.frame_skip, seed=123, obs=args.obs,
-                          frame_skip=args.frame_skip)
+                          frame_skip=args.frame_skip, nearest_first=args.nearest_first)
             agent.train()
             share = ev["cleared"] / ev["episodes"]
             print(

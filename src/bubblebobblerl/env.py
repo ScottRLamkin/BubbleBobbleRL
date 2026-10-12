@@ -57,6 +57,11 @@ class BubbleBobbleEnv(gym.Env):
     Reward is the in-game score delta (display points / 100 to keep
     magnitudes sane), with small optional shaping terms. time_penalty is
     subtracted once per step; it stands in for the unimplemented hurry-up.
+    nearest_first=True fills every slot group (enemies, bubbles, loot,
+    projectiles) in order of distance from the player, so slot 0 is always
+    "the closest one". By default slots follow spawn order, which differs
+    from level to level and leaves a flat network to learn each slot's
+    meaning per level.
     explore_bonus is paid once per episode for each new 8-pixel column of x
     the player reaches (12 columns across the screen), so it rewards covering
     ground without rewarding wiggling.
@@ -91,6 +96,7 @@ class BubbleBobbleEnv(gym.Env):
         stationary_window: int = 30,
         stationary_band: int = 8,
         explore_bonus: float = 0.0,
+        nearest_first: bool = False,
         reward_pops: bool = True,
         random_start: bool = False,
         render_mode: str | None = None,
@@ -109,6 +115,7 @@ class BubbleBobbleEnv(gym.Env):
         self.stationary_window = stationary_window
         self.stationary_band = stationary_band
         self.explore_bonus = explore_bonus
+        self.nearest_first = nearest_first
         self.reward_pops = reward_pops
         self.random_start = random_start
         self.level_pool = list(levels) if levels else None
@@ -167,7 +174,9 @@ class BubbleBobbleEnv(gym.Env):
             ry = lambda y: (y + 16) / 92.0  # noqa: E731
 
         enemies = np.zeros((MAX_ENEMIES, 6), dtype=np.float32)
-        for i, e in enumerate(g.enemies[:MAX_ENEMIES]):
+        near = (lambda o: abs(o.x - p.x) + abs(g._delta_wrapped(o.y, p.y))) if self.nearest_first else None
+        order = (lambda seq: sorted(seq, key=near)) if near else (lambda seq: seq)
+        for i, e in enumerate(order(g.enemies)[:MAX_ENEMIES]):
             enemies[i] = (
                 1.0,
                 rx(e.x),
@@ -177,7 +186,7 @@ class BubbleBobbleEnv(gym.Env):
                 e.kind / 7.0,
             )
         bubbles = np.zeros((MAX_BUBBLES, 5), dtype=np.float32)
-        for i, bub in enumerate(g.bubbles[:MAX_BUBBLES]):
+        for i, bub in enumerate(order(g.bubbles)[:MAX_BUBBLES]):
             bubbles[i] = (
                 1.0,
                 rx(bub.x),
@@ -188,17 +197,19 @@ class BubbleBobbleEnv(gym.Env):
         loot = np.zeros((MAX_LOOT, 4), dtype=np.float32)
         items = [(fr.x, fr.y, fr.value) for fr in g.fruits]
         items += [(pk.x, pk.y, PICKUP_SCORE) for pk in g.pickups if not pk.taken]
+        if near:
+            items.sort(key=lambda t: abs(t[0] - p.x) + abs(g._delta_wrapped(t[1], p.y)))
         for i, (x, y, value) in enumerate(items[:MAX_LOOT]):
             loot[i] = (1.0, rx(x), ry(y), min(value / 8000.0, 1.0))
         prebubbles = np.zeros((MAX_PREBUBBLES, 4), dtype=np.float32)
-        for i, pb in enumerate(g.prebubbles[:MAX_PREBUBBLES]):
+        for i, pb in enumerate(order(g.prebubbles)[:MAX_PREBUBBLES]):
             prebubbles[i] = (1.0, rx(pb.x), ry(pb.y), pb.facing)
         shots = np.zeros((MAX_PROJECTILES, 5), dtype=np.float32)
         live = [
             pr for pr in g.projectiles
             if not pr.breaking and (pr.kind != "beer" or pr.age > BEER_IDLE)
         ]
-        for i, pr in enumerate(live[:MAX_PROJECTILES]):
+        for i, pr in enumerate(order(live)[:MAX_PROJECTILES]):
             shots[i] = (
                 1.0,
                 rx(pr.x),

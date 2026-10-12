@@ -189,3 +189,20 @@ def test_explore_bonus_pays_once_per_new_column():
     assert sum(r >= 1.0 for r in rewards) == 3  # columns 2, 3 and 4 (x=16, 24, 32)
     back = [env.step(1)[1] for _ in range(6)]  # walk back over visited ground
     assert all(r < 1.0 for r in back)
+
+
+def test_nearest_first_puts_the_closest_enemy_in_slot_zero():
+    from bubblebobblerl.env import EGO_COLS, EGO_ROWS, GRID_COLS, GRID_ROWS
+    from bubblebobblerl.game import Enemy
+
+    for obs_type, e0 in (("state", 8 + GRID_ROWS * GRID_COLS), ("ego", 8 + EGO_ROWS * EGO_COLS)):
+        env = BubbleBobbleEnv(obs_type=obs_type, nearest_first=True)
+        env.reset(seed=0)
+        p = env.game.player
+        far = Enemy(kind=0, x=p.x + 60, y=p.y, facing=1, spawn_delay=0, falling_in=False)
+        close = Enemy(kind=1, x=p.x + 12, y=p.y, facing=1, spawn_delay=0, falling_in=False)
+        env.game.enemies = [far, close]  # spawn order: far first
+        obs = env._obs()
+        assert obs[e0 + 5] == pytest.approx(1 / 7)  # slot 0 holds the beluga (kind 1): the close one
+        env.nearest_first = False
+        assert env._obs()[e0 + 5] == pytest.approx(0.0)  # default keeps spawn order
