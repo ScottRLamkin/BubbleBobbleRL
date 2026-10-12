@@ -505,7 +505,7 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--survivors", type=int, default=10)
     p.add_argument("--steps", type=int, default=10_000_000, help="fine-tune steps per child")
     p.add_argument("--workers", type=int, default=8)
-    p.add_argument("--eval-episodes", type=int, default=5, help="episodes per level when scoring")
+    p.add_argument("--eval-episodes", type=int, default=10, help="episodes per level when scoring (the standard test)")
     p.add_argument("--eval-max-steps", type=int, default=900)
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--no-mlflow", action="store_true", help="skip MLflow tracking")

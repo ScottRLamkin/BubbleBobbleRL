@@ -89,7 +89,7 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--log-every", type=int, default=5, help="log metrics every N PPO updates")
     p.add_argument("--eval-every", type=int, default=2_000_000,
                    help="agent steps between quick evaluations over all levels (0 = off)")
-    p.add_argument("--eval-episodes", type=int, default=2, help="episodes per level in quick evals")
+    p.add_argument("--eval-episodes", type=int, default=10, help="episodes per level in the periodic standard test")
     p.add_argument("--quiet", action="store_true", help="one progress line per ~1M steps")
     p.add_argument("--play", default=None, help="path to a model.pt to watch")
     p.add_argument("--greedy", action="store_true", help="with --play: most likely action, no sampling")
@@ -397,7 +397,7 @@ def train(args) -> Path:
     ep_outcomes: list[str] = []  # "clear" / "death" / "timeout", from training episodes
     n_updates = 0
     next_eval = args.eval_every
-    eval_levels = levels or [args.level]
+    eval_levels = [lv for lv in (levels or [args.level]) if lv != 100] or [args.level]
 
     pool_size = 0
     grace = args.grace_frames
@@ -512,7 +512,7 @@ def train(args) -> Path:
 
             agent.eval()
             ev = evaluate(str(run_dir / "model.pt"), eval_levels, args.eval_episodes,
-                          900 * 4 // args.frame_skip, seed=123, obs=args.obs,
+                          900 * 4 // args.frame_skip, obs=args.obs,
                           frame_skip=args.frame_skip, nearest_first=args.nearest_first)
             agent.train()
             share = ev["cleared"] / ev["episodes"]

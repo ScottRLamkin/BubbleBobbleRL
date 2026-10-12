@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 
 import gymnasium as gym
+import numpy as np
 
 import bubblebobblerl  # noqa: F401  (registers BubbleBobble-v0)
 
@@ -23,41 +24,63 @@ except ImportError:
 from train_ppo import Agent, parse_levels
 
 
+STANDARD_LEVELS = "1-99"  # level 100's boss is not implemented; it never clears
+STANDARD_EPISODES = 10
+STANDARD_SEED = 4242
+
+
 def evaluate(
     model_path: str,
     levels: list[int],
-    episodes: int = 3,
+    episodes: int = STANDARD_EPISODES,
     max_steps: int = 900,
-    seed: int = 0,
+    seed: int = STANDARD_SEED,
     obs: str = "state",
     frame_skip: int = 4,
     nearest_first: bool = False,
 ) -> dict:
-    env = gym.make("BubbleBobble-v0", obs_type=obs, frame_skip=frame_skip, nearest_first=nearest_first)
-    agent = Agent.load(model_path, env.observation_space, env.action_space.n)
-    game = env.unwrapped.game
+    """The standard test: every level in `levels`, `episodes` times each, one
+    life, `max_steps` agent steps (900 = one minute), sampled actions. One
+    env per level stepped in lockstep so the network runs batched."""
+    envs = [
+        gym.make("BubbleBobble-v0", obs_type=obs, frame_skip=frame_skip, nearest_first=nearest_first)
+        for _ in levels
+    ]
+    agent = Agent.load(model_path, envs[0].observation_space, envs[0].action_space.n)
     # Own generator, so results do not depend on the caller's torch RNG state.
     gen = torch.Generator().manual_seed(seed)
 
     cleared = died = timeout = 0
     score = 0
-    per_level: dict[int, int] = {}
-    for level in levels:
-        per_level[level] = 0
-        for ep in range(episodes):
+    per_level = {level: 0 for level in levels}
+    for ep in range(episodes):
+        obs_batch = []
+        for env, level in zip(envs, levels):
             o, _ = env.reset(seed=seed * 100_003 + level * 101 + ep, options={"level": level})
-            for _ in range(max_steps):
-                with torch.no_grad():
-                    logits = agent.actor(agent._encode(torch.as_tensor(agent.obs_in(o)[None])))
-                a = torch.multinomial(torch.softmax(logits, -1), 1, generator=gen)
-                o, _, term, trunc, info = env.step(int(a))
+            obs_batch.append(o)
+        obs_batch = np.stack(obs_batch)
+        active = np.ones(len(levels), dtype=bool)
+        last_info: list[dict] = [{} for _ in levels]
+        for _ in range(max_steps):
+            idx = np.flatnonzero(active)
+            if not len(idx):
+                break
+            with torch.no_grad():
+                logits = agent.actor(agent._encode(torch.as_tensor(agent.obs_in(obs_batch[idx]))))
+            actions = torch.multinomial(torch.softmax(logits, -1), 1, generator=gen).squeeze(1)
+            for j, i in enumerate(idx):
+                o, _, term, trunc, info = envs[i].step(int(actions[j]))
+                obs_batch[i] = o
+                last_info[i] = info
                 if term or trunc:
-                    break
+                    active[i] = False
+        for i, level in enumerate(levels):
+            info = last_info[i]
             score += info["score"]
             if info["enemies_alive"] == 0:
                 cleared += 1
                 per_level[level] += 1
-            elif game.game_over:
+            elif envs[i].unwrapped.game.game_over:
                 died += 1
             else:
                 timeout += 1
@@ -75,10 +98,10 @@ def evaluate(
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("model")
-    p.add_argument("--levels", default="1-99", help="level 100's boss is not implemented, so it is left out")
-    p.add_argument("--episodes", type=int, default=3)
+    p.add_argument("--levels", default=STANDARD_LEVELS, help="level 100's boss is not implemented, so it is left out")
+    p.add_argument("--episodes", type=int, default=STANDARD_EPISODES)
     p.add_argument("--max-steps", type=int, default=900)
-    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--seed", type=int, default=STANDARD_SEED)
     p.add_argument("--obs", choices=["state", "ego"], default="state")
     p.add_argument("--frame-skip", type=int, default=4, help="must match the model's training")
     p.add_argument("--nearest-first", action="store_true", help="must match the model's training")
