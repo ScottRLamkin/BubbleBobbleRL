@@ -285,7 +285,19 @@ p { margin: 10px 0; }
 <tr><td>plain state, second seed (control)</td><td>7.8</td></tr>
 </tbody></table>
 <p>At 20M steps nothing separates from anything: every recipe sits between 1% and 5% of episodes, which is the stand-and-shoot floor, and the two seeds of the same plain recipe (2.2 and 7.8) differ by more than most recipes differ from each other. The learned agents clear almost exactly the levels the stand-and-shoot policy clears plus a handful more, and die at a median of 5-6 s, like an idle player. In other words, by 20M steps on 100 levels the agents have learned to shoot in place and not much else; the 50M-plus runs that camp are the continuation of that.</p>
-<p>Round 3 tests the direct consequence: a grace period before enemies enter (4 or 8 s, annealed to 0 over training, never used in evaluation) so the learner gets to practise setting up before the lottery of the first seconds.</p></section><section class="part" id="training-setup"><h1>Training setup and results</h1>
+<table><thead><tr><th>Round 3 (grace period before enemies enter; evaluated without it)</th><th>Last-5 mean</th></tr></thead><tbody>
+<tr><td>4 s, annealed to 0 over the first half</td><td>1.4</td></tr>
+<tr><td>4 s, annealed over 80%</td><td>2.2</td></tr>
+<tr><td>8 s, annealed over 80%</td><td>1.8</td></tr>
+<tr><td>4 s, annealed over 80%, shaped reward</td><td>10.2</td></tr>
+<tr><td>4 s, annealed over 80%, ego obs</td><td>0.6</td></tr>
+<tr><td>4 s, never annealed</td><td>1.4</td></tr>
+<tr><td>4 s, annealed over 80%, 3 lives</td><td>0.8</td></tr>
+<tr><td>plain state, third seed (control)</td><td>3.6</td></tr>
+</tbody></table>
+<p>The grace period did not help; if anything it hurt, and the run that trained with a permanent 4-second head start still died in 96% of its training episodes. So the first-seconds lottery is not the whole story: given time to set up, the agent still does not learn to use it in 20M steps. The one consistent signal across all 24 quick runs is that the shaped reward (time penalty 0.01, stationary penalty 0.005, death penalty 5) doubles the plain reward's result (10.2 in both rounds that had it, against 2-8 for plain), and nothing else moved the needle.</p>
+<p><strong>Where this leaves the "plumbing" question.</strong> Nothing found is broken: the critic fits, rewards are sane, the autoreset leak is fixed, slot order and the egocentric view are available and neither changes the early curve. What the loop shows instead is a sample-complexity problem. One level is learned in about 2M steps; a hundred levels at 20M steps (200k per level) is still at the stand-and-shoot floor, and the 50M-step runs (500k per level) reach 14-17% of episodes. Little transfers between layouts with these representations, so the cost scales with the number of levels. Getting a decent all-levels agent by this route means either hundreds of millions of steps per recipe (which the quick loop cannot screen) or a representation that transfers, which the egocentric and nearest-first variants were the first attempts at.</p>
+<p>All 24 quick runs, with their evaluation curves, are in MLflow experiment <code>quick-1011</code>; the campaign scripts are in <code>scripts/campaigns/</code>.</p></section><section class="part" id="training-setup"><h1>Training setup and results</h1>
 <p>The best model so far (<code>runs/ppo_state_all_50M/model.pt</code>) was trained with <code>scripts/train_ppo.py</code>: PPO, the structured <strong>state</strong> observation (not pixels), a random level from all 100 each episode (<code>--levels 1-100</code>), time penalty 0.002, 50M agent steps. Earlier models trained on level 1 only for 2M steps; results for all of them are at the bottom.</p>
 <h2 id="training-setup-the-interaction-loop">The interaction loop</h2>
 <pre class="mermaid">flowchart LR

@@ -535,7 +535,38 @@ stand-and-shoot policy clears plus a handful more, and die at a median of
 agents have learned to shoot in place and not much else; the 50M-plus runs
 that camp are the continuation of that.
 
-Round 3 tests the direct consequence: a grace period before enemies enter
-(4 or 8 s, annealed to 0 over training, never used in evaluation) so the
-learner gets to practise setting up before the lottery of the first
-seconds.
+| Round 3 (grace period before enemies enter; evaluated without it) | Last-5 mean |
+|---|---|
+| 4 s, annealed to 0 over the first half | 1.4 |
+| 4 s, annealed over 80% | 2.2 |
+| 8 s, annealed over 80% | 1.8 |
+| 4 s, annealed over 80%, shaped reward | 10.2 |
+| 4 s, annealed over 80%, ego obs | 0.6 |
+| 4 s, never annealed | 1.4 |
+| 4 s, annealed over 80%, 3 lives | 0.8 |
+| plain state, third seed (control) | 3.6 |
+
+The grace period did not help; if anything it hurt, and the run that trained
+with a permanent 4-second head start still died in 96% of its training
+episodes. So the first-seconds lottery is not the whole story: given time to
+set up, the agent still does not learn to use it in 20M steps. The one
+consistent signal across all 24 quick runs is that the shaped reward (time
+penalty 0.01, stationary penalty 0.005, death penalty 5) doubles the plain
+reward's result (10.2 in both rounds that had it, against 2-8 for plain),
+and nothing else moved the needle.
+
+**Where this leaves the "plumbing" question.** Nothing found is broken: the
+critic fits, rewards are sane, the autoreset leak is fixed, slot order and
+the egocentric view are available and neither changes the early curve. What
+the loop shows instead is a sample-complexity problem. One level is learned
+in about 2M steps; a hundred levels at 20M steps (200k per level) is still
+at the stand-and-shoot floor, and the 50M-step runs (500k per level) reach
+14-17% of episodes. Little transfers between layouts with these
+representations, so the cost scales with the number of levels. Getting a
+decent all-levels agent by this route means either hundreds of millions of
+steps per recipe (which the quick loop cannot screen) or a representation
+that transfers, which the egocentric and nearest-first variants were the
+first attempts at.
+
+All 24 quick runs, with their evaluation curves, are in MLflow experiment
+`quick-1011`; the campaign scripts are in `scripts/campaigns/`.
