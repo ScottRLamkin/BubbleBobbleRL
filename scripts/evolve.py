@@ -362,7 +362,7 @@ class Run:
         for s in state["survivors"]:
             candidates[s["id"]] = s
         to_score = dict(candidates)
-        to_score.setdefault("base", state["base"])
+        to_score.setdefault(state["base"]["id"], state["base"])
         jobs = [
             {"id": m["id"], "model": m["model"], "episodes": a.eval_episodes,
              "max_steps": a.eval_max_steps, "seed": a.seed * 1000 + gen}
@@ -387,7 +387,7 @@ class Run:
                 model.unlink(missing_ok=True)
 
         ranked = sorted(scored, key=lambda m: fitness(m["result"]), reverse=True)
-        self.track_generation(gen, ranked, keep, results.get("base"))
+        self.track_generation(gen, ranked, keep, results.get(state["base"]["id"]))
         state["generation"] = gen
         state["survivors"] = [
             {k: s[k] for k in ("id", "lineage", "model", "genome")} for s in survivors
@@ -395,7 +395,7 @@ class Run:
         state["history"].append({
             "generation": gen,
             "minutes": round((time.time() - start) / 60, 1),
-            "base_result": results.get("base"),
+            "base_result": results.get(state["base"]["id"]),
             "ranking": [
                 {"id": m["id"], "parent": (m["lineage"] or [None])[-1], "genome": m["genome"],
                  "result": m["result"], "survived": m["id"] in keep}
@@ -405,7 +405,7 @@ class Run:
         self.save_state(state)
         self.write_leaderboard(state)
         best = ranked[0]
-        base_r = results.get("base", {})
+        base_r = results.get(state["base"]["id"], {})
         self.log(
             f"generation {gen} done in {state['history'][-1]['minutes']} min: "
             f"best {best['id']} cleared {best['result']['cleared']}/{best['result']['episodes']}, "
