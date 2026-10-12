@@ -187,12 +187,14 @@ class Game:
         levels: list[Level] | None = None,
         seed: int | None = None,
         auto_advance: bool = True,
+        grace_frames: int = 0,
     ):
         self.levels = levels if levels is not None else load_levels()
         self.start_level = level
         self.start_lives = lives
         self.auto_advance = auto_advance
         self.rng = random.Random(seed)
+        self.grace_frames = grace_frames  # training aid: enemies wait this long before falling in
         self.reset()
 
     # ------------------------------------------------------------- setup
@@ -205,6 +207,7 @@ class Game:
         self.score = 0
         self.game_over = False
         self._load_level(self.level_num)
+        self.grace_left = self.grace_frames
 
     def _load_level(self, number: int) -> None:
         self.level = self.levels[number - 1]
@@ -287,6 +290,8 @@ class Game:
         if self.game_over:
             return ev
         self.timer += 1
+        if self.grace_left > 0:
+            self.grace_left -= 1
         jump_pressed = buttons.jump and not self.prev_jump
         shoot_pressed = buttons.shoot and not self.prev_shoot
         self.prev_jump = buttons.jump
@@ -451,7 +456,7 @@ class Game:
             self.player.kill_pending = True
 
     def _step_falling_in(self, e: Enemy) -> None:
-        if self.timer % 2 == 1:
+        if self.grace_left > 0 or self.timer % 2 == 1:
             return
         e.y += 1
         if self.timer % 4 != 0:

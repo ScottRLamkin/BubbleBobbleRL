@@ -58,6 +58,10 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--frame-skip", type=int, default=4, help="game frames per agent step")
     p.add_argument("--nearest-first", action="store_true",
                    help="order observation slots by distance from the player")
+    p.add_argument("--grace-frames", type=int, default=0,
+                   help="enemies wait this many frames before entering (training only)")
+    p.add_argument("--grace-anneal", type=float, default=0.0,
+                   help="shrink --grace-frames linearly to 0 over this fraction of training")
     p.add_argument("--lives", type=int, default=1, help="lives per training episode")
     p.add_argument("--arch", choices=["mlp", "conv"], default="mlp", help="state-obs encoder")
     p.add_argument("--total-steps", type=int, default=2_000_000)
@@ -120,7 +124,8 @@ def parse_levels(spec: str) -> list[int]:
 
 def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_penalty, seed,
              random_start=False, stationary_penalty=0.0, stationary_window=30, stationary_band=8,
-             capture_bonus=0.1, explore_bonus=0.0, frame_skip=4, lives=1, nearest_first=False):
+             capture_bonus=0.1, explore_bonus=0.0, frame_skip=4, lives=1, nearest_first=False,
+             grace_frames=0):
     def thunk():
         env = gym.make(
             "BubbleBobble-v0",
@@ -140,6 +145,7 @@ def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_p
             frame_skip=frame_skip,
             lives=lives,
             nearest_first=nearest_first,
+            grace_frames=grace_frames,
         )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env.reset(seed=seed)
@@ -351,6 +357,7 @@ def train(args) -> Path:
                 args.seed + i, args.random_start, args.stationary_penalty,
                 args.stationary_window, args.stationary_band, args.capture_bonus,
                 args.explore_bonus, args.frame_skip, args.lives, args.nearest_first,
+                args.grace_frames,
             )
             for i in range(args.num_envs)
         ]
@@ -391,7 +398,14 @@ def train(args) -> Path:
     eval_levels = levels or [args.level]
 
     pool_size = 0
+    grace = args.grace_frames
     while global_step < args.total_steps:
+        if args.grace_frames and args.grace_anneal:
+            frac = min(1.0, global_step / (args.grace_anneal * args.total_steps))
+            g_now = int(round(args.grace_frames * (1.0 - frac)))
+            if g_now != grace:
+                grace = g_now
+                envs.set_attr("grace_frames", [grace] * args.num_envs)
         if args.curriculum and levels:
             frac = min(1.0, global_step / (args.curriculum * args.total_steps))
             k = max(1, round(frac * len(levels)))
@@ -525,6 +539,7 @@ def train(args) -> Path:
                 "charts/sps": sps,
                 "charts/learning_rate": optimizer.param_groups[0]["lr"],
                 "charts/level_pool": pool_size or (len(levels) if levels else 1),
+                "charts/grace_frames": grace,
                 "losses/policy_loss": np.mean(stats["pg_loss"]),
                 "losses/value_loss": np.mean(stats["v_loss"]),
                 "losses/entropy": np.mean(stats["entropy"]),

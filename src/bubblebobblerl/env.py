@@ -62,6 +62,10 @@ class BubbleBobbleEnv(gym.Env):
     "the closest one". By default slots follow spawn order, which differs
     from level to level and leaves a flat network to learn each slot's
     meaning per level.
+    grace_frames delays every enemy's entry at the start of an episode (a
+    training aid: on most levels an idle player is dead within 6 s of the
+    start, so this gives a learner time to set up before contact; anneal it
+    to 0, and evaluate with 0).
     explore_bonus is paid once per episode for each new 8-pixel column of x
     the player reaches (12 columns across the screen), so it rewards covering
     ground without rewarding wiggling.
@@ -97,6 +101,7 @@ class BubbleBobbleEnv(gym.Env):
         stationary_band: int = 8,
         explore_bonus: float = 0.0,
         nearest_first: bool = False,
+        grace_frames: int = 0,
         reward_pops: bool = True,
         random_start: bool = False,
         render_mode: str | None = None,
@@ -116,6 +121,7 @@ class BubbleBobbleEnv(gym.Env):
         self.stationary_band = stationary_band
         self.explore_bonus = explore_bonus
         self.nearest_first = nearest_first
+        self.grace_frames = grace_frames
         self.reward_pops = reward_pops
         self.random_start = random_start
         self.level_pool = list(levels) if levels else None
@@ -250,6 +256,7 @@ class BubbleBobbleEnv(gym.Env):
         level = (options or {}).get("level")
         if level is None and self.level_pool:
             level = int(self.np_random.choice(self.level_pool))
+        self.game.grace_frames = self.grace_frames
         self.game.reset(level=level, seed=int(self.np_random.integers(2**31)))
         if self.random_start:
             self._randomize_start()

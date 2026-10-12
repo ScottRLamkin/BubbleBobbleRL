@@ -327,3 +327,14 @@ def test_all_levels_run_with_every_enemy_kind():
             g.step(Buttons(shoot=True))
             if g.game_over:
                 break
+
+
+def test_grace_period_delays_enemy_entry():
+    from bubblebobblerl.game import Buttons, Game
+
+    g = Game(level=1, seed=0, auto_advance=False, grace_frames=120)
+    y0 = [e.y for e in g.enemies]
+    _run(g, 119)
+    assert [e.y for e in g.enemies] == y0  # nobody has moved yet
+    _run(g, 40)
+    assert all(e.y > y for e, y in zip(g.enemies, y0))  # now they fall in as usual
