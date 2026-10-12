@@ -468,3 +468,74 @@ How to look at it: `uv run mlflow ui --backend-store-uri sqlite:///mlflow.db`,
 experiment `evolve-evo10`. Sort by `eval_cleared`, filter
 `tags.survived = "True"`, or open a child to see its policy loss, entropy
 and value loss over its 8M steps next to its evaluation.
+
+## Tightening the loop (2026-10-11)
+
+Scott's objection: two-hour runs scored once at the end is too slow a loop,
+and a small MLP ought to do decently on this game if the plumbing is right.
+Changes, all in `train_ppo.py`:
+
+- **Live outcome rates.** The progress line and the trackers now carry the
+  clear / death / timeout share of the last 100 training episodes.
+- **Periodic all-level evaluation.** `--eval-every N` (default 2M steps)
+  plays every level twice with the current weights (about 4 s) and logs
+  `eval/clear_rate` and friends, so a run shows its trajectory on all 100
+  levels while it trains instead of after.
+- **Autoreset fix.** Gymnasium's vector autoreset inserts a fake transition
+  after every terminal step (action ignored, reward 0, "observation" is the
+  previous episode's last frame). Those steps are now masked out of the
+  update.
+- `--frame-skip`, `--lives`, `--nearest-first` (slots ordered by distance
+  from the player, so slot 0 is always "the closest enemy / bubble / shot"),
+  `--grace-frames` with `--grace-anneal`.
+
+Plumbing audit, what checked out: explained variance of the critic is 0.9
+across the evolution's 240 runs; single-step rewards rarely exceed the clear
+bonus (median largest reward per episode 5, 90th percentile 10, one chain in
+sixty episodes reached 80); KL and clip fraction are small.
+
+**Where the difficulty is.** From the fixed spawn point, with the player doing
+nothing: dead within 3 s on 7 levels, within 6 s on 64, within 15 s on 79;
+19 levels never touch him in a minute. A trivial stand-and-shoot policy
+(alternate SHOOT and NOOP) clears 5% of episodes and survives a median 29 s.
+A random policy clears 0.5% and dies at 4 s.
+
+**Quick rounds**: 20M steps each, eight in parallel, all 100 levels,
+evaluated on all 100 levels every 1M steps (2 episodes per level). Numbers
+are episodes cleared out of 200, mean of the last five evaluations.
+
+| Round 1 (recipe) | Last-5 mean |
+|---|---|
+| shaped reward (time 0.01, still 0.005, death 5), state obs | 10.2 |
+| plain reward, state obs | 2.2 |
+| plain, ego obs | 7.6 |
+| plain, frame skip 2 | 1.6 |
+| plain, 3 lives | 0.8 |
+| plain, 32 envs x 256 steps | 4.4 |
+| plain, gamma 0.995 / lambda 0.97 | 6.8 |
+| plain, entropy 0.03 | 2.8 |
+
+| Round 2 (nearest-first slots) | Last-5 mean |
+|---|---|
+| nearest-first, state | 4.2 |
+| nearest-first, state, shaped | 4.8 |
+| nearest-first, ego | 9.6 |
+| nearest-first, ego, shaped | 4.0 |
+| nearest-first, state, gamma 0.995 | 9.2 |
+| nearest-first, ego, gamma 0.995 | 7.4 |
+| nearest-first, state, second seed | 3.2 |
+| plain state, second seed (control) | 7.8 |
+
+At 20M steps nothing separates from anything: every recipe sits between 1%
+and 5% of episodes, which is the stand-and-shoot floor, and the two seeds of
+the same plain recipe (2.2 and 7.8) differ by more than most recipes differ
+from each other. The learned agents clear almost exactly the levels the
+stand-and-shoot policy clears plus a handful more, and die at a median of
+5-6 s, like an idle player. In other words, by 20M steps on 100 levels the
+agents have learned to shoot in place and not much else; the 50M-plus runs
+that camp are the continuation of that.
+
+Round 3 tests the direct consequence: a grace period before enemies enter
+(4 or 8 s, annealed to 0 over training, never used in evaluation) so the
+learner gets to practise setting up before the lottery of the first
+seconds.
