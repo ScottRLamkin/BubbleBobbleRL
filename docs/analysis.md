@@ -570,3 +570,62 @@ first attempts at.
 
 All 24 quick runs, with their evaluation curves, are in MLflow experiment
 `quick-1011`; the campaign scripts are in `scripts/campaigns/`.
+
+## The full pipeline, at full length, in the current game (2026-10-12)
+
+Scott's instruction after the quick rounds: stop screening at 20M steps and
+rerun the pipeline that actually produced the champion, at full length.
+`scripts/campaigns/2026-10-12_full.sh`, unattended, about 12 hours:
+
+1. **Stage 1**: six seeds from scratch, 200M steps each, all 100 levels, the
+   shaped recipe (time 0.01, still 0.005 over 32 px / 8 s, death 5), state
+   observation, lr 2.5e-4, all-level evaluation every 1M steps.
+2. **Stage 2**: the best seed by the standard test seeds the evolution as in
+   `evo10` (10 generations x 24 children x 8M steps, 12 genes).
+
+Stage 1, standard test (100 levels x 10 episodes, one-minute cap):
+
+| Seed | Cleared / 1000 |
+|---|---|
+| 1 | **84** |
+| 2 | 74 |
+| 3 | 48 |
+| 4 | 60 |
+| 5 | 52 |
+| 6 | 53 |
+
+The in-training curves (2 episodes per level every 1M steps) climbed from
+about 1% at 1M steps to 5-9% by 200M and were still rising slowly; training
+clear rates ended at 5-8% with deaths down to 39-59%. Six seeds of one
+recipe span 48 to 84 of 1000, which is the seed noise to keep in mind for
+every single-run comparison in this document.
+
+Stage 2 from seed 1 (84 / 1000):
+
+| Generation | Best (cleared / 500) | Baseline on the same seeds |
+|---|---|---|
+| 1 | 48 | 27 |
+| 3 | 65 | 31 |
+| 5 | 69 | 40 |
+| 7 | 72 | 37 |
+| 10 | 77 | 38 |
+
+Standard test of the result:
+
+| Model | Cleared / 1000 | Died | Timed out |
+|---|---|---|---|
+| Stage-1 best (seed 1, 200M from scratch) | 84 | 466 | 450 |
+| Champion `full1012/g9m03` | **139** | 347 | 514 |
+| Previous champion `evo10/g10m08`, for reference | 170 | 473 | 357 |
+
+The pipeline reproduces: evolution again gives a large gain over its base
+(84 to 139, +55), with the same shape as before (gains in the first few
+generations, then a plateau). The result is below the previous champion
+(170), which had a longer history behind it: 50M steps in the game before
+projectiles, 200M of fine-tunes, and its own 10 generations, about 1.1B
+steps in all against 280M here. The new champion plays the same way as every
+good agent so far: x range 4 px, 91% of steps still, 14 bubble bounces a
+minute (gallery: `exports/full1012_champion/index.html`).
+
+Everything is in MLflow: experiment `full-1012` for the six stage-1 runs with
+their 1M-step evaluation curves, `evolve-full1012` for the 240 children.
