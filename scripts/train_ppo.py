@@ -55,6 +55,8 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--curriculum", type=float, default=0.0,
                    help="grow the level pool from level 1 to all of --levels over this fraction of training")
     p.add_argument("--obs", choices=["state", "screen", "ego"], default="state")
+    p.add_argument("--frame-skip", type=int, default=4, help="game frames per agent step")
+    p.add_argument("--lives", type=int, default=1, help="lives per training episode")
     p.add_argument("--arch", choices=["mlp", "conv"], default="mlp", help="state-obs encoder")
     p.add_argument("--total-steps", type=int, default=2_000_000)
     p.add_argument("--num-envs", type=int, default=16)
@@ -78,6 +80,9 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--mlflow-tag", action="append", default=[], metavar="KEY=VALUE",
                    help="tag the MLflow run (repeatable)")
     p.add_argument("--log-every", type=int, default=5, help="log metrics every N PPO updates")
+    p.add_argument("--eval-every", type=int, default=2_000_000,
+                   help="agent steps between quick evaluations over all levels (0 = off)")
+    p.add_argument("--eval-episodes", type=int, default=2, help="episodes per level in quick evals")
     p.add_argument("--quiet", action="store_true", help="one progress line per ~1M steps")
     p.add_argument("--play", default=None, help="path to a model.pt to watch")
     p.add_argument("--greedy", action="store_true", help="with --play: most likely action, no sampling")
@@ -113,7 +118,7 @@ def parse_levels(spec: str) -> list[int]:
 
 def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_penalty, seed,
              random_start=False, stationary_penalty=0.0, stationary_window=30, stationary_band=8,
-             capture_bonus=0.1, explore_bonus=0.0):
+             capture_bonus=0.1, explore_bonus=0.0, frame_skip=4, lives=1):
     def thunk():
         env = gym.make(
             "BubbleBobble-v0",
@@ -130,6 +135,8 @@ def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_p
             stationary_band=stationary_band,
             capture_bonus=capture_bonus,
             explore_bonus=explore_bonus,
+            frame_skip=frame_skip,
+            lives=lives,
         )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env.reset(seed=seed)
@@ -340,7 +347,7 @@ def train(args) -> Path:
                 not args.no_pop_reward, args.clear_bonus, args.death_penalty,
                 args.seed + i, args.random_start, args.stationary_penalty,
                 args.stationary_window, args.stationary_band, args.capture_bonus,
-                args.explore_bonus,
+                args.explore_bonus, args.frame_skip, args.lives,
             )
             for i in range(args.num_envs)
         ]
@@ -375,7 +382,10 @@ def train(args) -> Path:
     start = time.time()
     ep_returns: list[float] = []
     ep_lengths: list[float] = []
+    ep_outcomes: list[str] = []  # "clear" / "death" / "timeout", from training episodes
     n_updates = 0
+    next_eval = args.eval_every
+    eval_levels = levels or [args.level]
 
     pool_size = 0
     while global_step < args.total_steps:
@@ -403,11 +413,14 @@ def train(args) -> Path:
             )
             if "episode" in infos and "_episode" in infos:
                 mask = infos["_episode"]
-                for er, el in zip(
-                    np.asarray(infos["episode"]["r"])[mask], np.asarray(infos["episode"]["l"])[mask]
+                alive = np.asarray(infos.get("enemies_alive", np.ones(args.num_envs)))
+                for er, el, ea, tr in zip(
+                    np.asarray(infos["episode"]["r"])[mask], np.asarray(infos["episode"]["l"])[mask],
+                    alive[mask], np.asarray(trunc)[mask],
                 ):
                     ep_returns.append(float(er))
                     ep_lengths.append(float(el))
+                    ep_outcomes.append("clear" if ea == 0 else ("timeout" if tr else "death"))
 
         # GAE
         with torch.no_grad():
@@ -421,6 +434,11 @@ def train(args) -> Path:
             last_gae = delta + args.gamma * args.gae_lambda * nonterminal * last_gae
             adv_t[t] = last_gae
         ret_t = adv_t + val_t
+        # Gymnasium's vector autoreset (next-step mode) makes the step after a
+        # terminal one a fake transition: the action is ignored, the reward is
+        # 0 and the "observation" was the previous episode's final frame.
+        # done_t marks exactly those steps; keep them out of the update.
+        real = (done_t == 0).reshape(-1).cpu().numpy()
 
         b_obs = obs_t.reshape(batch, *envs.single_observation_space.shape)
         b_act = act_t.reshape(batch)
@@ -428,7 +446,7 @@ def train(args) -> Path:
         b_adv = adv_t.reshape(batch)
         b_ret = ret_t.reshape(batch)
 
-        idx = np.arange(batch)
+        idx = np.arange(batch)[real]
         stats = {"pg_loss": [], "v_loss": [], "entropy": [], "approx_kl": [], "clipfrac": []}
         for _ in range(args.epochs):
             np.random.shuffle(idx)
@@ -457,15 +475,49 @@ def train(args) -> Path:
 
         sps = int(global_step / (time.time() - start))
         recent = np.mean(ep_returns[-20:]) if ep_returns else float("nan")
+        window = ep_outcomes[-100:]
+        rates = {k: window.count(k) / max(len(window), 1) for k in ("clear", "death", "timeout")}
         per_update = args.num_envs * args.rollout_len
         if not args.quiet or global_step % 1_000_000 < per_update:
-            print(f"step {global_step:>9}  return(20ep) {recent:7.2f}  sps {sps}", flush=True)
+            print(
+                f"step {global_step:>9}  return(20ep) {recent:7.2f}  "
+                f"clear {100 * rates['clear']:3.0f}%  death {100 * rates['death']:3.0f}%  "
+                f"timeout {100 * rates['timeout']:3.0f}%  sps {sps}",
+                flush=True,
+            )
         n_updates += 1
+        if args.eval_every and global_step >= next_eval:
+            next_eval += args.eval_every
+            torch.save(agent.state_dict(), run_dir / "model.pt")
+            from evaluate import evaluate
+
+            agent.eval()
+            ev = evaluate(str(run_dir / "model.pt"), eval_levels, args.eval_episodes,
+                          900 * 4 // args.frame_skip, seed=123, obs=args.obs,
+                          frame_skip=args.frame_skip)
+            agent.train()
+            share = ev["cleared"] / ev["episodes"]
+            print(
+                f"  eval @ {global_step:>9}: cleared {ev['cleared']}/{ev['episodes']} "
+                f"({100 * share:.0f}%), died {ev['died']}, timed out {ev['timeout']}, "
+                f"levels cleared {ev['levels_cleared']}/{len(eval_levels)}",
+                flush=True,
+            )
+            log_metrics({
+                "eval/clear_rate": share,
+                "eval/death_rate": ev["died"] / ev["episodes"],
+                "eval/timeout_rate": ev["timeout"] / ev["episodes"],
+                "eval/levels_cleared": ev["levels_cleared"],
+                "eval/mean_score": ev["mean_score"],
+            }, global_step)
         if n_updates % args.log_every == 0:
             y_pred, y_true = val_t.ravel().cpu().numpy(), ret_t.ravel().cpu().numpy()
             var_y = np.var(y_true)
             log_metrics({
                 "charts/episodic_return": recent,
+                "charts/train_clear_rate": rates["clear"],
+                "charts/train_death_rate": rates["death"],
+                "charts/train_timeout_rate": rates["timeout"],
                 "charts/episodic_length": np.mean(ep_lengths[-20:]) if ep_lengths else float("nan"),
                 "charts/sps": sps,
                 "charts/learning_rate": optimizer.param_groups[0]["lr"],

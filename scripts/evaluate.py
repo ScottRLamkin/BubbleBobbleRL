@@ -30,8 +30,9 @@ def evaluate(
     max_steps: int = 900,
     seed: int = 0,
     obs: str = "state",
+    frame_skip: int = 4,
 ) -> dict:
-    env = gym.make("BubbleBobble-v0", obs_type=obs)
+    env = gym.make("BubbleBobble-v0", obs_type=obs, frame_skip=frame_skip)
     agent = Agent.load(model_path, env.observation_space, env.action_space.n)
     game = env.unwrapped.game
     # Own generator, so results do not depend on the caller's torch RNG state.
@@ -78,8 +79,10 @@ def main() -> None:
     p.add_argument("--max-steps", type=int, default=900)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--obs", choices=["state", "ego"], default="state")
+    p.add_argument("--frame-skip", type=int, default=4, help="must match the model's training")
     args = p.parse_args()
-    r = evaluate(args.model, parse_levels(args.levels), args.episodes, args.max_steps, args.seed, args.obs)
+    r = evaluate(args.model, parse_levels(args.levels), args.episodes, args.max_steps, args.seed,
+                 args.obs, args.frame_skip)
     print(
         f"{args.model}: cleared {r['cleared']}/{r['episodes']} episodes "
         f"({r['levels_cleared']} levels), died {r['died']}, timed out {r['timeout']}, "
