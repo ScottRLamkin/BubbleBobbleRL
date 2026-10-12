@@ -35,7 +35,7 @@ import traceback
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
-LEVELS = "1-100"
+LEVELS = "1-99"  # level 100's boss is not implemented; the level never clears
 
 
 @dataclass(frozen=True)
@@ -132,13 +132,13 @@ def plan_generation(
     gen: int, parents: list[dict], population: int, steps: int, rng: random.Random
 ) -> list[dict]:
     """Decide every child of a generation up front (so a resume repeats it exactly)."""
-    if gen == 1:
+    if gen == 1 and len(parents) == 1:
         base = parents[0]
         genomes = seed_variants(Genome(**base["genome"]))[:population]
         while len(genomes) < population:
             genomes.append(mutate(rng.choice(genomes[:14]), rng))
         pairs = [(base, g) for g in genomes]
-    else:
+    else:  # several bases start like any later generation: shared children, first ones unmutated
         pairs = []
         for i in range(population):
             parent = parents[i % len(parents)]
@@ -199,6 +199,7 @@ def train_member(spec: dict) -> dict:
             "--stationary-window", str(STATIONARY_WINDOW),
             "--clear-bonus", str(g["clear_bonus"]),
             "--death-penalty", str(g["death_penalty"]),
+            "--timeout-penalty", str(spec.get("timeout_penalty", 0.0)),
             "--capture-bonus", str(g["capture_bonus"]),
             "--no-tensorboard",
             "--quiet",
@@ -302,19 +303,22 @@ class Run:
     def load_state(self) -> dict:
         if self.state_path.exists():
             return json.loads(self.state_path.read_text())
-        # Generation 0 is the baseline, copied in so the run is self-contained.
-        base_dir = self.dir / "gen_00" / "base"
-        base_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy(self.args.base, base_dir / "model.pt")
-        base = {
-            "id": "base",
-            "lineage": [],
-            "model": str(base_dir / "model.pt"),
-            "genome": asdict(Genome()),
-        }
-        state = {"generation": 0, "base": base, "survivors": [base], "history": []}
+        # Generation 0 is the baseline(s), copied in so the run is self-contained.
+        bases = []
+        for i, path in enumerate(self.args.base):
+            bid = "base" if len(self.args.base) == 1 else f"base{i}"
+            base_dir = self.dir / "gen_00" / bid
+            base_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy(path, base_dir / "model.pt")
+            bases.append({
+                "id": bid,
+                "lineage": [],
+                "model": str(base_dir / "model.pt"),
+                "genome": asdict(Genome()),
+            })
+        state = {"generation": 0, "base": bases[0], "survivors": bases, "history": []}
         self.save_state(state)
-        self.log(f"new run from {self.args.base}")
+        self.log(f"new run from {', '.join(self.args.base)}")
         return state
 
     def save_state(self, state: dict) -> None:
@@ -336,6 +340,7 @@ class Run:
                 c["dir"] = str(gen_dir / c["id"])
                 c["model"] = str(gen_dir / c["id"] / "model.pt")
                 c["generation"] = gen
+                c["timeout_penalty"] = a.timeout_penalty
                 if self.mlflow:
                     c["experiment"] = f"evolve-{a.name}"
             plan_path.write_text(json.dumps(children, indent=2))
@@ -491,7 +496,9 @@ class Run:
 
 def parse_args(argv: list[str] | None = None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--base", default="runs/ppo_state_all_50M/model.pt")
+    p.add_argument("--base", nargs="+", default=["runs/ppo_state_all_50M/model.pt"],
+                   help="one or more model.pt files to start from")
+    p.add_argument("--timeout-penalty", type=float, default=0.0, help="fixed for all children")
     p.add_argument("--name", required=True, help="run directory under runs/evolve/")
     p.add_argument("--generations", type=int, default=3)
     p.add_argument("--population", type=int, default=30)

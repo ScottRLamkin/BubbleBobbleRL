@@ -62,6 +62,9 @@ class BubbleBobbleEnv(gym.Env):
     "the closest one". By default slots follow spawn order, which differs
     from level to level and leaves a flat network to learn each slot's
     meaning per level.
+    timeout_penalty is charged once when the episode runs out of time
+    (max_episode_frames) without a clear, so running out the clock is
+    treated nearly like dying rather than as a free outcome.
     grace_frames delays every enemy's entry at the start of an episode (a
     training aid: on most levels an idle player is dead within 6 s of the
     start, so this gives a learner time to set up before contact; anneal it
@@ -102,6 +105,7 @@ class BubbleBobbleEnv(gym.Env):
         explore_bonus: float = 0.0,
         nearest_first: bool = False,
         grace_frames: int = 0,
+        timeout_penalty: float = 0.0,
         reward_pops: bool = True,
         random_start: bool = False,
         render_mode: str | None = None,
@@ -122,6 +126,7 @@ class BubbleBobbleEnv(gym.Env):
         self.explore_bonus = explore_bonus
         self.nearest_first = nearest_first
         self.grace_frames = grace_frames
+        self.timeout_penalty = timeout_penalty
         self.reward_pops = reward_pops
         self.random_start = random_start
         self.level_pool = list(levels) if levels else None
@@ -312,6 +317,8 @@ class BubbleBobbleEnv(gym.Env):
                 if max(self._xs) - min(self._xs) < self.stationary_band:
                     reward -= self.stationary_penalty
         truncated = self._frames >= self.max_episode_frames and not terminated
+        if truncated:
+            reward -= self.timeout_penalty
         return self._obs(), reward, terminated, truncated, self._info()
 
     def _info(self) -> dict[str, Any]:

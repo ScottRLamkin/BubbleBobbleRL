@@ -206,3 +206,14 @@ def test_nearest_first_puts_the_closest_enemy_in_slot_zero():
         assert obs[e0 + 5] == pytest.approx(1 / 7)  # slot 0 holds the beluga (kind 1): the close one
         env.nearest_first = False
         assert env._obs()[e0 + 5] == pytest.approx(0.0)  # default keeps spawn order
+
+
+def test_timeout_penalty_is_charged_once_at_truncation():
+    env = BubbleBobbleEnv(timeout_penalty=4.0, max_episode_frames=40, frame_skip=4)
+    env.reset(seed=0)
+    env.game.enemies, env.game.alive_enemies = [], 1
+    rewards = []
+    for _ in range(10):
+        _, r, term, trunc, _ = env.step(0)
+        rewards.append(r)
+    assert trunc and rewards[-1] == pytest.approx(-4.0) and all(r == pytest.approx(0.0) for r in rewards[:-1])

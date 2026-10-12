@@ -82,3 +82,12 @@ def test_genome_has_at_least_ten_parameters_and_mutations_respect_types():
         assert 0.95 <= g.gamma <= 0.997
         for gene, (lo, hi) in RANGES.items():
             assert lo <= getattr(g, gene) <= hi
+
+
+def test_several_bases_share_the_first_generation():
+    bases = [{"id": f"base{i}", "lineage": [], "model": f"b{i}.pt", "genome": asdict(Genome())} for i in range(4)]
+    children = plan_generation(1, bases, 24, 1000, random.Random(0))
+    assert len(children) == 24
+    assert [c["parent"] for c in children[:4]] == ["base0", "base1", "base2", "base3"]
+    assert all(c["genome"] == asdict(Genome()) for c in children[:4])  # unmutated controls
+    assert all(sum(c["parent"] == b["id"] for c in children) == 6 for b in bases)
