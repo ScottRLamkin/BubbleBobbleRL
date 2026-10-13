@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import time
 from pathlib import Path
 
@@ -398,6 +399,7 @@ def train(args) -> Path:
     n_updates = 0
     next_eval = args.eval_every
     eval_levels = [lv for lv in (levels or [args.level]) if lv != 100] or [args.level]
+    best_cleared, best_step = -1, 0  # the run's result is its best evaluated checkpoint
 
     pool_size = 0
     grace = args.grace_frames
@@ -516,14 +518,19 @@ def train(args) -> Path:
                           frame_skip=args.frame_skip, nearest_first=args.nearest_first)
             agent.train()
             share = ev["cleared"] / ev["episodes"]
+            if ev["cleared"] > best_cleared:
+                best_cleared, best_step = ev["cleared"], global_step
+                shutil.copy(run_dir / "model.pt", run_dir / "best.pt")
             print(
                 f"  eval @ {global_step:>9}: cleared {ev['cleared']}/{ev['episodes']} "
                 f"({100 * share:.0f}%), died {ev['died']}, timed out {ev['timeout']}, "
-                f"levels cleared {ev['levels_cleared']}/{len(eval_levels)}",
+                f"levels cleared {ev['levels_cleared']}/{len(eval_levels)}"
+                f"{'  <- best so far' if best_step == global_step else ''}",
                 flush=True,
             )
             log_metrics({
                 "eval/clear_rate": share,
+                "eval/best_cleared": best_cleared,
                 "eval/death_rate": ev["died"] / ev["episodes"],
                 "eval/timeout_rate": ev["timeout"] / ev["episodes"],
                 "eval/levels_cleared": ev["levels_cleared"],
@@ -556,8 +563,13 @@ def train(args) -> Path:
         writer.close()
     if tracker:
         tracker.log_artifact(str(run_dir / "model.pt"))
+        if (run_dir / "best.pt").exists():
+            tracker.log_artifact(str(run_dir / "best.pt"))
+            tracker.log_metrics({"eval/best_step": best_step}, step=global_step)
         tracker.end_run()
     print(f"saved {run_dir / 'model.pt'}")
+    if best_step:
+        print(f"best checkpoint: {run_dir / 'best.pt'} (cleared {best_cleared} at step {best_step})")
     return run_dir / "model.pt"
 
 

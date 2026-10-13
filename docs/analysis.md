@@ -629,3 +629,62 @@ minute (gallery: `exports/full1012_champion/index.html`).
 
 Everything is in MLflow: experiment `full-1012` for the six stage-1 runs with
 their 1M-step evaluation curves, `evolve-full1012` for the 240 children.
+
+## Round 2 of the full pipeline, and a checkpoint lottery (2026-10-13)
+
+Changes before this round, both from Scott: running out the clock now costs
+nearly a death (`timeout_penalty` 4 against death 5), level 100 is excluded
+everywhere (its boss is encoded as a Drunk at x = 100, off a 96-pixel screen,
+so it never enters play and the level cannot be cleared), and there is **one
+standard test**: 99 levels x 10 episodes = 990, seed 4242, one life, one
+minute, used identically by the in-training evaluations (every 1M steps,
+20 s each now that the evaluator steps one env per level in lockstep), by
+the evolution's scoring and by the command-line tool. Numbers below are on
+that standard; the batched evaluator draws random actions in a different
+order, so earlier scores shift within noise (the `evo10` champion reads
+181/990 against 170/1000 before).
+
+Stage 1, twelve more seeds from scratch (200M steps each, recipe plus the
+timeout penalty): final checkpoints scored 8 to 72 of 990. Stage 2, one
+shared evolution from four bases (seeds 1, 2, 9, 17), 10 generations:
+
+| Model | Cleared / 990 |
+|---|---|
+| Bases: seed 2 / seed 1 / seed 17 / seed 9 | 88 / 75 / 72 / 70 |
+| Champion `full1012b/g10m09` | **129** |
+| Round-1 champion `full1012/g9m03` | 144 |
+| `evo10/g10m08` (longest history) | 181 |
+
+All ten final survivors descend from one base (seed 1), the only one whose
+unmutated continuation improved in generation 1 (71 to 89; the other three
+lost 2 to 44). Same gain shape as every evolution so far: +40-50 over the
+base, flat after generation 5. The champion camps: 4 px of x range, 89%
+still, 15 bounces a minute (gallery: `exports/full1012b_champion/index.html`).
+
+**The checkpoint lottery.** With the standard test running every 1M steps,
+the in-training curves of the twelve seeds swing wildly from one checkpoint
+to the next (seed 9 at 20M-step intervals: 46, 5, 51, 41, 25, 64, 24, 46,
+33, 70), and the final checkpoint is far below the best one along the way:
+
+| Seed | Best evaluation during training | Final checkpoint |
+|---|---|---|
+| 8 | 82 | 15 |
+| 10 | 72 | 9 |
+| 12 | 113 | 53 |
+| 14 | 73 | 8 |
+| 16 | 75 | 11 |
+| 18 | 100 | 14 |
+| 9 / 13 / 17 (the ones that got picked) | 72 / 93 / 105 | 70 / 69 / 72 |
+
+The policy does not converge; it wanders, and a 200M-step run's "result" was
+whatever the last update happened to leave. The bases chosen for the
+evolutions were simply the seeds whose final checkpoint happened to be near
+their best. The best checkpoints (up to 113) sit close to what the
+evolutions reach (129-144), which suggests a good part of the evolutions'
+gain is the same thing: selection among noisy checkpoints.
+
+Fix: `train_ppo.py` now keeps `best.pt`, the best evaluated checkpoint,
+and evolution children use theirs. The best of 200 noisy evaluations
+overstates the checkpoint's true score (winner's curse), so round 3 scores
+every `best.pt` on an independent seed as well as the standard one and picks
+bases by the independent score.
