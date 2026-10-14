@@ -688,3 +688,43 @@ and evolution children use theirs. The best of 200 noisy evaluations
 overstates the checkpoint's true score (winner's curse), so round 3 scores
 every `best.pt` on an independent seed as well as the standard one and picks
 bases by the independent score.
+
+## Round 3: keep the best checkpoint (2026-10-13)
+
+Six seeds from scratch, 200M steps, standard test every 1M steps, `best.pt`
+kept. Each `best.pt` scored on the standard seed and on an independent seed
+(777) to measure how much "best of 200 evaluations" flatters itself:
+
+| Seed | best.pt, standard | best.pt, independent seed | final checkpoint, independent seed |
+|---|---|---|---|
+| 19 | 85 | 52 | 22 |
+| 20 | 88 | 81 | 76 |
+| 21 | 94 | 88 | 81 |
+| 22 | 88 | 89 | 84 |
+| 23 | **143** | **136** | 105 |
+| 24 | 91 | 85 | 25 |
+
+Keeping the best checkpoint is worth 3 to 60 of 990 over taking the last one,
+and the winner's curse is small for most seeds (3-7) and large for one (33).
+Seed 23 is the first from-scratch run to match the evolved champions, and it
+was still climbing at 200M steps (standard test at 20M-step intervals: 37,
+75, 63, 84, 105, 96, 91, 88, 114, 116).
+
+Stage 2 from the top four by independent score (seeds 24, 23, 22, 21):
+seed 23's base topped generations 1-5 unbeaten (134-148 on the generation
+seeds), then its children pulled ahead: 154, 162, 159, 171, 170.
+
+| Model | Standard (4242) | Independent (777) |
+|---|---|---|
+| Seed 23 `best.pt` (the base) | 143 | 136 |
+| **Round-3 champion `full1013/g10m20`** | 169 | **155** |
+| Round-1 champion `full1012/g9m03` | 144 | 136 |
+| Round-2 champion `full1012b/g10m09` | 129 | 125 |
+| `evo10/g10m08` (1.1B-step history, pre-projectile start) | 181 | 152 |
+
+On the independent seed the round-3 champion is the best model so far, from
+280M steps entirely in the current game. All eight final survivors descend
+from seed 23; their genomes drifted to lr 1.1e-4, a lower time penalty
+(0.004-0.006), gamma 0.973-0.985 and entropy 0.005-0.008, with the
+stationary and death penalties unchanged. Behaviour unchanged: x range 4 px,
+88% still, 23 bounces a minute (gallery: `exports/full1013_champion/index.html`).
