@@ -105,8 +105,10 @@ def main():
     p.add_argument("--seed", type=int, default=7777)
     p.add_argument("--out", required=True)
     args = p.parse_args()
+    # The env keeps the training clock (one minute) so a control-obs policy sees
+    # the time-left it was trained with; the probe cap is enforced by the loop.
     env = BubbleBobbleEnv(obs_type=args.obs, control_obs=args.control_obs,
-                          max_episode_frames=4 * args.max_steps, level=1)
+                          max_episode_frames=3600, level=1)
     agent = Agent.load(args.model, env.observation_space, env.action_space.n) if args.policy == "model" else None
     gen = torch.Generator().manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
