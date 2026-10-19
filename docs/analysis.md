@@ -728,3 +728,36 @@ from seed 23; their genomes drifted to lr 1.1e-4, a lower time penalty
 (0.004-0.006), gamma 0.973-0.985 and entropy 0.005-0.008, with the
 stationary and death penalties unchanged. Behaviour unchanged: x range 4 px,
 88% still, 23 bounces a minute (gallery: `exports/full1013_champion/index.html`).
+
+## Widening the search (2026-10-18)
+
+Round 4 (six seeds at 400M steps) died with the machine: a kernel panic from
+memory exhaustion at about 74M steps per run. A training process holds a
+steady 330 MB across dozens of evaluations, so the suspects are the MLflow
+server under six concurrent writers with the UI polling full metric
+histories. Campaigns now start their own server (the UI on 5000 only reads),
+long runs log less often, and a memory watchdog
+(`scripts/campaigns/memwatch.sh`) stops training if free memory falls under
+2 GB. The partial round-4 best checkpoints (63-82 of 990 at 74M steps) were
+kept.
+
+Scott's direction: the search has been too narrow. Families and methods now
+in play, all building off the four best bases (`full1013/g10m20`, seed 23's
+`best.pt`, `evo10/g10m08`, `full1012/g9m03`):
+
+| Family | Knobs | Method |
+|---|---|---|
+| Reward shaping | clear bonus 2-300, time penalty 0-0.1, stationary penalty 0-0.1 and band 8-64 px, death 0.25-30, timeout 0-30, capture bonus 0-3, exploration bonus 0-3, pop reward on/off | evolution genes |
+| PPO optimisation | lr 1e-5 to 1e-3, entropy 5e-4 to 0.1, clip 0.03-0.5, gamma 0.9-0.999, GAE lambda 0.8-0.99, value coefficient 0.1-2, epochs 1-10 | evolution genes |
+| Data collection | 4-64 parallel envs, rollout 32-1024 steps (batch 128 to 65k) | evolution genes |
+| Mutation strength | 1-4 genes per child, each by up to 3x (was 1-3 genes, 2x) | `evolve.py` constants |
+| Architecture | MLP width 256/512/1024, depth 2/3, tanh/relu; conv grid encoder | from-scratch runs (`--hidden`, `--layers`, `--act`, `--arch`) |
+| Observation | absolute state, egocentric, nearest-first slot order | from-scratch runs (`--obs`, `--nearest-first`) |
+| Training distribution | uniform levels vs hard-level oversampling (levels drawn in proportion to recent failure rate), curriculum, random start, grace period | from-scratch runs (`--level-sampling hard`, ...) |
+| Control | frame skip 2/4, lives 1/3 | from-scratch runs |
+
+Round A (running): 17-gene evolution from the four bases, 32 children per
+generation, 8 generations, 8M steps each, in MLflow experiment
+`evolve-wideA`. Round B (next): from-scratch runs over the architecture,
+observation and training-distribution families, which cannot be reached by
+fine-tuning existing weights.
