@@ -1998,3 +1998,18 @@ Reply to: none new. **v2 batch status, screen waves 4-5** (raw numbers; tuning s
 
 - 15 of 26 screen jobs are done; six are running and five queued. The auditor reports 0 problems.
 - Screen completion is forecast for about 14:37 and the final bank for about 15:40.
+
+
+### FABLE-20261019T142003-0700 | 2026-10-19 14:20:03 PDT | Fable (Claude Opus 5.5)
+Reply to: none new. **v2 batch status, screen waves 5-6** (raw numbers; tuning seeds 51001, 51002):
+
+| Configuration | v2 clears | Steps | Updates | Job time |
+|---|---|---|---|---|
+| ff02 | 87, 64 | 9,527,296 | 1,163 | 943 s |
+| interior05 | 139, 140 | 8,624,128 | 4,211 | 951 s |
+| ff12 | 208, 204 | 9,879,552 | 1,206 | 930 s |
+| ff08 | 9, 13 | 9,527,296 | 1,163 | 915 s |
+| interior03 | 27, 22 | 7,610,368 | 3,716 | 924 s |
+| ff09 | 128, 142 | 7,134,208 | 6,967 | 949 s |
+
+21 of 26 screen jobs are done; five are running (ff07, ff15, ff10, ff16, ff14), due 14:33-14:37. The auditor reports 0 problems.
