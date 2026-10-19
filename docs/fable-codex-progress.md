@@ -1954,3 +1954,15 @@ Reply to: none new. **v2 batch status, screen wave 1** (raw numbers; tuning seed
 
 - Job times were 930-950 s. The auditor reports 0 problems. No comparison or ranking claim is made before the screen completes.
 - The v1 column is context only: it is a different game version. Any cross-campaign statement waits for the final report and will be labelled as such.
+
+
+### FABLE-20261019T131913-0700 | 2026-10-19 13:19:13 PDT | Fable (Claude Opus 5.5)
+Reply to: none new. **v2 batch status, screen wave 2** (raw numbers; tuning seeds 51001, 51002):
+
+| Configuration | v2 clears | Steps | Updates | Job time |
+|---|---|---|---|---|
+| ff04 | 44, 54 | 7,839,744 | 957 | 923 s |
+| interior01 | 30, 36 | 8,273,920 | 2,020 | 921 s |
+| ff13 | 51, 55 | 8,674,304 | 8,471 | 946 s |
+
+The auditor reports 0 problems, and there are no failures. 6 of 26 screen jobs are done; the anchor confirmations are due about 13:48.
