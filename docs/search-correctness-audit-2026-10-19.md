@@ -45,6 +45,7 @@ campaign's 18 core-hour cap. Spent so far: see the ledger at the end.
 | 30 | Bubbles float with the air current of their centre tile | `game._float_bubble` | Z80 `MoveBubble` → `GetAir` (tile at x+4, y+4): 2 left, 3 right, 4 down, otherwise up | Read side by side | Clean | In snapshot | — |
 | 31 | A shot flies 26 px before it becomes a bubble | `game._step_prebubbles` | Z80 `PrebubbleCounter`: on the 27th frame the sprite becomes a Bubble and the handler returns before the move | `test_a_shot_flies_26_pixels_before_it_becomes_a_bubble`; `test_game` had pinned the port's 27 px and is updated | Deviation of one pixel. Capture timing was already right | **Not in snapshot** | Fixed in the live repo `2ee51f7`; not deployed |
 | 32 | Enemies drop in and activate on the original's schedule | `game._step_falling_in`, enemy spawns | Z80 `HandleFallingEnemy`: first call sets the counter to -y; then down 1 px on even frames and the counter decrements every 4th frame; activate at 0 | Read side by side. The port presets the counter (y_pix). The original's initialising call falls on timer 1, an odd frame where neither version acts, because both reset the timer to 0 at level start | Clean | In snapshot | — |
+| 33 | Explosions chain over the original's box; a killed enemy flies the way Bub faced at the break | `game._start_break`, `_step_breaking` | Z80 `CheckExplosionHitBubble`: other - this in [-10, 9] on both axes, raw y; `ExplodeBubble` stores the player's facing at the break | `test_explosion_chain_box_is_minus_10_to_plus_9` (one neighbour at a time) | Deviation at the +10 edge and with vertical wrapping; facing read 16 frames late (affects only where fruit lands) | **Not in snapshot** | Fixed in the live repo; not deployed |
 
 ## Decision note: the bubble-contact mismatch and what the campaign can answer
 
@@ -135,5 +136,5 @@ if runner PID 33901 exits.
 | Real preflight | 5.4 | Measured |
 | Pre-launch dry run, including interrupted attempts | about 508 | Mixed: 447.5 measured for completed attempts and 5.4 for the dry preflight; about 55 estimated for the interrupted attempts from their loop times plus startup |
 | Validator and runner overhead, production | about 77 forecast (2.2 per training job x 35) | Measured 6.5 s over the first three production jobs; outside reservations, so added here. Forecast, not a 60 s worst-case reservation |
-| This audit's test execution | about 48 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
+| This audit's test execution | about 49 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
 | Total | about 64,322 of 64,800 (about 478 s reserve) | Reservations + preflight + dry run + forecast overhead + this audit |
