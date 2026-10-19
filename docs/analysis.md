@@ -764,6 +764,18 @@ fine-tuning existing weights.
 
 ## The October 18 review fixes, and what they were worth (2026-10-18/19)
 
+> **Measurement note (added 2026-10-19).** Every clear count in this section
+> and the sections before it uses the historical definition: an episode
+> counted as cleared if every enemy was dead when it ended. The game only
+> completes a level 256 frames after the last kill, and the player can die or
+> run out of time in between; training never paid the clear bonus in those
+> cases. From 2026-10-19 the evaluator counts a clear only on the game's
+> completion event and reports the old count as `all_killed`. A spot check on
+> three checkpoints (seed 777) found 0, 3 and 1 affected episodes of 990;
+> that does not suggest a large effect, but it does not verify any other
+> comparison, including the reserved-bank confirmation, which stands as
+> measured under the historical definition.
+
 An independent review (`docs/training-review-2026-10-18.md`) found three code
 defects and three design problems. The code defects were repaired:
 
@@ -973,3 +985,69 @@ navigation.
   replicated gains were the ones the review's defect list pointed at. That
   does not show the earlier levers were irrelevant; they were not tested
   against these fixes.
+
+## Daytime diagnostics: correctness, checkpoint stability, navigation (2026-10-19)
+
+Run as a debugging loop (question, minimal reproduction, fix, verification),
+reviewed by Codex in `docs/fable-codex-progress.md`. Compute for the day is
+kept separately in `runs/analysis/diag-1019/compute.txt`.
+
+### Correctness fixes
+
+| Question | Finding | Fix and verification |
+|---|---|---|
+| Does evaluation disturb the trainer's random stream? (found by Codex) | Yes: loading a model for the periodic test consumed the global torch RNG. | `Agent.load` forks the RNG; `evaluate()` restores torch and numpy state; test checks the invariant and that repeated evaluations are identical. |
+| Is "cleared" the event the reward pays for? | No: a death or timeout during the 256-frame countdown after the last kill counted as a clear. | Clear = the game's completion event, in the evaluator, the trainer's outcome rates and best-checkpoint selection, and the navigation recorder; old count kept as `all_killed`; regression tests for both cases. Impact on three checkpoints: 0-3 episodes of 990. |
+| Does Gymnasium autoreset the way the trainer's masking assumes? | Yes (1.3.0, `NEXT_STEP`): the step after a terminal step is a fake transition with reward 0. | Assumption pinned by a test; GAE and masking extracted into `gae_with_autoreset` (same math) with a hand-computed test. |
+| Are observations in their declared range? | Yes for all groups, 99 levels, state and ego. | None needed. |
+| Are some levels unclearable because of a game defect? | 20 levels were never cleared in 2,090 episodes each, but every spawn is on-screen, every enemy activates and none stays inside a wall. | None found; enemy reachability by the player was not checked. |
+
+### Why final checkpoints score below selected ones
+
+- **Not evaluation noise or selection alone.** Two runs with large gaps were
+  re-scored on four fresh seed sets each, best and final on identical seeds:
+  T7 best minus final +44 to +68 (mean +54), R3 +31 to +36 (mean +34). A fixed
+  policy's standard test varies with a standard deviation of 6-11 clears.
+- **Snapshots of one lineage** (exploratory; truncated at 12M steps, one
+  training seed per arm): continuing T7's selected checkpoint at its own
+  learning rate (2.5e-4), held-out clears (three fresh seeds per snapshot)
+  went 108, 98, 98, 79, 93, 78, 80, 50, 74, 84, 93, 98: changes between 1M-step
+  snapshots of about 12 against a within-snapshot seed spread of about 4, a dip
+  and a recovery rather than a steady decline. At 2.5e-5 the same checkpoint
+  went 118 to 140 and stayed above the parent's range (about 106). The
+  pre-registered rules (decline of more than 20; volatility ratio below 0.6)
+  were not met on the truncated window.
+- **Best current account**: at the learning rate these runs used, the policy
+  changes between checkpoints by more than the evaluation noise, and the
+  selected checkpoint is one of the high points; the drift is not visible as
+  spikes in KL, clip fraction or entropy. A lower learning rate behaved better
+  on one lineage; that is not yet evidence for other runs.
+
+### Do the policies go after enemies?
+
+Measured with a validated probe (`scripts/diag_fixture.py`): one frozen,
+live-looking enemy 36 px away on level 1's floor, left or right, against the
+same situation with the spot empty, matched randomness; scripted policies
+(walk-to-target, stand-off-and-shoot, always-left, always-right, idle,
+random) behave as designed on it.
+
+- An earlier version of the probe scored "arrival within 8 px". Policies that
+  have learned that contact kills do not walk into enemies, so that measured
+  the wrong thing; the conclusions drawn from it (and from an aggregate
+  "approach rate") are withdrawn.
+- **Initial direction is not chosen by where the enemy is.** The fixed-spawn
+  policies start leftward (camper, G, T2, S7) or rightward (T4) in nearly every
+  probe, with or without an enemy.
+- **Orientation and shooting are.** G, T2 and S7 blow more bubbles facing the
+  enemy than facing the empty spot, on both sides (22 to 30 of 30 matched
+  pairs). T2 also closes from 36 to about 17 px on right-side enemies (29 of 30
+  pairs); T4 approaches and shoots at left-side enemies and stops at about 17 px
+  from right-side ones instead of running on to the wall. The old camper shows
+  no dependence on the enemy at all.
+- **Not shown**: travelling across platforms to reach enemies elsewhere on a
+  level. The never-cleared levels include several where the enemies stay in
+  the top row, which is where that would matter.
+- **Left bias**: every left-biased policy was trained with the fixed left-wall
+  spawn; one hour of random-start fine-tuning did not remove it, and a policy
+  trained from scratch with random starts does not have it. Two checkpoints;
+  the cause is a hypothesis.
