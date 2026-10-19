@@ -922,3 +922,26 @@ def test_a_stone_breaks_when_it_hits_the_player():
     g.projectiles = [stone]
     g.step(Buttons())
     assert stone.breaking and stone.x == 36
+
+
+def test_beer_moves_into_the_wall_on_its_bounce_frame():
+    """Regression (2026-10-19): Z80 BeerRight calls BounceBeer (flips the
+    direction state) and then still moves right that frame; the port reversed
+    and moved left at once."""
+    from bubblebobblerl.game import BEER_IDLE, DRUNK, Buttons, Enemy, Projectile
+    from bubblebobblerl.levels import TILE_UP, TILE_WALL
+
+    g = _bubble_game()
+    g.grid = g.grid.copy()
+    g.grid[:, :] = TILE_UP
+    g.grid[:, 12] = TILE_WALL  # x 48-51
+    drunk = Enemy(kind=DRUNK, x=8, y=20, facing=1, spawn_delay=0)
+    drunk.falling_in = False
+    g.enemies = [drunk]
+    beer = Projectile("beer", 40, 20, dx=1, owner=drunk)  # x+8 = 48: wall ahead
+    beer.age = BEER_IDLE
+    g.projectiles = [beer]
+    g._step_projectiles()
+    assert (beer.x, beer.dx, beer.bounced) == (41, -1, True)
+    g._step_projectiles()
+    assert beer.x == 40

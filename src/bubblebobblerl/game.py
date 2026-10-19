@@ -770,10 +770,11 @@ class Game:
             owner.state, owner.counter = 0, 0
             return
         probe_x = pr.x + 8 if pr.dx > 0 else pr.x - 1
-        if self.solid(probe_x, pr.y + 7) and not pr.bounced:
+        bounce = self.solid(probe_x, pr.y + 7) and not pr.bounced
+        pr.x += pr.dx  # BeerLeft/BeerRight move the old way even on the bounce frame
+        if bounce:  # BounceBeer (once): reverse from the next frame
             pr.bounced = True
             pr.dx = -pr.dx
-        pr.x += pr.dx
 
     # ----------------------------------------------------------- bubbles
 
