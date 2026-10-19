@@ -45,6 +45,19 @@ def situations(game=None):
                 yield {"player_x": sx, "target_x": tx, "side": side}
 
 
+# Scripted policies with known behaviour, to validate the fixture itself:
+# oracle walks toward the target when there is one (and stands still when
+# there is none), left/right always walk one way, noop never moves.
+def _oracle(g):
+    if not g.enemies:
+        return 0
+    dx = g.enemies[0].x - g.player.x
+    return 0 if dx == 0 else (2 if dx > 0 else 1)
+
+
+SCRIPTED = {"oracle": _oracle, "left": lambda g: 1, "right": lambda g: 2, "noop": lambda g: 0}
+
+
 def run_one(env, agent, policy, gen, rng, sit, max_steps, reach, facing, present):
     """One probe. The target is held in the falling-in state under an unbounded
     grace period, so Game never moves it (grace blocks _step_falling_in); it
@@ -73,6 +86,8 @@ def run_one(env, agent, policy, gen, rng, sit, max_steps, reach, facing, present
     for step in range(max_steps):
         if policy == "random":
             a = int(rng.integers(len(ACTIONS)))
+        elif policy in SCRIPTED:
+            a = SCRIPTED[policy](g)
         else:
             with torch.no_grad():
                 logits = agent.actor(agent._encode(torch.as_tensor(agent.obs_in(o)[None])))
@@ -96,7 +111,7 @@ def run_one(env, agent, policy, gen, rng, sit, max_steps, reach, facing, present
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("model", nargs="?")
-    p.add_argument("--policy", choices=["model", "random"], default="model")
+    p.add_argument("--policy", choices=["model", "random", *SCRIPTED], default="model")
     p.add_argument("--obs", choices=["state", "ego"], default="state")
     p.add_argument("--control-obs", action="store_true")
     p.add_argument("--episodes", type=int, default=5, help="per situation")
@@ -110,8 +125,6 @@ def main():
     env = BubbleBobbleEnv(obs_type=args.obs, control_obs=args.control_obs,
                           max_episode_frames=3600, level=1)
     agent = Agent.load(args.model, env.observation_space, env.action_space.n) if args.policy == "model" else None
-    gen = torch.Generator().manual_seed(args.seed)
-    rng = np.random.default_rng(args.seed)
     env.reset(seed=1, options={"level": 1})
     sits = list(situations(env.game))
     assert len(sits) == 6 and sum(s["side"] for s in sits) == 0, sits  # three each side, all on the floor
@@ -120,6 +133,12 @@ def main():
         for facing in (+1, -1):  # facing balanced against target side
             for present in (True, False):  # target-absent control with the same player state
                 for ep in range(args.episodes):
+                    # Matched randomness: a target-present probe and its
+                    # target-absent counterpart get the same sampling stream.
+                    key = (args.seed, sits.index(sit), facing, ep)
+                    seed = abs(hash(key)) % (2**31)
+                    gen = torch.Generator().manual_seed(seed)
+                    rng = np.random.default_rng(seed)
                     records.append(run_one(env, agent, args.policy, gen, rng, sit, args.max_steps,
                                            args.reach, facing, present))
     n = len(records)
