@@ -50,6 +50,7 @@ campaign's 18 core-hour cap. Spent so far: see the ledger at the end.
 | 35 | Shooters fire when the player is in the original's vertical band | `game._shooter_aim` | Z80 `TestHAligned`: e.y - p.y + 15 in [0, 32), the player 16 px above to 15 px below | `test_shooter_alignment_band_is_16_above_to_15_below`; campaign revision has the band mirrored | Deviation of one pixel at each edge | **Not in snapshot** | Fixed in the live repo; not deployed |
 | 36 | Walker look-around, hop phases, jump-up and the standing test | `game._look_around`, `_buster_ai`, `standing` | Z80 `BustLookAround`, `BustJump*`, `BustJumpUp`, `CheckBelow` | Read side by side | Clean | In snapshot | — |
 | 37 | Shooter aim and shot timing | `SHOOTER_TIMING`, `game._shooter_shoot` | Z80 `StonerShoot1`/`StonerShoot` (aim 11, 16-frame shot, fires at 8), `HidegonsuShoot1`/`HidegonsuShoot` (17, 8, 4) | Read side by side | Clean | In snapshot | — |
+| 38 | An angry Invader moves before and after the capture check | `game._invader_step` | Z80 `HandleInvader`: an angry invader runs `InvaderPissed` before `MonsterHitHazard` and again after it | `test_angry_invader_moves_before_the_capture_check`; the campaign revision captures a frame later | Deviation of one frame in capture timing for angry invaders; laser timer and walk match | **Not in snapshot** | Fixed in the live repo; not deployed |
 
 ## Decision note: the bubble-contact mismatch and what the campaign can answer
 
@@ -140,5 +141,5 @@ if runner PID 33901 exits.
 | Real preflight | 5.4 | Measured |
 | Pre-launch dry run, including interrupted attempts | about 508 | Mixed: 447.5 measured for completed attempts and 5.4 for the dry preflight; about 55 estimated for the interrupted attempts from their loop times plus startup |
 | Validator and runner overhead, production | about 77 forecast (2.2 per training job x 35) | Measured 6.5 s over the first three production jobs; outside reservations, so added here. Forecast, not a 60 s worst-case reservation |
-| This audit's test execution | about 51 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
+| This audit's test execution | about 53 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
 | Total | about 64,322 of 64,800 (about 478 s reserve) | Reservations + preflight + dry run + forecast overhead + this audit |
