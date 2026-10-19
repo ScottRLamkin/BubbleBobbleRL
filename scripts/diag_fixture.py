@@ -58,23 +58,31 @@ def _oracle(g):
 SCRIPTED = {"oracle": _oracle, "left": lambda g: 1, "right": lambda g: 2, "noop": lambda g: 0}
 
 
-def run_one(env, agent, policy, gen, rng, sit, max_steps, reach, facing, present):
-    """One probe. The target is held in the falling-in state under an unbounded
-    grace period, so Game never moves it (grace blocks _step_falling_in); it
-    is harmless and the observation encodes it as a falling-in enemy (0.5),
-    which is a known perceptual difference from a live enemy. `facing` is set
-    independently of the target side; `present=False` is the target-absent
-    control (same player state, arrival measured at the would-be target x)."""
+def run_one(env, agent, policy, gen, rng, sit, max_steps, reach, facing, present, target_kind="falling"):
+    """One probe. target_kind="falling": the target is held in the falling-in
+    state under an unbounded grace period, so Game never moves it (grace
+    blocks _step_falling_in); the observation encodes it as a falling-in enemy
+    (0.5), which a policy never saw at floor level in training.
+    target_kind="live": the target is an ordinary walking Buster (observation
+    identical to a live enemy), frozen by disabling the enemy update for this
+    game instance, so it neither moves, kills, nor gets captured. `facing` is
+    set independently of the target side; `present=False` is the
+    target-absent control (same player state, arrival measured at the
+    would-be target x)."""
     env.reset(seed=1, options={"level": 1})
     g = env.game
     g.player.x, g.player.y = sit["player_x"], FLOOR_Y
     g.player.facing = facing
     g.grace_left = 10**9
-    if present:
+    if present and target_kind == "falling":
         g.enemies = [Enemy(kind=0, x=sit["target_x"], y=FLOOR_Y, facing=-sit["side"], spawn_delay=10**9,
                            falling_in=True)]
+    elif present:
+        g.enemies = [Enemy(kind=0, x=sit["target_x"], y=FLOOR_Y, facing=-sit["side"], spawn_delay=0,
+                           falling_in=False, state=1)]
     else:
         g.enemies = []
+    g._step_enemies = (lambda ev: None) if target_kind == "live" else type(g)._step_enemies.__get__(g)
     g.alive_enemies = 1  # keep the level "alive" either way
     env._xs = []
     env._visited = {g.player.x // 8}
@@ -117,6 +125,7 @@ def main():
     p.add_argument("--episodes", type=int, default=5, help="per situation")
     p.add_argument("--max-steps", type=int, default=150, help="10 s at 15 steps/s")
     p.add_argument("--reach", type=int, default=8, help="arrival = |x - target| within this many px")
+    p.add_argument("--target", choices=["falling", "live"], default="falling")
     p.add_argument("--seed", type=int, default=7777)
     p.add_argument("--out", required=True)
     args = p.parse_args()
@@ -140,7 +149,7 @@ def main():
                     gen = torch.Generator().manual_seed(seed)
                     rng = np.random.default_rng(seed)
                     records.append(run_one(env, agent, args.policy, gen, rng, sit, args.max_steps,
-                                           args.reach, facing, present))
+                                           args.reach, facing, present, args.target))
     n = len(records)
 
     def block(present):
@@ -160,6 +169,7 @@ def main():
 
     summary = {"situations": len(sits), "episodes": n, "with_target": block(True), "target_absent": block(False)}
     json.dump({"model": args.model, "policy": args.policy, "seed": args.seed, "reach": args.reach,
+               "target": args.target,
                "max_steps": args.max_steps, "summary": summary, "records": records},
               open(args.out, "w"), indent=1)
     print(json.dumps({"model": args.model or "random", **summary}))
