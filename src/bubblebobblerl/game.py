@@ -145,6 +145,7 @@ class BubbleSprite:
     flags: int = 0  # asm ix+7: BUB_* moves/break/pop, consumed at the next 4-frame tick (DoBubbleFlags)
     breaking: str | None = None  # None | "pop" (escape) | "explode" (kill)
     break_age: int = 0
+    break_facing: int = 1  # player's facing when it broke (ExplodeBubble flag 5): the dead enemy's flight
 
 
 @dataclass
@@ -835,12 +836,13 @@ class Game:
             return
         bub.breaking = kind
         bub.break_age = 0
+        bub.break_facing = self.player.facing
         if kind == "explode":
-            # Explosions chain to floating bubbles within a 20x20 box.
+            # CheckExplosionHitBubble: chain to floating bubbles whose offset
+            # (other - this, raw coordinates) lies in [-10, 9] on both axes.
             for other in self.bubbles:
-                if other.breaking is None and self._overlap(
-                    other.x, other.y, bub.x, bub.y, 10
-                ):
+                if (other.breaking is None and -10 <= other.x - bub.x <= 9
+                        and -10 <= other.y - bub.y <= 9):
                     self._start_break(other, "explode")
 
     def _step_breaking(self, bub: BubbleSprite, ev) -> None:
@@ -864,7 +866,7 @@ class Game:
         else:  # killed
             ev.killed += 1
             self.dead_enemies.append(
-                DeadEnemy(x=bub.x, y=bub.y, facing=self.player.facing)
+                DeadEnemy(x=bub.x, y=bub.y, facing=bub.break_facing)
             )
             self._enemy_died()
 

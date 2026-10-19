@@ -785,3 +785,20 @@ def test_a_shot_flies_26_pixels_before_it_becomes_a_bubble():
         g.step(Buttons())
     assert not g.prebubbles and len(g.bubbles) == 1
     assert g.bubbles[0].x - x0 == 26
+
+
+def test_explosion_chain_box_is_minus_10_to_plus_9():
+    """Regression (2026-10-19): Z80 CheckExplosionHitBubble chains when
+    other - this, in raw coordinates, lies in [-10, 9] on both axes; the port
+    used a symmetric +-10 box with vertical wrapping."""
+    from bubblebobblerl.game import BubbleSprite
+
+    def chained(dx, dy):  # one neighbour at a time, so chains cannot relay
+        g = _bubble_game()
+        centre, other = BubbleSprite(x=40, y=30, life=100), BubbleSprite(x=40 + dx, y=30 + dy, life=100)
+        g.bubbles = [centre, other]
+        g._start_break(centre, "explode")
+        return other.breaking == "explode"
+
+    assert [chained(*d) for d in ((-10, 0), (9, 0), (10, 0), (0, -10), (0, 9), (0, 10))] == [
+        True, True, False, True, True, False]
