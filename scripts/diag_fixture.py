@@ -45,21 +45,31 @@ def situations(game=None):
                 yield {"player_x": sx, "target_x": tx, "side": side}
 
 
-def run_one(env, agent, policy, gen, rng, sit, max_steps, reach):
+def run_one(env, agent, policy, gen, rng, sit, max_steps, reach, facing, present):
+    """One probe. The target is held in the falling-in state under an unbounded
+    grace period, so Game never moves it (grace blocks _step_falling_in); it
+    is harmless and the observation encodes it as a falling-in enemy (0.5),
+    which is a known perceptual difference from a live enemy. `facing` is set
+    independently of the target side; `present=False` is the target-absent
+    control (same player state, arrival measured at the would-be target x)."""
     env.reset(seed=1, options={"level": 1})
     g = env.game
     g.player.x, g.player.y = sit["player_x"], FLOOR_Y
-    g.player.facing = sit["side"]
-    target = Enemy(kind=0, x=sit["target_x"], y=FLOOR_Y, facing=-sit["side"], spawn_delay=10**9,
-                   falling_in=True)  # never activates: frozen, harmless, visible as "falling in"
-    g.enemies = [target]
-    g.alive_enemies = 1
+    g.player.facing = facing
+    g.grace_left = 10**9
+    if present:
+        g.enemies = [Enemy(kind=0, x=sit["target_x"], y=FLOOR_Y, facing=-sit["side"], spawn_delay=10**9,
+                           falling_in=True)]
+    else:
+        g.enemies = []
+    g.alive_enemies = 1  # keep the level "alive" either way
     env._xs = []
     env._visited = {g.player.x // 8}
     o = env._obs()
     first_dir = 0
     arrived_at = None
     x0 = g.player.x
+    ty = FLOOR_Y
     for step in range(max_steps):
         if policy == "random":
             a = int(rng.integers(len(ACTIONS)))
@@ -69,14 +79,16 @@ def run_one(env, agent, policy, gen, rng, sit, max_steps, reach):
             a = int(torch.multinomial(torch.softmax(logits, -1), 1, generator=gen))
         o, _, term, trunc, _ = env.step(a)
         x = g.player.x
+        if present:
+            assert g.enemies and g.enemies[0].x == sit["target_x"] and g.enemies[0].y == ty, "target moved"
         if first_dir == 0 and x != x0:
             first_dir = int(np.sign(x - x0))
-        if arrived_at is None and abs(x - sit["target_x"]) <= reach:
+        if arrived_at is None and abs(x - sit["target_x"]) <= reach and abs(g.player.y - ty) <= 8:
             arrived_at = step + 1
             break
         if term or trunc:
             break
-    return {"situation": sit, "arrived_step": arrived_at,
+    return {"situation": sit, "facing": facing, "target_present": present, "arrived_step": arrived_at,
             "first_move_toward_target": first_dir == sit["side"] if first_dir else None,
             "final_gap_px": abs(g.player.x - sit["target_x"])}
 
@@ -103,24 +115,29 @@ def main():
     assert len(sits) == 6 and sum(s["side"] for s in sits) == 0, sits  # three each side, all on the floor
     records = []
     for sit in sits:
-        for ep in range(args.episodes):
-            records.append(run_one(env, agent, args.policy, gen, rng, sit, args.max_steps, args.reach))
+        for facing in (+1, -1):  # facing balanced against target side
+            for present in (True, False):  # target-absent control with the same player state
+                for ep in range(args.episodes):
+                    records.append(run_one(env, agent, args.policy, gen, rng, sit, args.max_steps,
+                                           args.reach, facing, present))
     n = len(records)
-    arrived = [r for r in records if r["arrived_step"] is not None]
-    by_side = {}
-    for side in (+1, -1):
-        rs = [r for r in records if r["situation"]["side"] == side]
-        by_side[side] = sum(r["arrived_step"] is not None for r in rs) / len(rs)
-    toward = [r["first_move_toward_target"] for r in records if r["first_move_toward_target"] is not None]
-    summary = {
-        "situations": len(sits), "episodes": n,
-        "arrival_rate": len(arrived) / n,
-        "arrival_rate_target_right": by_side[+1], "arrival_rate_target_left": by_side[-1],
-        "median_steps_to_arrive": float(np.median([r["arrived_step"] for r in arrived])) if arrived else None,
-        "first_move_toward_rate": sum(toward) / len(toward) if toward else None,
-        "episodes_with_any_move": len(toward),
-        "mean_final_gap_px": float(np.mean([r["final_gap_px"] for r in records])),
-    }
+
+    def block(present):
+        rs = [r for r in records if r["target_present"] == present]
+        arrived = [r for r in rs if r["arrived_step"] is not None]
+        by_side = {s: (sum(r["arrived_step"] is not None for r in rs if r["situation"]["side"] == s)
+                       / max(1, sum(1 for r in rs if r["situation"]["side"] == s))) for s in (+1, -1)}
+        toward = [r["first_move_toward_target"] for r in rs if r["first_move_toward_target"] is not None]
+        return {
+            "episodes": len(rs), "arrival_rate": len(arrived) / len(rs),
+            "arrival_rate_target_right": by_side[+1], "arrival_rate_target_left": by_side[-1],
+            "median_steps_to_arrive": float(np.median([r["arrived_step"] for r in arrived])) if arrived else None,
+            "first_move_toward_rate": sum(toward) / len(toward) if toward else None,
+            "episodes_with_any_move": len(toward),
+            "mean_final_gap_px": float(np.mean([r["final_gap_px"] for r in rs])),
+        }
+
+    summary = {"situations": len(sits), "episodes": n, "with_target": block(True), "target_absent": block(False)}
     json.dump({"model": args.model, "policy": args.policy, "seed": args.seed, "reach": args.reach,
                "max_steps": args.max_steps, "summary": summary, "records": records},
               open(args.out, "w"), indent=1)
