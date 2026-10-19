@@ -662,3 +662,56 @@ def test_captured_enemy_bubble_contact_kills_or_pushes_by_facing():
     assert killed == 1 and len(g.dead_enemies) == 1
     killed, g = run(facing=1, dx=5, dy=-5)  # ahead and above
     assert killed == 0 and len(g.bubbles) == 1
+
+
+def test_trainer_rollout_storage_is_aligned_for_death_terminations(tmp_path, monkeypatch):
+    """Death path of the end-to-end alignment check (no grace, a 100-step clock,
+    so episodes end by death or truncation). Oracle from the observation: a
+    fake step's observation is a final one (dead flag set, or time left 0), the
+    following observation is a reset one (time left 1, alive), every reset
+    observation after the first is preceded by a fake step, and fake steps
+    carry reward 0. At least one episode must end by death for the check to
+    mean anything."""
+    import sys
+    from pathlib import Path
+
+    import torch
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import train_ppo
+
+    calls, obs_seen = [], []
+    orig_gae, orig_av = train_ppo.gae_with_autoreset, train_ppo.Agent.action_value
+
+    def cap_gae(rew, val, done, next_value, next_done, gamma, lam):
+        calls.append((rew.clone(), done.clone()))
+        return orig_gae(rew, val, done, next_value, next_done, gamma, lam)
+
+    def cap_av(self, x, action=None, greedy=False):
+        if action is None:
+            obs_seen.append(x[:, [6, -1]].clone())  # player dead flag, time left (state obs + control)
+        return orig_av(self, x, action, greedy)
+
+    monkeypatch.setattr(train_ppo, "gae_with_autoreset", cap_gae)
+    monkeypatch.setattr(train_ppo.Agent, "action_value", cap_av)
+    T, N = 256, 2
+    train_ppo.train(train_ppo.parse_args([
+        "--levels", "1", "--control-obs", "--max-episode-frames", "400", "--num-envs", str(N),
+        "--rollout-len", str(T), "--total-steps", str(2 * T * N), "--eval-every", "0", "--seed", "3",
+        "--no-mlflow", "--no-tensorboard", "--quiet", "--run-dir", str(tmp_path)]))
+    o = torch.stack(obs_seen)  # [2T, N, 2]
+    rew = torch.cat([c[0] for c in calls])
+    done = torch.cat([c[1] for c in calls])
+    deaths = 0
+    for n in range(N):
+        dead, left = o[:, n, 0], o[:, n, 1]
+        fake = done[:, n] == 1
+        final = (dead == 1) | (left == 0)
+        assert torch.all(final[fake]) and torch.all(rew[fake, n] == 0)
+        for t in torch.nonzero(fake).flatten().tolist():
+            if t + 1 < 2 * T:
+                assert left[t + 1] == 1.0 and dead[t + 1] == 0
+        resets = [t for t in range(1, 2 * T) if left[t] == 1.0]
+        assert all(fake[t - 1] for t in resets)
+        deaths += int(((dead == 1) & (left > 0) & fake).sum())
+    assert deaths >= 1
