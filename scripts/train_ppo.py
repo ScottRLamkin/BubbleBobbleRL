@@ -60,6 +60,8 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--bootstrap-truncation", action="store_true",
                    help="treat the time limit as a cut-off, not an outcome: bootstrap V at truncation")
     p.add_argument("--max-minutes", type=float, default=0.0, help="stop after this much wall time")
+    p.add_argument("--save-every", type=int, default=0,
+                   help="also keep a numbered snapshot (ckpt_<steps>.pt) every N steps, for trajectory diagnostics")
     p.add_argument("--futility-steps", type=int, default=0,
                    help="stop when the best standard-test score has not improved for this many steps")
     p.add_argument("--fresh-optimizer", action="store_true",
@@ -467,6 +469,7 @@ def train(args) -> Path:
     next_eval = args.eval_every
     eval_levels = [lv for lv in (levels or [args.level]) if lv != 100] or [args.level]
     best_cleared, best_step = -1, 0  # the run's result is its best evaluated checkpoint
+    next_snapshot = args.save_every
     reward_parts = {f"r_{k}": 0.0 for k in ("score", "capture", "kill", "death", "clear", "time",
                                             "stationary", "timeout", "explore")}
 
@@ -669,6 +672,9 @@ def train(args) -> Path:
             }, global_step)
         torch.save(agent.state_dict(), run_dir / "model.pt")
         torch.save(optimizer.state_dict(), run_dir / "optimizer.pt")
+        if args.save_every and global_step >= next_snapshot:
+            next_snapshot += args.save_every
+            torch.save(agent.state_dict(), run_dir / f"ckpt_{global_step:09d}.pt")
 
     envs.close()
     if writer:
