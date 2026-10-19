@@ -39,6 +39,9 @@ PREBUBBLE_FRAMES = 27  # (Bubble - Prebubble) * 9 frames of horizontal flight
 BREAK_FRAMES = 16
 DEAD_PLAYER_TICKS = 14  # 4-frame ticks of death animation
 RESPAWN_INVINCIBLE = 72  # frames (approximation: original units unclear)
+# Bubble flag bits (asm ix+7), set during a frame, acted on by DoBubbleFlags.
+BUB_RIGHT, BUB_LEFT, BUB_DOWN, BUB_UP = 1 << 1, 1 << 2, 1 << 3, 1 << 4
+BUB_POP, BUB_BREAK = 1 << 5, 1 << 7  # break alone explodes (kills a captive); with POP the captive escapes
 CLEAR_DELAY = 256  # frames between last kill and level advance
 CHAIN_WINDOW = 16  # frames in which consecutive kills chain (popcount)
 
@@ -139,8 +142,7 @@ class BubbleSprite:
     y: int
     life: int  # 4-frame ticks; decremented before test, so 0 lasts 256
     captured: Enemy | None = None
-    push: int = 0  # pending horizontal push from the player
-    break_pending: bool = False  # flags bit 7: breaks at the next 4-frame tick (DoBubbleFlags)
+    flags: int = 0  # asm ix+7: BUB_* moves/break/pop, consumed at the next 4-frame tick (DoBubbleFlags)
     breaking: str | None = None  # None | "pop" (escape) | "explode" (kill)
     break_age: int = 0
 
@@ -753,23 +755,30 @@ class Game:
             self._bubble_player_interaction(bub, p)
             if self.timer % 4 != 0:
                 continue
-            # DoBubbleFlags: the push (skipped while the death counter reads 0),
-            # then a pending break ends the bubble's turn.
-            if bub.push:
-                probe_x = bub.x + 8 if bub.push > 0 else bub.x - 1
-                if bub.life != 0 and not self.solid(probe_x, bub.y + 4):
-                    bub.x += bub.push
-                bub.push = 0
-            if bub.break_pending:
-                bub.break_pending = False
-                self._start_break(bub, "explode")
+            # DoBubbleFlags: one-pixel moves (skipped while the death counter
+            # reads 0; horizontal ones need a free tile, as _MoveRight/_MoveLeft
+            # probe x+8 / x-1 at y+7), then a break ends the bubble's turn.
+            f, bub.flags = bub.flags, 0
+            if bub.life != 0:
+                if f & BUB_RIGHT and not self.solid(bub.x + 8, bub.y + 7):
+                    bub.x += 1
+                if f & BUB_LEFT and not self.solid(bub.x - 1, bub.y + 7):
+                    bub.x -= 1
+                if f & BUB_DOWN:
+                    bub.y += 1
+                if f & BUB_UP:
+                    bub.y -= 1
+            if f & BUB_BREAK:
+                self._start_break(bub, "pop" if f & BUB_POP else "explode")
                 continue
+            # Gradual self-destruct: at 0 it is flagged to pop (captive escapes)
+            # at the next tick.
             bub.life = (bub.life - 1) & 0xFF
             if bub.life == 0:
-                self._start_break(bub, "pop")  # timed out: captive escapes
-                continue
+                bub.flags |= BUB_POP | BUB_BREAK
             self._float_bubble(bub)
             bub.y = self.wrap_y(bub.y)
+            self._bubble_hit_bubble(bub)
 
     def _bubble_player_interaction(self, bub: BubbleSprite, p: Player) -> None:
         if p.dead_ticks >= 0:
@@ -783,10 +792,29 @@ class Game:
         if dy >= 4:  # player on top: ride (enables the bubble bounce)
             p.on_bubble = True
         elif (bub.x - p.x) * p.facing >= 4:
-            bub.push = p.facing
+            bub.flags |= BUB_RIGHT if p.facing > 0 else BUB_LEFT
             p.recoil = -p.facing
         else:
-            bub.break_pending = True
+            bub.flags |= BUB_BREAK
+
+    def _bubble_hit_bubble(self, bub: BubbleSprite) -> None:
+        """BubbleHitBubble: against every other floating bubble within 7 px in
+        both axes, flag a one-pixel move away on each axis where they are at
+        least 4 px apart (closer than that they stay stacked)."""
+        for other in self.bubbles:
+            if other is bub or other.breaking is not None:
+                continue
+            dx, dy = bub.x - other.x, bub.y - other.y
+            if abs(dx) > 7 or abs(dy) > 7:
+                continue
+            if dx <= -4:
+                bub.flags |= BUB_LEFT
+            elif dx >= 4:
+                bub.flags |= BUB_RIGHT
+            if dy <= -4:
+                bub.flags |= BUB_UP
+            elif dy >= 4:
+                bub.flags |= BUB_DOWN
 
     def _float_bubble(self, bub: BubbleSprite) -> None:
         current = self.tile(bub.x + 4, bub.y + 4)

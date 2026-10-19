@@ -715,3 +715,54 @@ def test_trainer_rollout_storage_is_aligned_for_death_terminations(tmp_path, mon
         assert all(fake[t - 1] for t in resets)
         deaths += int(((dead == 1) & (left > 0) & fake).sum())
     assert deaths >= 1
+
+
+def _bubble_game():
+    env = BubbleBobbleEnv(obs_type="state", level=1)
+    env.reset(seed=1, options={"level": 1})
+    g = env.game
+    g.enemies, g.alive_enemies, g.grace_left = [], 2, 10**9
+    g.player.x, g.player.y = 8, 52  # far from the bubbles
+    return g
+
+
+def _tick_aligned(g):
+    from bubblebobblerl.game import Buttons
+
+    while g.timer % 4 != 3:  # next frame is a 4-frame tick
+        g.step(Buttons())
+
+
+def test_overlapping_bubbles_drift_apart_and_stacked_ones_stay():
+    """Regression (2026-10-19): Z80 BubbleHitBubble flags a one-pixel move
+    apart, on each axis where two floating bubbles within 7 px are at least 4 px
+    apart; DoBubbleFlags applies it at the next tick. The port had no
+    bubble-bubble interaction."""
+    from bubblebobblerl.game import BubbleSprite, Buttons
+
+    g = _bubble_game()
+    a, b = BubbleSprite(x=40, y=30, life=100), BubbleSprite(x=45, y=30, life=100)
+    c, d = BubbleSprite(x=60, y=30, life=100), BubbleSprite(x=62, y=30, life=100)
+    g.bubbles = [a, b, c, d]
+    _tick_aligned(g)
+    for _ in range(8):  # two ticks: flags set on the first, applied on the second
+        g.step(Buttons())
+    assert b.x - a.x == 7  # 5 px apart -> each moved one pixel away
+    assert d.x - c.x == 2  # closer than 4 px: stay stacked
+
+
+def test_timed_out_bubble_pops_at_the_next_tick():
+    """The self-destruct counter reaching 0 only flags the bubble (bits 5 and 7);
+    DoBubbleFlags pops it at the next tick and the captive escapes."""
+    from bubblebobblerl.game import BubbleSprite, Buttons, Enemy
+
+    g = _bubble_game()
+    captive = Enemy(kind=0, x=40, y=30, facing=1, spawn_delay=0)
+    bub = BubbleSprite(x=40, y=30, life=1, captured=captive)
+    g.bubbles = [bub]
+    _tick_aligned(g)
+    g.step(Buttons())  # tick: life 1 -> 0, flagged
+    assert bub.breaking is None
+    for _ in range(4):
+        g.step(Buttons())  # next tick: pops
+    assert bub.breaking == "pop"
