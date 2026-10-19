@@ -802,3 +802,44 @@ def test_explosion_chain_box_is_minus_10_to_plus_9():
 
     assert [chained(*d) for d in ((-10, 0), (9, 0), (10, 0), (0, -10), (0, 9), (0, 10))] == [
         True, True, False, True, True, False]
+
+
+def _walker_on_synthetic_ledge(kind=0):
+    """Buster on a two-tile ledge with a gap ahead and a platform 8 px above."""
+    from bubblebobblerl.game import Enemy
+    from bubblebobblerl.levels import TILE_UP, TILE_WALL
+
+    g = _bubble_game()
+    g.grid = g.grid.copy()  # level grids are shared and read-only
+    g.grid[:, :] = TILE_UP
+    g.grid[10, 10] = g.grid[10, 11] = TILE_WALL  # ledge under x 40-47 (floor row y 40)
+    g.grid[8, 10] = TILE_WALL  # platform: standing at y 24
+    e = Enemy(kind=kind, x=40, y=32, facing=1, spawn_delay=0)
+    e.falling_in, e.state, e.want_up = False, 1, True
+    g.enemies = [e]
+    g.player.x, g.player.y = 40, 4  # above, so a look-around keeps want_up
+    return g, e
+
+
+def test_walker_jump_check_can_override_a_hop():
+    """Regression (2026-10-19): in Z80 BustWalk, DumbWalk may set the hop state
+    at a gap, but StandardJumpCode still runs and may switch to jumping up; the
+    port returned right after choosing the hop."""
+    g, e = _walker_on_synthetic_ledge()
+    g.rng.getrandbits = lambda k: 0  # every random test passes
+    g._buster_walk(e)
+    assert e.x == 41 and e.state == 5
+
+
+def test_shooter_alignment_band_is_16_above_to_15_below():
+    """Regression (2026-10-19): Z80 TestHAligned accepts e.y - p.y + 15 in
+    [0, 32), i.e. the player 16 px above to 15 px below; the port had the band
+    mirrored."""
+    from bubblebobblerl.game import STONER
+
+    g, e = _walker_on_synthetic_ledge(kind=STONER)
+    for p_dy, aligned in ((-16, True), (15, True), (16, False), (-17, False)):
+        e.walk_counter = 0
+        g.player.y = e.y + p_dy
+        g._shooter_aim(e)
+        assert (e.walk_counter == 1) is aligned, p_dy

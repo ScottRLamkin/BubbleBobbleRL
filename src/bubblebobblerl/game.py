@@ -537,20 +537,26 @@ class Game:
                 self._look_around(e)
         elif self.timer % 4 != 0 and self.rng.getrandbits(4) == 0:  # DumbWalk
             self._look_around(e)
-        # Hop over upcoming gap, unless trying to follow the player down.
+        # Hop over an upcoming gap (unless trying to follow the player down),
+        # fall if airborne. Neither ends the turn: as in DumbWalk/SmartWalk
+        # followed by StonerShoot1/StandardJumpCode, the shoot test and the
+        # jump check still run and may override the state.
         if not e.want_down:
             probe_x = e.x + 8 if e.facing > 0 else e.x - 1
             if not self.solid(probe_x, e.y + 8):
                 e.state, e.counter = 2, 0
-                return
         if not self.standing(e.x, e.y):
             e.state = 0
-            return
         if e.kind in SHOOTER_KINDS and self._shooter_aim(e):
             return
-        # StandardJumpCode: occasionally jump if the player is above.
+        # StandardJumpCode: occasionally jump if the player is above. The
+        # search steps up 4 px at a time and stops if the (unsigned byte) y
+        # would go below 0 (BustSearchLoop: sub 4 / ret c).
         if e.want_up and e.x % 8 < 4 and self.rng.getrandbits(3) == 0:
+            d = e.y & 0xFF
             for dy in range(4, 24, 4):
+                if d - dy < 0:
+                    break
                 if self.standing(e.x, e.y - dy):
                     e.state, e.counter = 5, 0
                     return
@@ -586,7 +592,7 @@ class Game:
         Returns True when the normal jump check should be skipped."""
         aim_frames, _, _ = SHOOTER_TIMING[e.kind]
         p = self.player
-        if not -15 <= p.y - e.y < 17:  # TestHAligned
+        if not -16 <= p.y - e.y <= 15:  # TestHAligned: e.y - p.y + 15 in [0, 32)
             return False
         e.walk_counter += 1
         if e.walk_counter < aim_frames:
