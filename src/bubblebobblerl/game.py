@@ -465,10 +465,13 @@ class Game:
                 self._buster_ai(e)
             e.y = self.wrap_y(e.y)
 
-    def _touch_player(self, x: int, y: int) -> None:
-        """MonsterHitPlayer: anything hostile overlapping Bub kills him."""
+    def _touch_player(self, x: int, y: int) -> bool:
+        """MonsterHitPlayer: anything hostile overlapping Bub kills him.
+        Returns whether it touched (a stone breaks when it does)."""
         if self._overlap(x, y, self.player.x, self.player.y, 5):
             self.player.kill_pending = True
+            return True
+        return False
 
     def _step_falling_in(self, e: Enemy) -> None:
         if self.grace_left > 0 or self.timer % 2 == 1:
@@ -732,7 +735,9 @@ class Game:
                     if pr.age >= BREAK_FRAMES:
                         self.projectiles.remove(pr)
                     continue
-                self._touch_player(pr.x, pr.y)
+                if self._touch_player(pr.x, pr.y):  # CheckStoneHitPlayer: hit -> StoneSuicide
+                    pr.breaking, pr.age = True, 0
+                    continue
                 pr.x += pr.dx
                 if self.solid(pr.x + (7 if pr.dx > 0 else 0), pr.y + 4):
                     pr.breaking, pr.age = True, 0

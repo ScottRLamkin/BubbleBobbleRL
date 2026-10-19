@@ -908,3 +908,17 @@ def test_hullaballoon_turns_at_its_own_probe_points():
     assert step(42, 1) == (42, -1)  # x+6 = 48 is wall: turn
     assert step(40, -1) == (39, -1)  # x+1 = 41 is air (x-1 = 39 would be wall)
     assert step(38, -1) == (38, 1)  # x+1 = 39 is wall: turn
+
+
+def test_a_stone_breaks_when_it_hits_the_player():
+    """Regression (2026-10-19): Z80 CheckStoneHitPlayer sends a stone that hits
+    Bub to StoneSuicide (a generic pop); the port's stone flew on. Only matters
+    while Bub is invincible."""
+    from bubblebobblerl.game import Buttons, Projectile
+
+    g = _bubble_game()
+    g.player.x, g.player.y, g.player.invincible = 40, 52, 100
+    stone = Projectile("stone", 36, 52, dx=1)
+    g.projectiles = [stone]
+    g.step(Buttons())
+    assert stone.breaking and stone.x == 36
