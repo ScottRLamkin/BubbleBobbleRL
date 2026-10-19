@@ -120,8 +120,12 @@ def main() -> None:
     p.add_argument("--control-obs", action="store_true", help="must match the model's training")
     p.add_argument("--per-level-out", default=None, help="write per-level outcomes to this JSON file")
     args = p.parse_args()
+    import time
+
+    t0 = time.time()
     r = evaluate(args.model, parse_levels(args.levels), args.episodes, args.max_steps, args.seed,
                  args.obs, args.frame_skip, args.nearest_first, args.control_obs)
+    r["seconds"] = round(time.time() - t0, 1)
     if args.per_level_out:
         import json
         from pathlib import Path
@@ -130,7 +134,7 @@ def main() -> None:
     print(
         f"{args.model}: cleared {r['cleared']}/{r['episodes']} episodes "
         f"({r['levels_cleared']} levels), died {r['died']}, timed out {r['timeout']}, "
-        f"mean score {r['mean_score']:.0f}, kills/episode {r['kills_per_episode']:.2f}"
+        f"mean score {r['mean_score']:.0f}, kills/episode {r['kills_per_episode']:.2f}, {r['seconds']} s"
     )
 
 
