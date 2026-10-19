@@ -469,11 +469,11 @@ def train(args) -> Path:
                     ep_returns.append(float(er))
                     ep_lengths.append(float(el))
                     ep_outcomes.append("clear" if ea == 0 else ("timeout" if tr else "death"))
-            if args.level_sampling == "hard" and levels and "level" in infos:
-                for lv, ea in zip(np.asarray(infos["level"])[mask], alive[mask]):
-                    hist = fails.setdefault(int(lv), [])
-                    hist.append(0 if ea == 0 else 1)
-                    del hist[:-20]
+                if args.level_sampling == "hard" and levels and "level" in infos:
+                    for lv, ea in zip(np.asarray(infos["level"])[mask], alive[mask]):
+                        hist = fails.setdefault(int(lv), [])
+                        hist.append(0 if ea == 0 else 1)
+                        del hist[:-20]
 
         # GAE
         with torch.no_grad():
