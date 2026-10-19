@@ -302,3 +302,43 @@ def test_training_and_evaluation_envs_share_control_and_horizon(tmp_path, monkey
             "random_start")
     assert {k: getattr(t, k) for k in keys} == {k: getattr(v, k) for k in keys}
     assert t.game.lives == v.game.lives == 1
+
+
+def test_missing_anchor_run_withholds_the_winner(tmp_path):
+    root = build(tmp_path)
+    _edit_status(root, lambda s: s["jobs"]["conf/anchor_G_s4203"].update(state="failed", error="x"))
+    a = run(root)
+    assert a["winner"] is None
+    assert any("anchor_G does not have three" in m for _, m in a["problems"])
+    assert a["final"]["accepted"] is False and a["final"]["verdict_valid"] is False
+
+
+def test_wrong_final_training_seed_and_extra_final_job_are_reported(tmp_path):
+    root = build(tmp_path)
+
+    def wrong(st):
+        jid = next(k for k, j in st["jobs"].items() if j["phase"] == "final")
+        extra = dict(st["jobs"][jid], seed=4209)
+        st["jobs"][jid + "_extra"] = extra
+        st["order"].append(jid + "_extra")
+
+    _edit_status(root, wrong)
+    a = run(root)
+    assert any("final jobs are not exactly" in m for _, m in a["problems"])
+    assert a["final"]["accepted"] is False
+
+
+def test_premature_final_file_is_not_opened(tmp_path, monkeypatch):
+    import audit_hparam_campaign as aud
+
+    root = build(tmp_path)
+    st = json.loads((root / "status.json").read_text())
+    fin = next(j for j in st["jobs"].values() if j["phase"] == "final")
+    f = Path(fin["dir"]) / f"eval_{fin['eval_seed']}.json"
+    old = time.time() - 1000
+    os.utime(f, (old, old))
+    opened = []
+    real = aud.check_eval_file
+    monkeypatch.setattr(aud, "check_eval_file", lambda p, *a: (opened.append(Path(p)), real(p, *a))[1])
+    run(root)
+    assert f not in opened

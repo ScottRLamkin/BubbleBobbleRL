@@ -15,7 +15,7 @@ campaign's 18 core-hour cap. Spent so far: see the ledger at the end.
 |---|---|---|---|---|---|---|---|
 | 1 | A checkpoint runs only on the observation it was trained on | `train_ppo.Agent.load`, every caller | Network input = trained observation | X7 (ego) evaluated as state ran silently, 0/20 vs 10/20; `test_checkpoint_refuses_a_different_observation` | Defect, fixed `0046fb4` | In snapshot | Preflight re-checked refusal |
 | 2 | A falling player moves sideways on odd frames only | `game._step_player` | Z80 `HandlePlayer2` → `PlayerMoveCounter` (bub_ai.z80) | 8 falling frames gave 8 px, original 4; `test_falling_player_walks_on_odd_frames_only` | Defect, fixed `11a9ae5` | In snapshot | Ran in frozen preflight |
-| 3 | Bubble contact: push only when 4+ px ahead of Bub's facing, with recoil; otherwise break at the next 4-frame tick | `game._bubble_player_interaction`, `_step_bubbles`, `_step_player` | Z80 `BubbleHitPlayer`, `PlayerFlags`, `DoBubbleFlags` | Behind/ahead/above/too-close cases; `test_bubble_contact_follows_bubblehitplayer` | Defect, fixed `4ecefb6` | **Not in snapshot** (campaign uses the old rule, identically in every arm) | Fix prepared for later runs, not deployed |
+| 3 | Bubble contact: push only when 4+ px ahead of Bub's facing, with recoil; otherwise break at the next 4-frame tick | `game._bubble_player_interaction`, `_step_bubbles`, `_step_player` | Z80 `BubbleHitPlayer`, `PlayerFlags`, `DoBubbleFlags` | Behind/ahead/above/too-close cases; `test_bubble_contact_follows_bubblehitplayer`; captured-enemy cases `test_captured_enemy_bubble_contact_kills_or_pushes_by_facing` | Defect, fixed `4ecefb6` | **Not in snapshot.** The campaign's code is unchanged, but its results apply to the old rule; see the decision note | Fix prepared for later runs, not deployed |
 | 4 | Bubble creation respects the original's sprite limit | `game._blow_bubbles` | Z80 `CreateSprite` fails when 63 slots are used | Peak concurrent sprites in sampled play: 25 and 46 (two policies, 15 levels) | Deviation exists, did not bind in the sample | In snapshot | Left alone; recorded |
 | 5 | Clock expiry is a truncation, with no second time limit | `env.step`, registration, `make_env` | Gymnasium termination vs truncation | Read: expiry sets `truncated`; no `TimeLimit` wrapper | Clean | In snapshot | — |
 | 6 | Runner accounts for all job compute | `run_hyperparameter_search.py` | Manifest: reservations include everything | Codex: the model validator runs outside reservations. Dry-run audit: 77 s of non-train, non-eval time over 47 jobs (about 2 s per training job) | Gap confirmed; small | In snapshot | Ledger adds measured overhead; runner not changed |
@@ -35,7 +35,46 @@ campaign's 18 core-hour cap. Spent so far: see the ledger at the end.
 | 20 | Training and evaluation share control and horizon conventions | `train_ppo`, `evaluate.evaluate` | One task definition | `test_training_and_evaluation_envs_share_control_and_horizon` | Clean | In snapshot | — |
 | 21 | Hidden state that changes what an action does is observable | `env._obs` | Training review: expose hidden button and jump state | The 14-frame shot cooldown (about 3.5 steps) is not in the observation; the policy can infer it only from its own bubbles | Observability gap, as in the original game's interface | In snapshot | Candidate observation change for later; not a defect |
 
+## Decision note: the bubble-contact mismatch and what the campaign can answer
+
+**Which outcomes differ.** The same scripted contacts, with an enemy captured
+inside the bubble, run against the frozen snapshot's game and against the
+corrected game (`contact_compare.py` in the session scratchpad; under one
+second of compute):
+
+| Contact, Bub on the floor, bubble 5 px away | Snapshot `42ed83d` (campaign) | Corrected `4ecefb6` |
+|---|---|---|
+| Behind Bub, same level | pushed along, no kill | explodes, enemy killed |
+| Ahead of Bub, same level | pushed along, no recoil | pushed one pixel, Bub recoils |
+| Ahead of and above Bub | explodes, enemy killed | pushed, Bub recoils, no kill |
+| Behind and above Bub | explodes, enemy killed | explodes, enemy killed |
+| Within 4 px horizontally, facing it | explodes, enemy killed | explodes, enemy killed |
+| Bub on top of the bubble | ridden (bounce) | ridden (bounce) |
+
+Smaller differences: the corrected game explodes a bubble up to three frames
+later (at the next 4-frame tick), and a bubble whose death counter reads 0 is
+not pushed on that tick. Kill and pop scoring and explosion chains are
+unchanged. The original four regression cases used empty bubbles; the
+captured-enemy cases above are now covered by a regression test.
+
+**What the current protocol can still answer.** Every arm, the anchors
+included, trains and is evaluated on the snapshot's rule, so the comparison
+between configurations is internally consistent, and the screen, confirmation
+and final-bank verdicts are valid statements about that game. They do not
+establish that the selected configuration is better, or the acceptance verdict
+the same, on the corrected game: the rule changes which contacts kill, so
+which policies benefit may change. Transferring the result needs a
+corrected-game confirmation (fresh training of the winner and anchor_G on the
+corrected game with fresh seeds). That is new training and is not authorized;
+it is a question for the user after this campaign. The final report must name
+snapshot `42ed83d` and this known mechanic defect prominently.
+
 ## Failure response for the live runner
+
+This is supervision, not prevention: the runner itself does not stop on a
+systemic failure, and between a FAILED line and a human-run kill it may
+dispatch more jobs.
+
 
 The monitor in Fable's session streams every `done`, `FAILED`, `not run`,
 selection, freeze and final line from `runs/hparam-1019/events.log`, and fires
@@ -65,7 +104,7 @@ if runner PID 33901 exits.
 |---|---|---|
 | Campaign reservations, 47 jobs | 63,705 | Charged before dispatch |
 | Real preflight | 5.4 | Measured |
-| Pre-launch dry run, including interrupted attempts | about 508 | Measured, interrupted attempts from their loop times plus startup |
-| Validator and runner overhead | about 2 per training job (77 in the dry run) | Measured on the dry run; to be replaced by the real figure |
+| Pre-launch dry run, including interrupted attempts | about 508 | Mixed: 447.5 measured for completed attempts and 5.4 for the dry preflight; about 55 estimated for the interrupted attempts from their loop times plus startup |
+| Validator and runner overhead, production | about 77 forecast (2.2 per training job x 35) | Measured 6.5 s over the first three production jobs; outside reservations, so added here. Forecast, not a 60 s worst-case reservation |
 | This audit's test execution | about 26 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
-| Total | about 64,245 of 64,800 | |
+| Total | about 64,322 of 64,800 (about 478 s reserve) | Reservations + preflight + dry run + forecast overhead + this audit |

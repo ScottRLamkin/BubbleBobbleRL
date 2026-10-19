@@ -635,3 +635,30 @@ def test_explained_variance_ignores_fake_transitions():
     assert explained_variance([1.0, 2.0, 50.0], [1.0, 3.0, 0.0], [True, True, False]) == 0.75
     assert explained_variance([[1.0], [2.0]], [[2.0], [2.0]], [[True], [True]]) != explained_variance(
         [[1.0], [2.0]], [[2.0], [2.0]], [[True], [True]])  # nan when the targets do not vary
+
+
+def test_captured_enemy_bubble_contact_kills_or_pushes_by_facing():
+    """Decision-note case (2026-10-19): with a captured enemy inside, contact
+    from behind Bub explodes the bubble and kills the enemy (the previous rule
+    pushed it); a bubble ahead of and above Bub is pushed and nobody dies (the
+    previous rule exploded it)."""
+    from bubblebobblerl.game import BREAK_FRAMES, BubbleSprite, Buttons, Enemy
+
+    def run(facing, dx, dy):
+        env = BubbleBobbleEnv(obs_type="state", level=1)
+        env.reset(seed=1, options={"level": 1})
+        g = env.game
+        g.enemies, g.grace_left = [], 10**9
+        g.alive_enemies = 2  # the captive plus one elsewhere, so the level does not end
+        g.player.x, g.player.y, g.player.facing = 40, 52, facing
+        captive = Enemy(kind=0, x=40 + dx, y=52 + dy, facing=1, spawn_delay=0)
+        g.bubbles = [BubbleSprite(x=40 + dx, y=52 + dy, life=100, captured=captive)]
+        killed = 0
+        for _ in range(4 + BREAK_FRAMES + 4):
+            killed += g.step(Buttons()).killed
+        return killed, g
+
+    killed, g = run(facing=-1, dx=5, dy=0)  # behind Bub
+    assert killed == 1 and len(g.dead_enemies) == 1
+    killed, g = run(facing=1, dx=5, dy=-5)  # ahead and above
+    assert killed == 0 and len(g.bubbles) == 1

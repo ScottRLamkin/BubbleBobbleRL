@@ -210,7 +210,8 @@ def audit(root: Path, manifest: dict | None = None, parse_args=None) -> dict:
                 continue
             out = Path(j["dir"]) / f"eval_{j['eval_seed']}.json"
             if out.exists() and out.stat().st_mtime < frozen_mtime:
-                bad(jid, "final-bank file predates frozen.json")
+                bad(jid, "final-bank file predates frozen.json; not opened")
+                continue
             ck = frozen["checkpoints"].get(f"{j['config']}_s{j['seed']}")
             if not ck or ck["sha256"] != j.get("model_sha256"):
                 bad(jid, "final job's checkpoint is not the frozen one")
@@ -255,12 +256,24 @@ def audit(root: Path, manifest: dict | None = None, parse_args=None) -> dict:
             cand_table.append({"config": c, "eligible": ok,
                                "mean_cleared": sum(mean(r, "cleared") for r in runs) / 3 if ok else None,
                                "mean_kills": sum(mean(r, "kills") for r in runs) / 3 if ok else None})
+        anchor_ok = all(f"conf/anchor_G_s{s}" in summaries and len(summaries[f"conf/anchor_G_s{s}"]["results"])
+                        == len(exp["confirmation"]["eval_seeds"]) for s in seeds)
+        if not anchor_ok:
+            bad("selection", "anchor_G does not have three completed confirmation runs; no winner can be valid")
         el = sorted((c for c in cand_table if c["eligible"]), key=lambda c: (-c["mean_cleared"], -c["mean_kills"],
                                                                               c["config"]))
-        winner = el[0]["config"] if el else None
+        winner = el[0]["config"] if el and anchor_ok else None
         if frozen is not None and frozen.get("winner") != winner:
             bad("selection", f"frozen winner {frozen.get('winner')} != recomputed {winner}")
         if frozen and frozen.get("winner"):
+            want_keys = {f"{c}_s{s}" for c in (frozen["winner"], "anchor_G") for s in seeds}
+            if set(frozen["checkpoints"]) != want_keys:
+                bad("frozen", f"frozen identities {sorted(frozen['checkpoints'])} != {sorted(want_keys)}")
+            want_final = {(k.rsplit("_s", 1)[0], int(k.rsplit("_s", 1)[1]), e) for k in want_keys
+                          for e in exp["final"]["eval_seeds"]}
+            have_final = [(j["config"], j["seed"], j["eval_seed"]) for j in jobs.values() if j["phase"] == "final"]
+            if have_final and sorted(have_final) != sorted(want_final):
+                bad("final", f"final jobs are not exactly the {len(want_final)} frozen identity x final-seed pairs")
             for key, ck in frozen["checkpoints"].items():
                 cfg, s = key.rsplit("_s", 1)
                 src = jobs.get(f"conf/{cfg}_s{s}", {})
@@ -283,9 +296,10 @@ def audit(root: Path, manifest: dict | None = None, parse_args=None) -> dict:
             pairs[s] = {**vals, "gain": g}
         gains = [p["gain"] for p in pairs.values()]
         complete = None not in gains
-        final = {"pairs": pairs, "complete": complete,
+        valid = complete and not problems  # any problem anywhere withholds a verdict
+        final = {"pairs": pairs, "complete": complete, "verdict_valid": valid,
                  "mean_gain": sum(gains) / len(gains) if complete else None,
-                 "accepted": complete and sum(gains) / len(gains) >= rule["mean_paired_gain_min"]
+                 "accepted": valid and sum(gains) / len(gains) >= rule["mean_paired_gain_min"]
                  and min(gains) >= rule["each_paired_gain_min"]}
         if st.get("final") and st["final"].get("accepted") != final["accepted"]:
             bad("final", "recorded acceptance differs from the recomputation")
