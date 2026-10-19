@@ -45,14 +45,14 @@ import threading
 import time
 from pathlib import Path
 
-CAMPAIGN = "hparam-1019-v1"
-MANIFEST_REL = "scripts/campaigns/hyperparameter_search_1019.json"
-MANIFEST_SHA256 = "1d00742bab2cedef69cc706dc42612f859809ea970a9aed6bd060e6cbb976ee9"
+# The campaign and its manifest are chosen at snapshot time (--manifest) and
+# recorded, with the manifest's hash, in <root>/snapshot.json.
 PARAM_FLAGS = ("lr", "ent_coef", "gamma", "rollout_len", "epochs", "clip")
 LEGACY_SWITCHES = {"no_score_reward": "score_reward", "no_pop_reward": "pop_reward"}
 THREAD_ENV = {k: "1" for k in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
                                "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS")}
-SNAPSHOT_PATHS = ("src", "scripts", "tests", "pyproject.toml", "uv.lock", "docs/hyperparameter-search-2026-10-19.md")
+SNAPSHOT_PATHS = ("src", "scripts", "tests", "configs", "pyproject.toml", "uv.lock",
+                  "docs/hyperparameter-search-2026-10-19.md")
 
 
 # ----------------------------------------------------------------- helpers
@@ -99,7 +99,8 @@ def cmd_snapshot(args) -> None:
     snap = root / "snapshot"
     if snap.exists():
         raise SystemExit(f"{snap} already exists; a snapshot is immutable")
-    dirty = subprocess.run(["git", "status", "--porcelain", "--", *SNAPSHOT_PATHS, MANIFEST_REL],
+    manifest_rel = args.manifest
+    dirty = subprocess.run(["git", "status", "--porcelain", "--", *SNAPSHOT_PATHS, manifest_rel],
                            cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
     if dirty:
         raise SystemExit(f"uncommitted changes in snapshot paths; commit first:\n{dirty}")
@@ -109,20 +110,23 @@ def cmd_snapshot(args) -> None:
     archive = subprocess.run(["git", "archive", commit, *SNAPSHOT_PATHS], cwd=repo, capture_output=True,
                              check=True).stdout
     subprocess.run(["tar", "-x", "-C", str(snap)], input=archive, check=True)
-    manifest = snap / MANIFEST_REL
-    if sha256(manifest) != MANIFEST_SHA256:
-        raise SystemExit(f"manifest hash {sha256(manifest)} != frozen {MANIFEST_SHA256}")
+    manifest = snap / manifest_rel
+    if not manifest.exists():
+        raise SystemExit(f"{manifest_rel} is not in the snapshot")
+    manifest_sha = sha256(manifest)
+    campaign = json.loads(manifest.read_text())["campaign_id"]
     files = {str(p.relative_to(snap)): sha256(p) for p in sorted(snap.rglob("*")) if p.is_file()}
     versions = subprocess.run(
         [sys.executable, "-c", "import sys, torch, gymnasium, numpy; print(sys.version.split()[0], torch.__version__, "
                                "gymnasium.__version__, numpy.__version__)"],
         capture_output=True, text=True, check=True).stdout.split()
-    info = {"campaign": CAMPAIGN, "commit": commit, "created": iso(), "interpreter": sys.executable,
+    info = {"campaign": campaign, "manifest": manifest_rel, "commit": commit, "created": iso(),
+            "interpreter": sys.executable,
             "python": versions[0], "torch": versions[1], "gymnasium": versions[2], "numpy": versions[3],
-            "manifest_sha256": MANIFEST_SHA256, "files": files}
+            "manifest_sha256": manifest_sha, "files": files}
     write_json_atomic(root / "snapshot.json", info)
     subprocess.run(["chmod", "-R", "a-w", str(snap)], check=True)
-    print(f"snapshot of {commit[:10]} in {snap}: {len(files)} files, manifest {MANIFEST_SHA256[:12]}")
+    print(f"snapshot of {commit[:10]} in {snap}: {len(files)} files, {campaign}, manifest {manifest_sha[:12]}")
 
 
 # ------------------------------------------------------------- campaign
@@ -139,7 +143,12 @@ class Campaign:
         for rel, h in self.info["files"].items():  # nothing in the snapshot changed since it was frozen
             if sha256(self.snap / rel) != h:
                 raise SystemExit(f"snapshot file changed: {rel}")
-        self.manifest = json.loads((self.snap / MANIFEST_REL).read_text())
+        self.campaign = self.info["campaign"]
+        self.manifest_sha = self.info["manifest_sha256"]
+        mpath = self.snap / self.info["manifest"]
+        if sha256(mpath) != self.manifest_sha:
+            raise SystemExit("manifest hash differs from snapshot.json")
+        self.manifest = json.loads(mpath.read_text())
         if dry_run:  # exercise scheduling, phases and restart in seconds; never a result
             self.manifest["screen"]["minutes_per_policy"] = 0.1
             self.manifest["confirmation_training"]["minutes_per_policy"] = 0.2
@@ -219,7 +228,7 @@ class Campaign:
                          "minutes": m["screen"]["minutes_per_policy"],
                          "eval_seeds": m["screen"]["evaluation_seeds"], "state": "queued"}
             order.append(jid)
-        return {"campaign": CAMPAIGN, "dry_run": self.dry_run, "manifest_sha256": MANIFEST_SHA256, "snapshot_commit": self.info["commit"],
+        return {"campaign": self.campaign, "dry_run": self.dry_run, "manifest_sha256": self.manifest_sha, "snapshot_commit": self.info["commit"],
                 "created": iso(), "phase": "screen", "charged_seconds": 0.0, "preflight_seconds": 0.0,
                 "order": order, "jobs": jobs, "selection": None, "frozen": None, "final": None,
                 "scheduling_note": "anchor_G confirmation trainings queued before the screen (independent of it)"}
@@ -432,13 +441,13 @@ class Campaign:
             raise SystemExit("preflight has not passed; no performance run starts on unverified code")
         if self.status is not None and self.status.get("dry_run", False) != self.dry_run:
             raise SystemExit("status.json belongs to a different run mode (dry vs real)")
-        if self.dry_run and self.root.name == "hparam-1019":
+        if self.dry_run and self.root.name.startswith("hparam-"):
             raise SystemExit("a dry run must use its own --root")
         if self.status is None:
             self.status = self.new_status()
             self.status["preflight_seconds"] = json.loads((self.root / "preflight.json").read_text())["seconds"]
             self.status["charged_seconds"] = self.status["preflight_seconds"]
-            self.log(f"campaign {CAMPAIGN} start; snapshot {self.info['commit'][:10]}; runner pid {os.getpid()}")
+            self.log(f"campaign {self.campaign} start; snapshot {self.info['commit'][:10]}; runner pid {os.getpid()}")
         else:
             self.log(f"runner restart, pid {os.getpid()}")
             for jid, j in self.status["jobs"].items():
@@ -495,7 +504,7 @@ class Campaign:
     # ----------------------------------------------------------------- report
     def write_report(self) -> None:
         st, jobs = self.status, self.status["jobs"]
-        lines = [f"# {CAMPAIGN} report", "", f"Snapshot commit {st['snapshot_commit']}, manifest {MANIFEST_SHA256}.",
+        lines = [f"# {self.campaign} report", "", f"Snapshot commit {st['snapshot_commit']}, manifest {self.manifest_sha}.",
                  f"Phase: {st['phase']}. Charged (reserved) core-hours: {st['charged_seconds'] / 3600:.2f} of "
                  f"{self.cap_seconds / 3600:.0f}; summed actual job seconds: "
                  f"{sum(j.get('elapsed_seconds', 0) for j in jobs.values()):.0f}.", "",
@@ -611,9 +620,11 @@ def cmd_preflight(args) -> None:
     check("every configuration's flags parse to the manifest values; fresh start", flag_ok, "; ".join(notes[:5]))
     # Targeted correctness tests from the snapshot's own test suite.
     t = subprocess.run([c.python, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(c.snap / "tests" / "test_env.py"),
-                        "-k", "rng or clear or countdown or autoreset or gae or observation or continuation or falling"],
+                        "-k", "rng or clear or countdown or autoreset or gae or observation or continuation or falling"
+                              " or rollout_storage or incomplete_experiment or every_env_argument or hurry or baron"
+                              " or bubble or captured or walker or invader or banebou or hullaballoon"],
                        env=c.env, capture_output=True, text=True, cwd=c.snap)
-    check("targeted tests (RNG, outcome, autoreset/GAE, observation, continuation, falling)",
+    check("targeted tests (RNG, outcome, autoreset/GAE, rollout storage, observation, no-defaults, game mechanics)",
           t.returncode == 0, t.stdout.strip().splitlines()[-1] if t.stdout.strip() else t.stderr[-300:])
     # Smoke: finite updates, save, load, evaluate (no performance inference).
     smoke = root / "preflight_smoke"
@@ -674,10 +685,13 @@ def cmd_status(args) -> None:
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["snapshot", "preflight", "run", "status"])
-    p.add_argument("--root", default="runs/hparam-1019")
+    p.add_argument("--root", required=True, help="campaign root, e.g. runs/hparam-1019-v2")
+    p.add_argument("--manifest", default=None, help="snapshot: the campaign manifest (repo-relative path)")
     p.add_argument("--dry-run", action="store_true", help="seconds-long jobs, 1 episode per level; separate root")
     args = p.parse_args()
     if args.command == "snapshot":
+        if not args.manifest:
+            p.error("snapshot needs --manifest")
         cmd_snapshot(args)
     elif args.command == "preflight":
         cmd_preflight(args)

@@ -121,7 +121,7 @@ def audit(root: Path, manifest: dict | None = None, parse_args=None) -> dict:
                 if not (root / "snapshot" / rel).exists() or sha256(root / "snapshot" / rel) != h]
         if mism:
             bad("snapshot", f"{len(mism)} files differ from snapshot.json: {mism[:5]}")
-        mpath = root / "snapshot" / "scripts/campaigns/hyperparameter_search_1019.json"
+        mpath = root / "snapshot" / snap_info.get("manifest", "scripts/campaigns/hyperparameter_search_1019.json")
         if mpath.exists() and sha256(mpath) != snap_info["manifest_sha256"]:
             bad("snapshot", "manifest hash differs")
         if manifest is None and mpath.exists():

@@ -1,0 +1,744 @@
+{
+  "campaign_id": "hparam-1019-v2",
+  "protocol": "docs/hyperparameter-search-2026-10-19.md",
+  "design_seed": 20261019,
+  "design": {
+    "type": "2^(6-2) resolution IV plus 8 Latin-hypercube interiors and 2 anchors",
+    "generators": [
+      "E=ABC",
+      "F=BCD"
+    ],
+    "defining_relation": [
+      "I",
+      "ABCE",
+      "BCDF",
+      "ADEF"
+    ],
+    "factors": [
+      {
+        "code": "A",
+        "name": "lr",
+        "low": 1e-05,
+        "high": 0.001,
+        "scale": "log"
+      },
+      {
+        "code": "B",
+        "name": "ent_coef",
+        "low": 0.0003,
+        "high": 0.05,
+        "scale": "log"
+      },
+      {
+        "code": "C",
+        "name": "discount_horizon",
+        "low": 32,
+        "high": 1024,
+        "scale": "log"
+      },
+      {
+        "code": "D",
+        "name": "rollout_len",
+        "low": 64,
+        "high": 512,
+        "scale": "discrete_log2"
+      },
+      {
+        "code": "E",
+        "name": "epochs",
+        "low": 2,
+        "high": 8,
+        "scale": "integer"
+      },
+      {
+        "code": "F",
+        "name": "clip",
+        "low": 0.1,
+        "high": 0.3,
+        "scale": "linear"
+      }
+    ],
+    "limitations": "Main effects aliased with three-factor interactions; two-factor interactions mutually aliased; no claim of global optimum or full quadratic fit."
+  },
+  "fixed_parameters": {
+    "levels": "1-99",
+    "level_sampling": "uniform",
+    "hard_sampling_weight": 9.0,
+    "hard_sampling_window": 20,
+    "curriculum": 0,
+    "max_episode_frames": 3600,
+    "frame_skip": 4,
+    "lives": 1,
+    "random_start": false,
+    "grace_frames": 0,
+    "grace_anneal": 0.0,
+    "score_reward": false,
+    "score_scale": 0.01,
+    "pop_reward": true,
+    "clear_bonus": 10,
+    "kill_bonus": 2,
+    "capture_bonus": 0.1,
+    "death_penalty": 5,
+    "timeout_penalty": 4,
+    "time_penalty": 0.01,
+    "stationary_penalty": 0.005,
+    "stationary_window": 120,
+    "stationary_band": 32,
+    "explore_bonus": 0,
+    "explore_band": 8,
+    "obs": "ego",
+    "control_obs": true,
+    "nearest_first": false,
+    "gae_lambda": 0.95,
+    "bootstrap_truncation": false,
+    "num_envs": 16,
+    "minibatches": 4,
+    "vf_coef": 0.5,
+    "norm_adv": true,
+    "max_grad_norm": 0.5,
+    "anneal_lr": false,
+    "adam_eps": 1e-05,
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.999,
+    "arch": "mlp",
+    "hidden": 256,
+    "layers": 2,
+    "act": "tanh",
+    "init_hidden_gain": 1.4142135623730951,
+    "init_actor_gain": 0.01,
+    "init_critic_gain": 1.0,
+    "init_model": null,
+    "fresh_optimizer": false,
+    "total_steps": 1000000000,
+    "max_minutes": 0.0,
+    "eval_every": 0,
+    "eval_episodes": 10,
+    "futility_steps": 0,
+    "save_every": 0,
+    "no_tensorboard": true,
+    "no_mlflow": true,
+    "quiet": true
+  },
+  "configurations": [
+    {
+      "id": "ff01",
+      "kind": "fractional_factorial",
+      "coded": [
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+      ],
+      "parameters": {
+        "lr": 9.999999999999997e-06,
+        "ent_coef": 0.0003000000000000001,
+        "gamma": 0.96875,
+        "rollout_len": 64,
+        "epochs": 2,
+        "clip": 0.1
+      }
+    },
+    {
+      "id": "ff02",
+      "kind": "fractional_factorial",
+      "coded": [
+        -1,
+        -1,
+        -1,
+        1,
+        -1,
+        1
+      ],
+      "parameters": {
+        "lr": 9.999999999999997e-06,
+        "ent_coef": 0.0003000000000000001,
+        "gamma": 0.96875,
+        "rollout_len": 512,
+        "epochs": 2,
+        "clip": 0.3
+      }
+    },
+    {
+      "id": "ff03",
+      "kind": "fractional_factorial",
+      "coded": [
+        -1,
+        -1,
+        1,
+        -1,
+        1,
+        1
+      ],
+      "parameters": {
+        "lr": 9.999999999999997e-06,
+        "ent_coef": 0.0003000000000000001,
+        "gamma": 0.9990234375,
+        "rollout_len": 64,
+        "epochs": 8,
+        "clip": 0.3
+      }
+    },
+    {
+      "id": "ff04",
+      "kind": "fractional_factorial",
+      "coded": [
+        -1,
+        -1,
+        1,
+        1,
+        1,
+        -1
+      ],
+      "parameters": {
+        "lr": 9.999999999999997e-06,
+        "ent_coef": 0.0003000000000000001,
+        "gamma": 0.9990234375,
+        "rollout_len": 512,
+        "epochs": 8,
+        "clip": 0.1
+      }
+    },
+    {
+      "id": "ff05",
+      "kind": "fractional_factorial",
+      "coded": [
+        -1,
+        1,
+        -1,
+        -1,
+        1,
+        1
+      ],
+      "parameters": {
+        "lr": 9.999999999999997e-06,
+        "ent_coef": 0.05000000000000003,
+        "gamma": 0.96875,
+        "rollout_len": 64,
+        "epochs": 8,
+        "clip": 0.3
+      }
+    },
+    {
+      "id": "ff06",
+      "kind": "fractional_factorial",
+      "coded": [
+        -1,
+        1,
+        -1,
+        1,
+        1,
+        -1
+      ],
+      "parameters": {
+        "lr": 9.999999999999997e-06,
+        "ent_coef": 0.05000000000000003,
+        "gamma": 0.96875,
+        "rollout_len": 512,
+        "epochs": 8,
+        "clip": 0.1
+      }
+    },
+    {
+      "id": "ff07",
+      "kind": "fractional_factorial",
+      "coded": [
+        -1,
+        1,
+        1,
+        -1,
+        -1,
+        -1
+      ],
+      "parameters": {
+        "lr": 9.999999999999997e-06,
+        "ent_coef": 0.05000000000000003,
+        "gamma": 0.9990234375,
+        "rollout_len": 64,
+        "epochs": 2,
+        "clip": 0.1
+      }
+    },
+    {
+      "id": "ff08",
+      "kind": "fractional_factorial",
+      "coded": [
+        -1,
+        1,
+        1,
+        1,
+        -1,
+        1
+      ],
+      "parameters": {
+        "lr": 9.999999999999997e-06,
+        "ent_coef": 0.05000000000000003,
+        "gamma": 0.9990234375,
+        "rollout_len": 512,
+        "epochs": 2,
+        "clip": 0.3
+      }
+    },
+    {
+      "id": "ff09",
+      "kind": "fractional_factorial",
+      "coded": [
+        1,
+        -1,
+        -1,
+        -1,
+        1,
+        -1
+      ],
+      "parameters": {
+        "lr": 0.0010000000000000002,
+        "ent_coef": 0.0003000000000000001,
+        "gamma": 0.96875,
+        "rollout_len": 64,
+        "epochs": 8,
+        "clip": 0.1
+      }
+    },
+    {
+      "id": "ff10",
+      "kind": "fractional_factorial",
+      "coded": [
+        1,
+        -1,
+        -1,
+        1,
+        1,
+        1
+      ],
+      "parameters": {
+        "lr": 0.0010000000000000002,
+        "ent_coef": 0.0003000000000000001,
+        "gamma": 0.96875,
+        "rollout_len": 512,
+        "epochs": 8,
+        "clip": 0.3
+      }
+    },
+    {
+      "id": "ff11",
+      "kind": "fractional_factorial",
+      "coded": [
+        1,
+        -1,
+        1,
+        -1,
+        -1,
+        1
+      ],
+      "parameters": {
+        "lr": 0.0010000000000000002,
+        "ent_coef": 0.0003000000000000001,
+        "gamma": 0.9990234375,
+        "rollout_len": 64,
+        "epochs": 2,
+        "clip": 0.3
+      }
+    },
+    {
+      "id": "ff12",
+      "kind": "fractional_factorial",
+      "coded": [
+        1,
+        -1,
+        1,
+        1,
+        -1,
+        -1
+      ],
+      "parameters": {
+        "lr": 0.0010000000000000002,
+        "ent_coef": 0.0003000000000000001,
+        "gamma": 0.9990234375,
+        "rollout_len": 512,
+        "epochs": 2,
+        "clip": 0.1
+      }
+    },
+    {
+      "id": "ff13",
+      "kind": "fractional_factorial",
+      "coded": [
+        1,
+        1,
+        -1,
+        -1,
+        -1,
+        1
+      ],
+      "parameters": {
+        "lr": 0.0010000000000000002,
+        "ent_coef": 0.05000000000000003,
+        "gamma": 0.96875,
+        "rollout_len": 64,
+        "epochs": 2,
+        "clip": 0.3
+      }
+    },
+    {
+      "id": "ff14",
+      "kind": "fractional_factorial",
+      "coded": [
+        1,
+        1,
+        -1,
+        1,
+        -1,
+        -1
+      ],
+      "parameters": {
+        "lr": 0.0010000000000000002,
+        "ent_coef": 0.05000000000000003,
+        "gamma": 0.96875,
+        "rollout_len": 512,
+        "epochs": 2,
+        "clip": 0.1
+      }
+    },
+    {
+      "id": "ff15",
+      "kind": "fractional_factorial",
+      "coded": [
+        1,
+        1,
+        1,
+        -1,
+        1,
+        -1
+      ],
+      "parameters": {
+        "lr": 0.0010000000000000002,
+        "ent_coef": 0.05000000000000003,
+        "gamma": 0.9990234375,
+        "rollout_len": 64,
+        "epochs": 8,
+        "clip": 0.1
+      }
+    },
+    {
+      "id": "ff16",
+      "kind": "fractional_factorial",
+      "coded": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "parameters": {
+        "lr": 0.0010000000000000002,
+        "ent_coef": 0.05000000000000003,
+        "gamma": 0.9990234375,
+        "rollout_len": 512,
+        "epochs": 8,
+        "clip": 0.3
+      }
+    },
+    {
+      "id": "interior01",
+      "kind": "latin_hypercube",
+      "unit_coordinates": [
+        0.24550027560757381,
+        0.856070781642669,
+        0.9430047378908427,
+        0.5386657975567003,
+        0.6587438802430046,
+        0.21359731055993295
+      ],
+      "parameters": {
+        "lr": 3.09742323052492e-05,
+        "ent_coef": 0.023943136998619656,
+        "gamma": 0.9988101657644495,
+        "rollout_len": 256,
+        "epochs": 6,
+        "clip": 0.1427194621119866
+      }
+    },
+    {
+      "id": "interior02",
+      "kind": "latin_hypercube",
+      "unit_coordinates": [
+        0.7534611247002511,
+        0.3983577819571012,
+        0.8375836566710579,
+        0.867071856972524,
+        0.9920247518471218,
+        0.9683363913073676
+      ],
+      "parameters": {
+        "lr": 0.00032130852569387165,
+        "ent_coef": 0.0023025655066013857,
+        "gamma": 0.998285407186908,
+        "rollout_len": 512,
+        "epochs": 8,
+        "clip": 0.29366727826147354
+      }
+    },
+    {
+      "id": "interior03",
+      "kind": "latin_hypercube",
+      "unit_coordinates": [
+        0.07361141342924529,
+        0.9829932457441481,
+        0.4192787025739396,
+        0.21807424744069337,
+        0.8607139159598652,
+        0.7816137260345113
+      ],
+      "parameters": {
+        "lr": 1.4035336418111808e-05,
+        "ent_coef": 0.04583355761834429,
+        "gamma": 0.9926924349235775,
+        "rollout_len": 128,
+        "epochs": 7,
+        "clip": 0.25632274520690224
+      }
+    },
+    {
+      "id": "interior04",
+      "kind": "latin_hypercube",
+      "unit_coordinates": [
+        0.892222895292137,
+        0.048119574452706204,
+        0.1737834317609699,
+        0.008704571274410017,
+        0.06586196683794743,
+        0.4160218492121589
+      ],
+      "parameters": {
+        "lr": 0.0006087595545599828,
+        "ent_coef": 0.000383738762821718,
+        "gamma": 0.9828888226287332,
+        "rollout_len": 64,
+        "epochs": 2,
+        "clip": 0.18320436984243177
+      }
+    },
+    {
+      "id": "interior05",
+      "kind": "latin_hypercube",
+      "unit_coordinates": [
+        0.3691377659517231,
+        0.6145544656041126,
+        0.11686040049734102,
+        0.29705844265288245,
+        0.44909786952021885,
+        0.3519017366485645
+      ],
+      "parameters": {
+        "lr": 5.473631194364758e-05,
+        "ent_coef": 0.006959344344763685,
+        "gamma": 0.9791571265144648,
+        "rollout_len": 128,
+        "epochs": 5,
+        "clip": 0.1703803473297129
+      }
+    },
+    {
+      "id": "interior06",
+      "kind": "latin_hypercube",
+      "unit_coordinates": [
+        0.6583513037455581,
+        0.15668431132074284,
+        0.6164246036920722,
+        0.7494496997363456,
+        0.35079487116385766,
+        0.5327376404202144
+      ],
+      "parameters": {
+        "lr": 0.00020734931620584087,
+        "ent_coef": 0.0006687289056953867,
+        "gamma": 0.9963098965392696,
+        "rollout_len": 256,
+        "epochs": 4,
+        "clip": 0.20654752808404286
+      }
+    },
+    {
+      "id": "interior07",
+      "kind": "latin_hypercube",
+      "unit_coordinates": [
+        0.40149319681345896,
+        0.3064563060927352,
+        0.34578876450510654,
+        0.8801424508827446,
+        0.20775188055311622,
+        0.03773053548883848
+      ],
+      "parameters": {
+        "lr": 6.353110273522976e-05,
+        "ent_coef": 0.0014388675398325048,
+        "gamma": 0.990572727293324,
+        "rollout_len": 512,
+        "epochs": 3,
+        "clip": 0.1075461070977677
+      }
+    },
+    {
+      "id": "interior08",
+      "kind": "latin_hypercube",
+      "unit_coordinates": [
+        0.5674102299778006,
+        0.6674135504472379,
+        0.6861523581472619,
+        0.4829414266615854,
+        0.6181817109556423,
+        0.7012390320936437
+      ],
+      "parameters": {
+        "lr": 0.00013640191260099155,
+        "ent_coef": 0.009120385957893398,
+        "gamma": 0.9971020705078815,
+        "rollout_len": 128,
+        "epochs": 6,
+        "clip": 0.24024780641872873
+      }
+    },
+    {
+      "id": "anchor_G",
+      "kind": "control",
+      "parameters": {
+        "lr": 0.00025,
+        "ent_coef": 0.01,
+        "gamma": 0.99,
+        "rollout_len": 128,
+        "epochs": 4,
+        "clip": 0.1
+      }
+    },
+    {
+      "id": "anchor_G_low_lr",
+      "kind": "reference",
+      "parameters": {
+        "lr": 2.5e-05,
+        "ent_coef": 0.01,
+        "gamma": 0.99,
+        "rollout_len": 128,
+        "epochs": 4,
+        "clip": 0.1
+      }
+    }
+  ],
+  "screen": {
+    "order": [
+      "anchor_G",
+      "interior02",
+      "anchor_G_low_lr",
+      "ff04",
+      "interior01",
+      "ff13",
+      "interior08",
+      "ff11",
+      "interior04",
+      "interior07",
+      "ff05",
+      "interior06",
+      "ff03",
+      "ff06",
+      "ff01",
+      "ff02",
+      "interior05",
+      "ff12",
+      "ff08",
+      "ff09",
+      "interior03",
+      "ff07",
+      "ff15",
+      "ff10",
+      "ff16",
+      "ff14"
+    ],
+    "training_seed": 4100,
+    "minutes_per_policy": 15,
+    "evaluation_seeds": [
+      51001,
+      51002
+    ],
+    "checkpoint": "model.pt",
+    "selection": "Rank mean completed clears descending, then mean kills descending, then configuration ID ascending; choose top 2 distinct non-anchor_G configurations."
+  },
+  "confirmation_training": {
+    "configurations": "selected top 2 plus anchor_G",
+    "training_seeds": [
+      4201,
+      4202,
+      4203
+    ],
+    "minutes_per_policy": 60,
+    "evaluation_seeds": [
+      51001,
+      51002
+    ],
+    "checkpoint": "model.pt",
+    "selection": "Choose candidate with highest mean completed clears across 3 training seeds and 2 tuning seeds; ties by mean kills then ID."
+  },
+  "final_test": {
+    "configurations": "chosen candidate plus anchor_G, all 3 already-trained policies each",
+    "evaluation_seeds": [
+      61001,
+      61002
+    ],
+    "open_only_after_winner_frozen": true,
+    "metric": "mean completed clears per 990 episodes; report all 3 paired training-seed differences",
+    "practical_improvement": {
+      "mean_paired_gain_min": 30,
+      "each_paired_gain_min": 0
+    },
+    "failure_action": "Retain anchor_G as baseline and report no confirmed replacement; no automatic extension."
+  },
+  "evaluation": {
+    "levels": "1-99",
+    "episodes_per_level": 10,
+    "max_steps": 900,
+    "frame_skip": 4,
+    "obs": "ego",
+    "control_obs": true,
+    "sampled_actions": true,
+    "one_life": true,
+    "outcome": "level_complete, not legacy all_killed",
+    "retain_per_level": true
+  },
+  "budget": {
+    "hardware": "local Apple M4 Pro CPU",
+    "max_concurrent_jobs": 6,
+    "threads_per_job": 1,
+    "aggregate_allocated_core_hours": 18,
+    "includes": "all training, evaluation and preflight; training budget is elapsed wall time at one allocated CPU thread",
+    "training_reservation_hours": 15.5,
+    "other_reservation_hours": 2.5,
+    "planned_elapsed_hours": "3-4",
+    "hard_cutoff": "2026-10-19T17:00:00-07:00",
+    "per_evaluation_hard_seconds": 90,
+    "preflight_max_core_minutes": 10,
+    "per_training_save_grace_seconds": 15,
+    "enforce_reservations": true
+  },
+  "preflight": [
+    "Freeze trainer/evaluator/env dependencies and hash manifest before first screening job.",
+    "Run targeted RNG, outcome, GAE/autoreset and observation-compatibility tests; finite-update/save/evaluate smoke with fresh model (no performance claim).",
+    "Validate balanced design, correct flags, exact recipe and fresh starts; no existing checkpoints imported.",
+    "No active conflicting campaign; single owner/lock, no duplicate launches.",
+    "Every subprocess checked, finite metrics, complete artifact schema; fail closed on code-integrity/systemic errors."
+  ],
+  "execution_rules": [
+    "Final saved weights only; no repeated best checkpoint selection.",
+    "No reward-based early pruning or adaptive bound narrowing during this screen.",
+    "Stop an individual run for nonfinite values or execution failure; record failure and do not silently replace configuration.",
+    "Before dispatch reserve hard job budgets including save grace/evaluation; do not exceed aggregate or wall cutoff.",
+    "Freeze winner/configurations before opening final test bank.",
+    "Existing diagnostic changes must not alter frozen campaign code.",
+    "Publish status after each finished batch, not only on ten-minute reviews."
+  ],
+  "rerun_of": {
+    "campaign": "hparam-1019-v1",
+    "manifest_sha256": "1d00742bab2cedef69cc706dc42612f859809ea970a9aed6bd060e6cbb976ee9",
+    "changes": "Only the game: v2 runs the corrected game (fidelity fixes of 2026-10-19 after snapshot 42ed83d, including the hurry-up and Baron von Blubba). Same design, configurations, training/tuning/final seed banks, budgets, selection and acceptance rules. fixed_parameters now states every hyperparameter; the 17 that v1 left to the trainer are set to the values v1 actually used.",
+    "authorized": "User instruction in Fable's session, 2026-10-19 ~12:43 PDT: 'Run it again with the new game settings'."
+  }
+}
