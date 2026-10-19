@@ -536,3 +536,34 @@ def test_wall_limit_stops_between_updates_and_writes_a_summary(tmp_path):
     s = json.loads((tmp_path / "train_summary.json").read_text())
     assert (s["updates"], s["steps"]) == (1, 32) and (tmp_path / "model.pt").exists()
     assert not (tmp_path / "model.pt.tmp").exists()
+
+
+def _bubble_contact(facing, dx, dy, frames=4):
+    from bubblebobblerl.game import BubbleSprite, Buttons
+
+    env = BubbleBobbleEnv(obs_type="state", level=1)
+    env.reset(seed=1, options={"level": 1})
+    g = env.game
+    g.enemies, g.alive_enemies, g.grace_left = [], 1, 10**9
+    g.player.x, g.player.y, g.player.facing = 40, 52, facing
+    bub = BubbleSprite(x=40 + dx, y=52 + dy, life=100)
+    g.bubbles = [bub]
+    x0 = bub.x
+    for _ in range(frames):
+        g.step(Buttons())
+    return g.player.x, bub, x0
+
+
+def test_bubble_contact_follows_bubblehitplayer():
+    """Regression (2026-10-19): Z80 BubbleHitPlayer pushes a bubble only when it
+    is at least 4 px ahead in the direction Bub faces, and Bub recoils (PlayerFlags,
+    odd frames); a bubble behind him breaks. The port pushed on any side contact
+    regardless of facing, broke bubbles above him that he faced, and had no recoil."""
+    px, bub, x0 = _bubble_contact(facing=-1, dx=5, dy=0)  # behind Bub
+    assert bub.breaking == "explode" and px == 40
+    px, bub, x0 = _bubble_contact(facing=1, dx=5, dy=0)  # ahead: pushed on, Bub recoils
+    assert bub.breaking is None and bub.x == x0 + 1 and px < 40
+    px, bub, x0 = _bubble_contact(facing=1, dx=5, dy=-5)  # ahead and above: still pushed
+    assert bub.breaking is None and bub.x == x0 + 1 and px < 40
+    px, bub, x0 = _bubble_contact(facing=1, dx=2, dy=0)  # too close: breaks
+    assert bub.breaking == "explode"

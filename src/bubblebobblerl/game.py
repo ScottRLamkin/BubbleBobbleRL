@@ -82,6 +82,7 @@ class Player:
     shoot_cooldown: int = 0
     invincible: int = 0
     on_bubble: bool = False
+    recoil: int = 0  # PlayerFlags bits 1/2: pushback from a bubble, applied on odd frames
     kill_pending: bool = False
     dead_ticks: int = -1  # >=0 while the death animation runs
 
@@ -139,6 +140,7 @@ class BubbleSprite:
     life: int  # 4-frame ticks; decremented before test, so 0 lasts 256
     captured: Enemy | None = None
     push: int = 0  # pending horizontal push from the player
+    break_pending: bool = False  # flags bit 7: breaks at the next 4-frame tick (DoBubbleFlags)
     breaking: str | None = None  # None | "pop" (escape) | "explode" (kill)
     break_age: int = 0
 
@@ -334,8 +336,11 @@ class Game:
 
         self._player_gravity(p, b.jump, jump_pressed, ev)
 
-        # PlayerFlags: bubble pushback applies every other frame.
-        # (Pushback flags are set during the bubble pass and consumed here.)
+        # PlayerFlags: pushback set by the previous frame's bubble pass moves
+        # Bub one pixel on odd frames only; every flag clears every frame.
+        if p.recoil and self.timer % 2 == 1:
+            self._try_walk(p, p.recoil)
+        p.recoil = 0
         p.on_bubble = False
 
         if p.kill_pending:
@@ -748,11 +753,17 @@ class Game:
             self._bubble_player_interaction(bub, p)
             if self.timer % 4 != 0:
                 continue
+            # DoBubbleFlags: the push (skipped while the death counter reads 0),
+            # then a pending break ends the bubble's turn.
             if bub.push:
                 probe_x = bub.x + 8 if bub.push > 0 else bub.x - 1
-                if not self.solid(probe_x, bub.y + 4):
+                if bub.life != 0 and not self.solid(probe_x, bub.y + 4):
                     bub.x += bub.push
                 bub.push = 0
+            if bub.break_pending:
+                bub.break_pending = False
+                self._start_break(bub, "explode")
+                continue
             bub.life = (bub.life - 1) & 0xFF
             if bub.life == 0:
                 self._start_break(bub, "pop")  # timed out: captive escapes
@@ -765,13 +776,17 @@ class Game:
             return
         if not self._overlap(bub.x, bub.y, p.x, p.y, 7):
             return
+        # BubbleHitPlayer: on top -> ride; at least 4 px ahead in the direction
+        # Bub faces -> the bubble is pushed on and Bub recoils; otherwise
+        # (behind him or closer) it breaks at the next 4-frame tick.
         dy = self._delta_wrapped(bub.y, p.y)
         if dy >= 4:  # player on top: ride (enables the bubble bounce)
             p.on_bubble = True
-        elif abs(dy) < 4 and abs(bub.x - p.x) >= 4:
-            bub.push = 1 if bub.x > p.x else -1  # nudge it along
+        elif (bub.x - p.x) * p.facing >= 4:
+            bub.push = p.facing
+            p.recoil = -p.facing
         else:
-            self._start_break(bub, "explode")  # touching pops it
+            bub.break_pending = True
 
     def _float_bubble(self, bub: BubbleSprite) -> None:
         current = self.tile(bub.x + 4, bub.y + 4)
