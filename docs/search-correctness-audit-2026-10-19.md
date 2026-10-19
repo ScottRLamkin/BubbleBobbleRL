@@ -34,6 +34,8 @@ campaign's 18 core-hour cap. Spent so far: see the ledger at the end.
 | 19 | Reward components have their intended size | `env.step` | Manifest values | `test_manifest_reward_components_have_their_intended_size`: time plus timeout on a one-step clock, death on contact, no score reward. Kill, capture and clear sizes not exercised by a scripted transition | Clean for the cases tested | In snapshot | — |
 | 20 | Training and evaluation share control and horizon conventions | `train_ppo`, `evaluate.evaluate` | One task definition | `test_training_and_evaluation_envs_share_control_and_horizon` | Clean | In snapshot | — |
 | 21 | Hidden state that changes what an action does is observable | `env._obs` | Training review: expose hidden button and jump state | The 14-frame shot cooldown (about 3.5 steps) is not in the observation; the policy can infer it only from its own bubbles | Observability gap, as in the original game's interface | In snapshot | Candidate observation change for later; not a defect |
+| 22 | Collision boxes: capture 7 px, contact death 5 px, death applied next frame | `game._enemy_hazards`, `_touch_player`, `_step_player` | Z80 `MonsterHitPrebubble` → `CheckHitTarget` (7), `MonsterHitPlayer` → `CheckHitBub4` (5), death flag consumed in `PlayerFlags2` | Read side by side | Clean | In snapshot | — |
+| 23 | Jump starts need a fresh press; a bubble bounce needs jump held | `game._player_gravity`, `_fall` | Z80 `NoGrav`/`JumpTest`, `DownGrav` | Read side by side | Clean | In snapshot | — |
 
 ## Decision note: the bubble-contact mismatch and what the campaign can answer
 
@@ -106,5 +108,5 @@ if runner PID 33901 exits.
 | Real preflight | 5.4 | Measured |
 | Pre-launch dry run, including interrupted attempts | about 508 | Mixed: 447.5 measured for completed attempts and 5.4 for the dry preflight; about 55 estimated for the interrupted attempts from their loop times plus startup |
 | Validator and runner overhead, production | about 77 forecast (2.2 per training job x 35) | Measured 6.5 s over the first three production jobs; outside reservations, so added here. Forecast, not a 60 s worst-case reservation |
-| This audit's test execution | about 26 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
+| This audit's test execution | about 32 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
 | Total | about 64,322 of 64,800 (about 478 s reserve) | Reservations + preflight + dry run + forecast overhead + this audit |

@@ -342,3 +342,14 @@ def test_premature_final_file_is_not_opened(tmp_path, monkeypatch):
     monkeypatch.setattr(aud, "check_eval_file", lambda p, *a: (opened.append(Path(p)), real(p, *a))[1])
     run(root)
     assert f not in opened
+
+
+def test_per_level_rows_come_from_validated_files(tmp_path):
+    from audit_hparam_campaign import per_level_rows
+
+    a = run(build(tmp_path))
+    rows = per_level_rows(a)
+    assert len(rows) == (26 * 2 + 9 * 2 + 12) * 99
+    first = rows[0]  # screen/anchor_G (first in order), 100 clears spread over levels 1-10
+    assert first[:5] == ["screen", "anchor_G", 4100, "51001", 1] and first[5:] == [10, 0, 0]
+    assert all(r[5] + r[6] + r[7] == 10 for r in rows)

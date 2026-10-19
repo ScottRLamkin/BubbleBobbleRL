@@ -87,7 +87,9 @@ def check_eval_file(path: Path, episodes_per_level: int = 10) -> tuple[dict | No
     if probs:
         return None, probs
     return {"cleared": r["cleared"], "died": r["died"], "timeout": r["timeout"], "kills": k * n,
-            "seconds": r.get("seconds")}, []
+            "seconds": r.get("seconds"),
+            "per_level": {int(lv): {lab: v.count(lab) for lab in ("clear", "death", "timeout")}
+                          for lv, v in per.items()}}, []
 
 
 def expected_jobs(m: dict) -> dict:
@@ -352,16 +354,36 @@ def render(a: dict) -> str:
     return "\n".join(out) + "\n"
 
 
+def per_level_rows(a: dict) -> list[list]:
+    """One row per (job, evaluation seed, level) from validated files only."""
+    jobs = a["status"]["jobs"]
+    rows = []
+    for jid in a["status"]["order"]:
+        j = jobs[jid]
+        for seed, summ in a["summaries"].get(jid, {}).get("results", {}).items():
+            for lv in sorted(summ["per_level"]):
+                c = summ["per_level"][lv]
+                rows.append([j["phase"], j["config"], j.get("seed"), seed, lv, c["clear"], c["death"], c["timeout"]])
+    return rows
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("root")
-    p.add_argument("--write", action="store_true", help="also write <root>/audit.md")
+    p.add_argument("--write", action="store_true", help="also write <root>/audit.md and <root>/per_level.csv")
     args = p.parse_args()
     a = audit(Path(args.root))
     text = render(a)
     print(text)
     if args.write:
         (Path(args.root) / "audit.md").write_text(text)
+        import csv
+
+        with open(Path(args.root) / "per_level.csv", "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["phase", "config", "training_seed", "evaluation_seed", "level", "clears", "deaths",
+                        "timeouts"])
+            w.writerows(per_level_rows(a))
     sys.exit(1 if a["problems"] else 0)
 
 
