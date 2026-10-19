@@ -1,5 +1,7 @@
 # BubbleBobbleRL
 
+[![tests](https://github.com/ScottRLamkin/BubbleBobbleRL/actions/workflows/tests.yml/badge.svg)](https://github.com/ScottRLamkin/BubbleBobbleRL/actions/workflows/tests.yml)
+
 A Gymnasium environment for DWedit's TI-83 calculator port of Bubble Bobble,
 reimplemented in Python with the open-sourced Z80 code as the spec, plus the
 scripts used to train and study agents on it.
