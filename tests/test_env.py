@@ -859,3 +859,27 @@ def test_angry_invader_moves_before_the_capture_check():
     g.prebubbles = [Prebubble(x=47, y=52, facing=1, age=5)]  # moves to 48 first; the invader to 41: 7 px
     captured = g.step(Buttons()).captured
     assert captured == 1 and not g.enemies
+
+
+def test_banebou_lands_mid_hop_and_falls_in_the_frame_a_hop_ends():
+    """Regression (2026-10-19): Z80 HandleBanebou calls BanebouFall from the
+    down-forward phase (landing there ends the hop: next sequence, counter 0)
+    and right after a hop ends or the sequence restarts. The port only dropped a
+    pixel in the down-forward phase and acted on the next frame otherwise."""
+    from bubblebobblerl.game import BANEBOU, Enemy
+
+    g = _bubble_game()
+    e = Enemy(kind=BANEBOU, x=40, y=52, facing=1, spawn_delay=0)  # on level 1's floor
+    e.falling_in, e.state, e.counter = False, 1, 0
+    g.enemies = [e]
+    g.rng.getrandbits = lambda k: 1  # no look-around
+    for _ in range(16):  # up 4, up+forward 4, forward 4, down+forward 4 (airborne)
+        g._banebou_ai(e)
+    assert (e.state, e.y) == (1, 52 - 4)
+    g._banebou_ai(e)  # hop done: sequence 2 and a fall in the same frame
+    assert (e.state, e.y) == (2, 52 - 3)
+    # Already on the ground when down+forward starts (as after hopping onto a
+    # higher ledge): the hop ends at once instead of sliding on.
+    e.x, e.y, e.state, e.counter = 40, 52, 1, 12
+    g._banebou_ai(e)
+    assert (e.state, e.counter, e.x, e.y) == (2, 0, 41, 52)

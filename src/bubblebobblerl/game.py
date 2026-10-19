@@ -649,14 +649,8 @@ class Game:
     # ---- Banebou: HandleBanebou.  Falls, short hop, falls, long hop, repeat.
 
     def _banebou_ai(self, e: Enemy) -> None:
-        if e.state in (0, 2):  # falling
-            if not self.standing(e.x, e.y):
-                e.y += 1
-                return
-            e.counter = 0
-            e.state += 1
-            if e.state == 1 and self.rng.getrandbits(3) == 0:
-                self._look_around(e)
+        if e.state in (0, 2):  # BanebouFall
+            self._banebou_fall(e)
         elif e.state in (1, 3):  # hop: up, up+forward, forward, down+forward
             up, up_fwd, fwd, down_fwd = (4, 8, 12, 16) if e.state == 1 else (4, 10, 16, 22)
             t = e.counter
@@ -668,14 +662,27 @@ class Game:
                 e.y -= 1
             elif t < fwd:
                 self._enemy_forward(e)
-            elif t < down_fwd:
+            elif t < down_fwd:  # BanebouDF: forward, then BanebouFall (landing ends the hop)
                 self._enemy_forward(e)
-                if not self.standing(e.x, e.y):
-                    e.y += 1
-            else:
+                self._banebou_fall(e)
+            else:  # BanebouJumpDone: next sequence, then BanebouFall in the same frame
                 e.state += 1
-        else:
+                self._banebou_fall(e)
+        else:  # BanebouFall3: restart the sequence and fall in the same frame
             e.state, e.counter = 0, 0
+            self._banebou_fall(e)
+
+    def _banebou_fall(self, e: Enemy) -> None:
+        """BanebouFall / BanebouHitGround: fall a pixel, or on landing reset the
+        counter and advance the sequence (a landing from sequence 0 may look around)."""
+        if not self.standing(e.x, e.y):
+            e.y += 1
+            return
+        old = e.state
+        e.counter = 0
+        e.state += 1
+        if old == 0 and self.rng.getrandbits(3) == 0:
+            self._look_around(e)
 
     # Beluga (Monsta): diagonal float, HandleBeluga.
     def _beluga_ai(self, e: Enemy) -> None:
