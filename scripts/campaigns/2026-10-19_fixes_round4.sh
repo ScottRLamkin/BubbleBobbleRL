@@ -32,7 +32,7 @@ for i in {1..${#PIDS}}; do wait ${PIDS[$i]} || { echo "FAILED: ${NAMES[$i]} (see
 echo "arms done: $(date) (failures: $fail)"
 [[ $fail -eq 0 ]] || { echo "aborting before validation: a training arm failed"; exit 1; }
 setopt pipefail
-START_TS=$(date +%s)
+START_TS=$(date +%s); evalfail=0
 : > runs/analysis/fixes-1018/heldout_round4.txt
 EPIDS=(); EFILES=()
 for r in T1_S2_cont T2_S2_cont_still02 T3_S3_cont T4_S3_cont_still02 T6_D_s102 T7_D_s103; do
@@ -47,7 +47,7 @@ for r in T1_S2_cont T2_S2_cont_still02 T3_S3_cont T4_S3_cont_still02 T6_D_s102 T
     done
   done
   # per-evaluation exit status, not a bare wait
-  for i in {1..${#EPIDS}}; do wait ${EPIDS[$i]} || echo "EVAL FAILED: ${EFILES[$i]}"; done
+  for i in {1..${#EPIDS}}; do wait ${EPIDS[$i]} || { echo "EVAL FAILED: ${EFILES[$i]}"; evalfail=$((evalfail+1)); }; done
   EPIDS=(); EFILES=()
 done
 # expected-artifact manifest: every file must exist, be newer than this validation's start, and hold 99 levels x 10 outcomes
@@ -57,5 +57,5 @@ for r in T1_S2_cont T2_S2_cont_still02 T3_S3_cont T4_S3_cont_still02 T6_D_s102 T
   if [[ ! -s $f ]] || (( $(stat -f %m $f) < START_TS )) || ! uv run python -c "import json,sys; d=json.load(open('$f'))['per_level']; assert len(d)==99 and all(len(v)==10 for v in d.values())" 2>/dev/null; then
     echo "MISSING/STALE/MALFORMED: $f"; missing=$((missing+1)); fi
 done; done; done
-echo "held-out scoring done: $(date); $missing of 24 expected artifacts missing"
-[[ $missing -eq 0 ]] || exit 1
+echo "held-out scoring done: $(date); $missing of 24 expected artifacts missing; $evalfail evaluator failures"
+[[ $missing -eq 0 && $evalfail -eq 0 ]] || exit 1
