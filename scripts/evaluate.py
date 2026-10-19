@@ -74,7 +74,7 @@ def classify_outcome(completed: bool, game) -> str:
 
 
 def _evaluate(envs, model_path, levels, episodes, max_steps, seed) -> dict:
-    agent = Agent.load(model_path, envs[0].observation_space, envs[0].action_space.n)
+    agent = Agent.load(model_path, envs[0].observation_space, envs[0].action_space.n, env=envs[0])
     # Own generator, so results do not depend on the caller's torch RNG state.
     gen = torch.Generator().manual_seed(seed)
 

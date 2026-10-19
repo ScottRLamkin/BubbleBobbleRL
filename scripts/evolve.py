@@ -260,6 +260,16 @@ def train_member(spec: dict) -> dict:
         for flag in ("control_obs", "bootstrap_truncation", "no_score_reward"):
             if spec.get(flag):
                 argv.append("--" + flag.replace("_", "-"))
+        # Children must see the observation their parent was trained on.
+        from train_ppo import checkpoint_obs_spec
+
+        parent_obs = checkpoint_obs_spec(spec["parent_model"])
+        if parent_obs:
+            argv += ["--obs", parent_obs["obs"]]
+            if parent_obs["nearest_first"]:
+                argv.append("--nearest-first")
+            if parent_obs["control_obs"] and "--control-obs" not in argv:
+                argv.append("--control-obs")
         if spec.get("kill_bonus"):
             argv += ["--kill-bonus", str(spec["kill_bonus"])]
         if spec.get("experiment"):
@@ -291,9 +301,13 @@ def score_member(job: dict) -> dict:
         from evaluate import evaluate
         from train_ppo import parse_levels
 
+        from train_ppo import checkpoint_obs_spec
+
+        o = checkpoint_obs_spec(job["model"]) or {"obs": "state", "control_obs": job.get("control_obs", False),
+                                                  "nearest_first": False}
         result = evaluate(
             job["model"], parse_levels(LEVELS), job["episodes"], job["max_steps"], job["seed"],
-            control_obs=job.get("control_obs", False),
+            obs=o["obs"], control_obs=o["control_obs"], nearest_first=o["nearest_first"],
         )
         result.pop("per_level", None)
         return {"id": job["id"], "result": result}
@@ -379,6 +393,9 @@ class Run:
                 opt = Path(path).with_name("best_optimizer.pt")
             if opt.exists():
                 shutil.copy(opt, base_dir / "optimizer.pt")
+            for meta in ("config.json", "arch.json"):  # keep the base's recorded recipe and observation
+                if Path(path).with_name(meta).exists():
+                    shutil.copy(Path(path).with_name(meta), base_dir / meta)
             genome, source = inherit_genome(Path(path), Genome(timeout_penalty=self.args.timeout_penalty))
             self.log(f"{bid}: genome from {source}; optimizer state {'copied' if opt.exists() else 'absent'}")
             bases.append({

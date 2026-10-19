@@ -165,7 +165,7 @@ def main():
     # the time-left it was trained with; the probe cap is enforced by the loop.
     env = BubbleBobbleEnv(obs_type=args.obs, control_obs=args.control_obs,
                           max_episode_frames=3600, level=1)
-    agent = Agent.load(args.model, env.observation_space, env.action_space.n) if args.policy == "model" else None
+    agent = Agent.load(args.model, env.observation_space, env.action_space.n, env=env) if args.policy == "model" else None
     env.reset(seed=1, options={"level": 1})
     sits = list(situations(env.game))
     assert len(sits) == 6 and sum(s["side"] for s in sits) == 0, sits  # three each side, all on the floor

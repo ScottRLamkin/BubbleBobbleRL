@@ -61,7 +61,7 @@ ABLATIONS = {
 
 def load_agent(model_path: str) -> Agent:
     env = BubbleBobbleEnv(obs_type="state")
-    return Agent.load(model_path, env.observation_space, env.action_space.n)
+    return Agent.load(model_path, env.observation_space, env.action_space.n, env=env)
 
 
 def pick(agent: Agent, obs: np.ndarray, gen: torch.Generator) -> int:
@@ -189,7 +189,7 @@ def main() -> None:
     levels = parse_levels(args.levels)
     env = BubbleBobbleEnv(obs_type=args.obs, control_obs=args.control_obs,
                           max_episode_frames=4 * (args.max_steps_env or args.max_steps))
-    agent = Agent.load(args.model, env.observation_space, env.action_space.n)
+    agent = Agent.load(args.model, env.observation_space, env.action_space.n, env=env)
     report: dict = {"model": args.model}
 
     def episodes(agent, ablation="none", grid_wall_only=False, max_steps=None, eps=None):

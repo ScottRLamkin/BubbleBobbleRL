@@ -375,3 +375,54 @@ def test_gae_stops_at_terminal_steps_and_masks_fake_transitions():
     assert adv[1].item() == pytest.approx(1.0 + 0.9 * 0.5 - 0.5 + 0.9 * (5.0 - 0.5))
     assert adv[4].item() == pytest.approx(1.0 + 0.9 * 2.0 - 0.5)  # last step bootstraps next_value
     assert torch.allclose(ret, adv + val)
+
+
+def test_checkpoint_refuses_a_different_observation(tmp_path):
+    """Regression (2026-10-19): an ego checkpoint evaluated on state observations
+    used to run silently (the longer vector was trimmed to the model's input
+    size), giving meaningless scores."""
+    import json
+    import sys
+    from pathlib import Path
+
+    import torch
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from evaluate import evaluate
+    from train_ppo import Agent
+
+    ego = BubbleBobbleEnv(obs_type="ego", control_obs=True)
+    torch.save(Agent(ego.observation_space, ego.action_space.n).state_dict(), tmp_path / "model.pt")
+    (tmp_path / "arch.json").write_text(json.dumps({"obs": "ego", "control_obs": True, "nearest_first": False}))
+    with pytest.raises(ValueError, match="trained with observation"):
+        evaluate(str(tmp_path / "model.pt"), [1], episodes=1, max_steps=5, obs="state", control_obs=True)
+    r = evaluate(str(tmp_path / "model.pt"), [1], episodes=1, max_steps=5, obs="ego", control_obs=True)
+    assert r["episodes"] == 1
+
+
+def test_continuation_records_the_parents_architecture_and_observation(tmp_path):
+    """Regression (2026-10-19): a continuation's arch.json used to record the
+    --act/--hidden defaults instead of the parent's actual network, and nothing
+    stopped a continuation from silently changing the observation."""
+    import json
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from train_ppo import parse_args, train
+
+    common = ["--total-steps", "32", "--num-envs", "2", "--rollout-len", "16", "--eval-every", "0",
+              "--no-mlflow", "--no-tensorboard", "--quiet"]
+    parent = tmp_path / "parent"
+    train(parse_args(common + ["--obs", "ego", "--control-obs", "--act", "relu", "--hidden", "32",
+                               "--run-dir", str(parent)]))
+    a = json.loads((parent / "arch.json").read_text())
+    assert (a["act"], a["hidden"], a["obs"], a["control_obs"]) == ("relu", 32, "ego", True)
+    child = tmp_path / "child"
+    train(parse_args(common + ["--obs", "ego", "--control-obs", "--init-model", str(parent / "model.pt"),
+                               "--run-dir", str(child)]))
+    c = json.loads((child / "arch.json").read_text())
+    assert (c["act"], c["hidden"], c["obs"], c["control_obs"]) == ("relu", 32, "ego", True)
+    with pytest.raises(ValueError, match="trained with observation"):
+        train(parse_args(common + ["--control-obs", "--init-model", str(parent / "model.pt"),
+                                   "--run-dir", str(tmp_path / "bad")]))

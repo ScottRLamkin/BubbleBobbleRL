@@ -46,7 +46,7 @@ def nearest_enemy(game):
 
 def run(model, levels, obs, control_obs, policy, seed, max_steps):
     env = BubbleBobbleEnv(obs_type=obs, control_obs=control_obs, max_episode_frames=4 * max_steps)
-    agent = Agent.load(model, env.observation_space, env.action_space.n) if policy == "model" else None
+    agent = Agent.load(model, env.observation_space, env.action_space.n, env=env) if policy == "model" else None
     gen = torch.Generator().manual_seed(seed)
     rng = np.random.default_rng(seed)
     episodes = []

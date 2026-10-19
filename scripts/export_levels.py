@@ -102,7 +102,7 @@ def main() -> None:
 
     env = gym.make("BubbleBobble-v0", obs_type=args.obs, control_obs=args.control_obs,
                    nearest_first=args.nearest_first, max_episode_frames=4 * args.max_steps)
-    agent = Agent.load(args.model, env.observation_space, env.action_space.n)
+    agent = Agent.load(args.model, env.observation_space, env.action_space.n, env=env)
 
     rows = []
     for level in parse_levels(args.levels):

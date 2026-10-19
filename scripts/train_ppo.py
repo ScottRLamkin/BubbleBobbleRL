@@ -247,10 +247,44 @@ class GridEncoder(nn.Module):
         return self.head(torch.cat([self.grid(grid), self.rest(rest)], 1))
 
 
+OBS_SPEC_KEYS = ("obs", "control_obs", "nearest_first")
+
+
+def checkpoint_obs_spec(path) -> dict | None:
+    """The observation a checkpoint was trained on, from arch.json (written by
+    the trainer since 2026-10-19) or the run's config.json. None for older
+    checkpoints, which predate both (all of those used the state observation;
+    shorter vectors from older versions are prefixes of the current one)."""
+    folder = Path(path).parent
+    for name in ("arch.json", "config.json"):
+        f = folder / name
+        if f.exists():
+            d = json.loads(f.read_text())
+            if "obs" in d:
+                return {"obs": d["obs"], "control_obs": bool(d.get("control_obs", False)),
+                        "nearest_first": bool(d.get("nearest_first", False))}
+    return None
+
+
+def env_obs_spec(env) -> dict:
+    e = env.unwrapped if hasattr(env, "unwrapped") else env
+    return {"obs": e.obs_type, "control_obs": bool(e.control_obs), "nearest_first": bool(e.nearest_first)}
+
+
+def check_obs_spec(path, env) -> None:
+    want = checkpoint_obs_spec(path)
+    if want is None:
+        return
+    have = env_obs_spec(env)
+    if want != have:
+        raise ValueError(f"{path} was trained with observation {want} but is being run with {have}")
+
+
 class Agent(nn.Module):
     def __init__(self, obs_space, n_actions: int, arch: str = "mlp", hidden: int = 256,
                  layers: int = 2, act: str = "tanh"):
         super().__init__()
+        self.arch_spec = {"arch": arch, "hidden": hidden, "layers": layers, "act": act}
         self.arch = arch
         Act = nn.ReLU if act == "relu" else nn.Tanh
         if len(obs_space.shape) == 2:  # screen: 64x96 binary
@@ -279,10 +313,15 @@ class Agent(nn.Module):
         self.critic = layer_init(nn.Linear(width, 1), std=1.0)
 
     @classmethod
-    def load(cls, path: str, obs_space, n_actions: int, pad_to: int | None = None) -> "Agent":
+    def load(cls, path: str, obs_space, n_actions: int, pad_to: int | None = None, env=None) -> "Agent":
         """Build the right architecture for a saved model.pt and load it.
         Leaves the caller's global torch RNG untouched (construction would
-        otherwise draw random initial weights before they are overwritten)."""
+        otherwise draw random initial weights before they are overwritten).
+        If `env` is given and the checkpoint records the observation it was
+        trained on, a mismatch (e.g. an ego model fed state observations,
+        which would otherwise be silently trimmed or zero-padded) raises."""
+        if env is not None:
+            check_obs_spec(path, env)
         with torch.random.fork_rng(devices=[]):
             return cls._load(path, obs_space, n_actions, pad_to)
 
@@ -297,6 +336,7 @@ class Agent(nn.Module):
             side = Path(path).with_name("arch.json")
             if side.exists():
                 act = json.loads(side.read_text()).get("act", act)
+        spec = {"arch": arch, "hidden": hidden, "layers": layers, "act": act}
         if len(obs_space.shape) == 1 and arch == "mlp" and pad_to:
             # Fine-tune a model trained on a shorter state vector: new inputs
             # start with zero weight, so the old policy is reproduced exactly.
@@ -319,6 +359,7 @@ class Agent(nn.Module):
 
                 obs_space = spaces.Box(-1.0, 1.0, shape=(n_inputs,), dtype=np.float32)
         agent = cls(obs_space, n_actions, arch, hidden, layers, act)
+        agent.arch_spec = spec
         agent.load_state_dict(state)
         agent.n_inputs = n_inputs
         agent.eval()
@@ -348,7 +389,7 @@ class Agent(nn.Module):
 
 def watch(model_path: str, level: int, obs: str, greedy: bool = False):
     env = gym.make("BubbleBobble-v0", level=level, obs_type=obs)
-    agent = Agent.load(model_path, env.observation_space, env.action_space.n)
+    agent = Agent.load(model_path, env.observation_space, env.action_space.n, env=env)
     try:
         import imageio.v3 as iio
         from bubblebobblerl.render import draw_rgb
@@ -446,7 +487,7 @@ def train(args) -> Path:
     if args.init_model:
         agent = Agent.load(
             args.init_model, envs.single_observation_space, envs.single_action_space.n,
-            pad_to=int(np.prod(envs.single_observation_space.shape)),
+            pad_to=int(np.prod(envs.single_observation_space.shape)), env=envs.envs[0],
         ).to(device)
         agent.train()
     else:
@@ -454,7 +495,11 @@ def train(args) -> Path:
             envs.single_observation_space, envs.single_action_space.n, args.arch,
             args.hidden, args.layers, args.act,
         ).to(device)
-    (run_dir / "arch.json").write_text(json.dumps({"act": args.act}))
+    # What this run's checkpoints are: the loaded parent's actual architecture
+    # when continuing (not the command-line defaults), and the observation.
+    (run_dir / "arch.json").write_text(json.dumps({
+        **agent.arch_spec, "obs": args.obs, "control_obs": bool(args.control_obs),
+        "nearest_first": bool(args.nearest_first), "frame_skip": args.frame_skip}))
     # The full recipe, so a later run (or evolve.py) can inherit it exactly.
     (run_dir / "config.json").write_text(json.dumps(vars(args), indent=1, default=str))
     optimizer = torch.optim.Adam(agent.parameters(), lr=args.lr, eps=1e-5)
