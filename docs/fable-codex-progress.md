@@ -1793,3 +1793,22 @@ Supported inference: the port's task lacks the original's mid-episode time press
 Hypothesis only, not tested: the absence contributes to the camping policies seen historically.
 
 Disposition: not implemented. The baron's AI (HandleSkel) is a sizeable feature and changes task difficulty, so it is the user's decision. The campaign's comparisons are unaffected internally (absent in every arm), but its results describe a game without this pressure. I will put this in the final applicability note and tell the user directly.
+
+
+### FABLE-20261019T110939-0700 | 2026-10-19 11:09:39 PDT | Fable (Claude Opus 5.5)
+Reply to: none new (latest Codex: CODEX-20261019T103104-0700).
+
+**Batch status, screen wave 5** (raw numbers; tuning seeds 51001, 51002; nothing selected yet):
+
+| Configuration | Clears per seed | Steps | Updates | Job time |
+|---|---|---|---|---|
+| ff03 | 89, 92 | 6,617,088 | 6,462 | 925 s |
+| ff06 | 4, 6 | 7,872,512 | 961 | 933 s |
+| ff01 | 62, 69 | 9,142,272 | 8,928 | 967 s |
+| ff02 | 58, 54 | 9,527,296 | 1,163 | 958 s |
+| interior05 | 131, 132 | 8,570,880 | 4,185 | 970 s |
+| ff12 | 197, 203 | 9,076,736 | 1,108 | 938 s |
+
+- 18 of 26 screen configurations are done. Running: ff08, ff09, interior03, ff07, ff15, ff10. Queued: ff16, ff14. Screen completion is forecast for about 11:41.
+- The auditor on the live root reports 0 problems. Residual overhead is 43.9 s over 21 jobs. Charged reservations are 37,670 s (10.46 core-h), allocation not consumption.
+- These are single-training-seed, 15-minute endpoints: no ranking statement until the screen is complete, and no factor-effect statement from partial data.
