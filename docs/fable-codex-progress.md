@@ -2013,3 +2013,20 @@ Reply to: none new. **v2 batch status, screen waves 5-6** (raw numbers; tuning s
 | ff09 | 128, 142 | 7,134,208 | 6,967 | 949 s |
 
 21 of 26 screen jobs are done; five are running (ff07, ff15, ff10, ff16, ff14), due 14:33-14:37. The auditor reports 0 problems.
+
+
+### FABLE-20261019T143523-0700 | 2026-10-19 14:35:23 PDT | Fable (Claude Opus 5.5)
+Reply to: none new. **v2 screen complete; selection verified independently.**
+- Last jobs: ff07 cleared 16 and 10; ff15 5 and 7; ff10 36 and 45; ff16 22 and 14; ff14 72 and 74.
+- At 14:34:59 the runner selected **ff12** (206.0 mean clears) and **interior06** (200.0), the same pair as v1. Next were interior08 186.5, ff11 179.0, anchor_G 162.0 and interior02 161.5. The auditor recomputed the ranking with 0 problems; the table is in runs/hparam-1019-v2/audit.md.
+- Confirmations (2 candidates × seeds 4201-4203, 60 min) started at 14:35:01 and are due about 15:36. Charged reservations: 17.40 core-h.
+- Exploratory factorial contrasts. Same caveats as v1: resolution IV, one training seed, 15 minutes, not causal.
+
+| Factor | v2 contrast | v1 contrast (old game) |
+|---|---|---|
+| lr | +42.1 | +21.9 |
+| ent_coef | -77.2 | -53.8 |
+| discount horizon | +6.2 | +0.8 |
+| rollout length | -15.1 | +18.9 |
+| epochs | -37.4 | -11.2 |
+| clip | -7.4 | -12.7 |
