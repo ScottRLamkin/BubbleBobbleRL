@@ -119,3 +119,30 @@ def test_inherit_genome_reads_the_trainer_config(tmp_path):
     assert source.endswith("config.json")
     g2, source2 = inherit_genome(tmp_path / "nothing" / "model.pt", Genome())
     assert g2 == Genome() and source2.startswith("DEFAULTS")
+
+
+def test_promotion_never_pairs_best_weights_with_final_optimizer(tmp_path):
+    """train_member's promotion step: best.pt replaces model.pt; a missing
+    best_optimizer.pt must remove optimizer.pt rather than leave it."""
+    import json
+
+    import evolve
+
+    member = tmp_path / "m"
+    member.mkdir()
+    for name in ("model.pt", "best.pt", "optimizer.pt"):
+        (member / name).write_bytes(name.encode())
+    spec = {"id": "t", "dir": str(member), "parent_model": "x", "steps": 1, "seed": 1,
+            "genome": evolve.asdict(evolve.Genome()), "lineage": []}
+    evolve.train = lambda *a, **k: None  # type: ignore[attr-defined]
+    import train_ppo
+
+    orig = train_ppo.train
+    train_ppo.train = lambda args: None
+    try:
+        res = evolve.train_member(spec)
+    finally:
+        train_ppo.train = orig
+    assert res["ok"]
+    assert (member / "model.pt").read_bytes() == b"best.pt"
+    assert not (member / "optimizer.pt").exists()

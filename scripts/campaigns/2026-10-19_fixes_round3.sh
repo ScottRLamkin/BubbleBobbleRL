@@ -33,6 +33,8 @@ run S8_R5_cont_randstart "${COMMON[@]}" "${G[@]}" --seed 110 --init-model runs/R
 fail=0
 for i in {1..${#PIDS}}; do wait ${PIDS[$i]} || { echo "FAILED: ${NAMES[$i]} (see runs/${NAMES[$i]}.log)"; fail=1; }; done
 echo "arms done: $(date) (failures: $fail)"
+[[ $fail -eq 0 ]] || { echo "aborting before validation: a training arm failed"; exit 1; }
+setopt pipefail
 for r in S1_R5_cont2 S2_G103_cont S3_G102_cont S4_G_scratch120 S5_A_control_s103 S6_B_controlobs_s103 S7_R5_cont_still02 S8_R5_cont_randstart; do
   flags=(--control-obs --obs ego); [[ $r == S5* ]] && flags=(); [[ $r == S6* ]] && flags=(--control-obs)
   for ck in best final; do
@@ -44,4 +46,6 @@ for r in S1_R5_cont2 S2_G103_cont S3_G102_cont S4_G_scratch120 S5_A_control_s103
   done
   wait
 done
-echo "held-out scoring done: $(date)"
+n=$(ls runs/analysis/fixes-1018/S*_{best,final}_seed{777,92731}.json 2>/dev/null | wc -l)
+echo "held-out scoring done: $(date); $n of 32 per-level files present"
+[[ $n -eq 32 ]] || { echo "validation incomplete; see runs/analysis/fixes-1018/eval_errors_round3.log"; exit 1; }

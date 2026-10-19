@@ -432,6 +432,8 @@ def train(args) -> Path:
         opt_path = init.with_name("optimizer.pt")
         if init.name == "best.pt":  # the state saved at the same step as best.pt
             opt_path = init.with_name("best_optimizer.pt")
+            if not opt_path.exists():
+                print("no best_optimizer.pt next to best.pt: not pairing it with optimizer.pt; fresh Adam", flush=True)
         if opt_path.exists():
             try:
                 optimizer.load_state_dict(torch.load(opt_path, map_location=device))

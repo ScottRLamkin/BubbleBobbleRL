@@ -279,6 +279,8 @@ def train_member(spec: dict) -> dict:
         shutil.copy(member_dir / "best.pt", member_dir / "model.pt")
         if (member_dir / "best_optimizer.pt").exists():
             shutil.copy(member_dir / "best_optimizer.pt", member_dir / "optimizer.pt")
+        else:  # no matching state: drop the final-step one rather than pair it with other weights
+            (member_dir / "optimizer.pt").unlink(missing_ok=True)
     done.write_text(json.dumps({"seconds": seconds}))
     return {"id": spec["id"], "ok": True, "seconds": seconds}
 
