@@ -49,6 +49,7 @@ campaign's 18 core-hour cap. Spent so far: see the ledger at the end.
 | 34 | Walkers: after a hop or fall decision, the shoot test and jump check still run | `game._buster_walk` | Z80 `BustWalk`, `StonerWalk`, `HidegonsuWalk`: `DumbWalk`/`SmartWalk` then `StonerShoot1`/`StandardJumpCode`; the jump search stops below y 0 | `test_walker_jump_check_can_override_a_hop` on a synthetic ledge; campaign revision keeps the hop | Deviation (the port returned early) | **Not in snapshot** | Fixed in the live repo; not deployed |
 | 35 | Shooters fire when the player is in the original's vertical band | `game._shooter_aim` | Z80 `TestHAligned`: e.y - p.y + 15 in [0, 32), the player 16 px above to 15 px below | `test_shooter_alignment_band_is_16_above_to_15_below`; campaign revision has the band mirrored | Deviation of one pixel at each edge | **Not in snapshot** | Fixed in the live repo; not deployed |
 | 36 | Walker look-around, hop phases, jump-up and the standing test | `game._look_around`, `_buster_ai`, `standing` | Z80 `BustLookAround`, `BustJump*`, `BustJumpUp`, `CheckBelow` | Read side by side | Clean | In snapshot | — |
+| 37 | Shooter aim and shot timing | `SHOOTER_TIMING`, `game._shooter_shoot` | Z80 `StonerShoot1`/`StonerShoot` (aim 11, 16-frame shot, fires at 8), `HidegonsuShoot1`/`HidegonsuShoot` (17, 8, 4) | Read side by side | Clean | In snapshot | — |
 
 ## Decision note: the bubble-contact mismatch and what the campaign can answer
 
