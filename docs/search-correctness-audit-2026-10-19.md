@@ -52,6 +52,7 @@ campaign's 18 core-hour cap. Spent so far: see the ledger at the end.
 | 37 | Shooter aim and shot timing | `SHOOTER_TIMING`, `game._shooter_shoot` | Z80 `StonerShoot1`/`StonerShoot` (aim 11, 16-frame shot, fires at 8), `HidegonsuShoot1`/`HidegonsuShoot` (17, 8, 4) | Read side by side | Clean | In snapshot | — |
 | 38 | An angry Invader moves before and after the capture check | `game._invader_step` | Z80 `HandleInvader`: an angry invader runs `InvaderPissed` before `MonsterHitHazard` and again after it | `test_angry_invader_moves_before_the_capture_check`; the campaign revision captures a frame later | Deviation of one frame in capture timing for angry invaders; laser timer and walk match | **Not in snapshot** | Fixed in the live repo; not deployed |
 | 39 | Banebou lands mid-hop and falls in the frame a hop ends | `game._banebou_ai` | Z80 `HandleBanebou`: `BanebouFall` from the down-forward phase, after `BanebouJumpDone` and after `BanebouFall3` | `test_banebou_lands_mid_hop_and_falls_in_the_frame_a_hop_ends`; the campaign revision continues the hop on the ground and falls a frame late | Deviation | **Not in snapshot** | Fixed in the live repo; not deployed |
+| 40 | Hullaballoon turns at its own probe points | `game._hulla_ai`, `_enemy_forward` | Z80 `HullaMoveForward`: x+6 / x+1 (Buster and Beluga: x+8 / x-1). Up/down probes, inside-wall nudge and the extra move every 4th frame already matched | `test_hullaballoon_turns_at_its_own_probe_points` | Deviation of 2 px on each side | **Not in snapshot** | Fixed in the live repo; not deployed |
 
 ## Decision note: the bubble-contact mismatch and what the campaign can answer
 
@@ -142,5 +143,5 @@ if runner PID 33901 exits.
 | Real preflight | 5.4 | Measured |
 | Pre-launch dry run, including interrupted attempts | about 508 | Mixed: 447.5 measured for completed attempts and 5.4 for the dry preflight; about 55 estimated for the interrupted attempts from their loop times plus startup |
 | Validator and runner overhead, production | about 77 forecast (2.2 per training job x 35) | Measured 6.5 s over the first three production jobs; outside reservations, so added here. Forecast, not a 60 s worst-case reservation |
-| This audit's test execution | about 55 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
+| This audit's test execution | about 57 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
 | Total | about 64,322 of 64,800 (about 478 s reserve) | Reservations + preflight + dry run + forecast overhead + this audit |
