@@ -199,3 +199,106 @@ def test_argv_drift_from_the_manifest_is_reported(tmp_path):
     argv[argv.index("--lr") + 1] = "0.0005"
     p.write_text(json.dumps(argv))
     assert any("screen/ff02" in x and "lr" in x for x in _problems(root))
+
+
+class _Captured(Exception):
+    pass
+
+
+def test_manifest_reward_switches_reach_every_training_env(tmp_path, monkeypatch):
+    """The campaign's fixed parameters, parsed by the trainer, must arrive in
+    each training env unchanged (make_env is called positionally with 23
+    arguments, which is easy to misorder). Expected values come from the
+    manifest, not from the trainer."""
+    import train_ppo
+
+    fixed = MANIFEST["fixed_parameters"]
+    cfg = next(c for c in MANIFEST["configurations"] if c["id"] == "anchor_G")
+    seen = {}
+
+    def capture(fns):
+        envs = [f() for f in fns]
+        seen["n"] = len(envs)
+        seen["envs"] = [e.unwrapped for e in envs]
+        raise _Captured
+
+    monkeypatch.setattr(train_ppo.gym.vector, "SyncVectorEnv", capture)
+    with pytest.raises(_Captured):
+        train_ppo.train(parse_args(_argv(cfg, 4100, 15, tmp_path)[1:]))
+    assert seen["n"] == fixed["num_envs"]
+    for e in seen["envs"]:
+        assert e.obs_type == fixed["obs"] and e.control_obs is fixed["control_obs"]
+        assert e.max_episode_frames == fixed["max_episode_frames"] and e.frame_skip == fixed["frame_skip"]
+        assert e.game.lives == fixed["lives"] and e.nearest_first is fixed["nearest_first"]
+        assert (e.time_penalty, e.stationary_penalty, e.stationary_window, e.stationary_band) == (
+            fixed["time_penalty"], fixed["stationary_penalty"], fixed["stationary_window"], fixed["stationary_band"])
+        assert (e.death_penalty, e.timeout_penalty, e.clear_bonus, e.kill_bonus, e.capture_bonus) == (
+            fixed["death_penalty"], fixed["timeout_penalty"], fixed["clear_bonus"], fixed["kill_bonus"],
+            fixed["capture_bonus"])
+        assert e.score_reward is (not fixed["no_score_reward"]) and e.reward_pops is (not fixed["no_pop_reward"])
+        assert e.explore_bonus == fixed["explore_bonus"] and e.random_start is fixed["random_start"]
+        assert e.level_pool == list(range(1, 100)) and e.grace_frames == 0
+
+
+def test_manifest_reward_components_have_their_intended_size():
+    """One step under the campaign's reward settings: the time penalty and the
+    timeout penalty on a one-step clock; the death penalty on contact; no score
+    reward from a pop."""
+    from bubblebobblerl import BubbleBobbleEnv
+
+    f = MANIFEST["fixed_parameters"]
+    kw = dict(obs_type="ego", control_obs=True, time_penalty=f["time_penalty"], death_penalty=f["death_penalty"],
+              timeout_penalty=f["timeout_penalty"], clear_bonus=f["clear_bonus"], kill_bonus=f["kill_bonus"],
+              capture_bonus=f["capture_bonus"], score_reward=False, stationary_penalty=f["stationary_penalty"],
+              stationary_window=f["stationary_window"], stationary_band=f["stationary_band"])
+    env = BubbleBobbleEnv(max_episode_frames=4, **kw)  # one agent step
+    env.reset(seed=1, options={"level": 1})
+    env.game.enemies, env.game.grace_left = [], 10**9
+    _, r, term, trunc, info = env.step(0)
+    assert trunc and not term and r == pytest.approx(-f["time_penalty"] - f["timeout_penalty"])
+    env = BubbleBobbleEnv(max_episode_frames=3600, **kw)
+    env.reset(seed=1, options={"level": 1})
+    env.game.player.kill_pending = True
+    for _ in range(40):  # death animation, then game over with one life
+        _, r, term, trunc, info = env.step(0)
+        if info["r_death"]:
+            assert info["r_death"] == -f["death_penalty"] and info["r_score"] == 0.0
+            break
+    else:
+        raise AssertionError("no death reward")
+
+
+def test_training_and_evaluation_envs_share_control_and_horizon(tmp_path, monkeypatch):
+    """The standard test under the manifest's evaluation block must build envs
+    with the same observation, control state, frame skip, clock, lives, grace
+    and start rule as the campaign's training envs."""
+    import evaluate as ev_mod
+    import train_ppo
+
+    cfg = next(c for c in MANIFEST["configurations"] if c["id"] == "anchor_G")
+    train_env = {}
+
+    def capture(fns):
+        train_env["e"] = fns[0]().unwrapped
+        raise _Captured
+
+    monkeypatch.setattr(train_ppo.gym.vector, "SyncVectorEnv", capture)
+    with pytest.raises(_Captured):
+        train_ppo.train(parse_args(_argv(cfg, 4100, 15, tmp_path)[1:]))
+    made = []
+    real_make = ev_mod.gym.make
+
+    def make(*a, **k):
+        made.append(real_make(*a, **k).unwrapped)
+        raise _Captured
+
+    monkeypatch.setattr(ev_mod.gym, "make", make)
+    e = MANIFEST["evaluation"]
+    with pytest.raises(_Captured):
+        ev_mod.evaluate("unused.pt", [1], e["episodes_per_level"], e["max_steps"], 1, e["obs"], e["frame_skip"],
+                        False, e["control_obs"])
+    t, v = train_env["e"], made[0]
+    keys = ("obs_type", "control_obs", "frame_skip", "max_episode_frames", "nearest_first", "grace_frames",
+            "random_start")
+    assert {k: getattr(t, k) for k in keys} == {k: getattr(v, k) for k in keys}
+    assert t.game.lives == v.game.lives == 1
