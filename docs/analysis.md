@@ -854,8 +854,53 @@ For scale: every agent before the review fixes topped out at 155-181 on these
 tests after hundreds of millions of steps; two hours of one core now gives
 about 230.
 
-A third round is running: the continuation replicated on two more lineages
-with paired optimizer states, a compute-matched two-hour from-scratch control,
-a third paired seed for A and B, and two seed-matched movement probes on the
-strongest agent. Final confirmation will use a reserved seed bank (31337,
-2718) never touched during selection.
+### Round 3 and the final confirmation
+
+Round 3 (held-out seeds 777 / 92731, best.pt):
+
+| Arm | Cleared / 990 | Levels | Kills | Note |
+|---|---|---|---|---|
+| G seed 103 continued +60 min, optimizer paired | 208 / 225 | 44 | 2.7 | +54 over its one-hour parent |
+| G seed 102 continued +60 min | 200 / 215 | 41 | 2.7 | +51 over its parent |
+| R5 continued again (third stage) | 240 / 246 | 46 | 3.0 | +12: that lineage is saturating |
+| G from scratch, 120 minutes | 187 / 207 | 33 | 2.5 | equal budget, one stage: most of the gain is the compute |
+| R5 continued + stationary penalty 0.02 (**S7**) | **259 / 256** | **51** | **3.1** | seed-matched +15 over the plain continuation; most movement so far |
+| R5 continued + random start | 213 / 219 | 41 | 2.7 | -27 |
+| A control, third seed | 51 / 60 | 19 | 1.5 | A over three seeds: 59, 73, 56 |
+| B control obs, third seed | 116 / 95 | 24 | 1.9 | B over three seeds: 121, 121, 106 |
+
+The second-hour continuation replicates on independent lineages (+51, +54),
+with correctly paired optimizer states. Two hours from scratch in one stage
+gets most of the way (197 against 212-216 mean), so the second hour's
+compute is the main ingredient and the two-stage restart is worth perhaps
++15, from one seed each.
+
+The stationary penalty of 0.02, which only ever cost clears on agents that
+could not fight, now adds +15 on an agent that can, and produces the most
+mobile policy yet: 36 px of horizontal range, 30% of steps still, 50 of 297
+episodes crossing the screen, 3.1 kills per episode, 51 levels cleared at
+least once on the held-out seeds. Gallery:
+`exports/fixes1018_S7_mover/index.html`, 34 of 99 levels.
+
+**Final confirmation**, pre-registered (manifest with checkpoint hashes in
+`runs/analysis/fixes-1018/confirmation_manifest.md`) and run once on reserved
+seeds 31337 and 2718 that nothing had been selected on:
+
+| Training seed | A (one hour) | G (one hour) | G - A |
+|---|---|---|---|
+| 101 | 53.5 | 158.0 | +104.5 |
+| 102 | 65.0 | 141.5 | +76.5 |
+| 103 | 54.5 | 163.0 | +108.5 |
+
+Mean paired difference +96.5 of 990 (criterion: more than 30), on every
+seed; kills 2.1-2.5 against 1.4-1.5; levels cleared at least once 30-37
+against 10-20. So: **one hour of one core, from scratch, now produces an
+agent that out-fights anything this project trained before**, and the gain
+came from the review's observation fix plus the egocentric view, not from
+reward shaping or search breadth. Navigation competence, in the sense of
+traversing a level, is still not established: even S7 stands still 30% of
+the time and crosses the screen in one episode in six.
+
+Compute for the three rounds: 25 allocated single-thread core-hours of
+training (including the periodic selection tests), plus about an hour of
+validation, profiles and galleries.

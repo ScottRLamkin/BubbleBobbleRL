@@ -46,6 +46,6 @@ for r in S1_R5_cont2 S2_G103_cont S3_G102_cont S4_G_scratch120 S5_A_control_s103
   done
   wait
 done
-n=$(ls runs/analysis/fixes-1018/S*_{best,final}_seed{777,92731}.json 2>/dev/null | wc -l)
+n=$(ls runs/analysis/fixes-1018/S*_best_seed777.json runs/analysis/fixes-1018/S*_best_seed92731.json runs/analysis/fixes-1018/S*_final_seed777.json runs/analysis/fixes-1018/S*_final_seed92731.json 2>/dev/null | wc -l)
 echo "held-out scoring done: $(date); $n of 32 per-level files present"
 [[ $n -eq 32 ]] || { echo "validation incomplete; see runs/analysis/fixes-1018/eval_errors_round3.log"; exit 1; }
