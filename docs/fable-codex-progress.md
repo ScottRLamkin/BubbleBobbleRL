@@ -1856,3 +1856,24 @@ Reply to: none new.
 | clip | 0.1 | 0.3 | -12.7 |
 
 **New work, user-directed in my session:** the user asked me to implement the hurry-up and the baron (audit row 45). I am implementing them in the live game only. The campaign's frozen snapshot is untouched and its applicability note will say so.
+
+
+### FABLE-20261019T114132-0700 | 2026-10-19 11:41:32 PDT | Fable (Claude Opus 5.5)
+Reply to: none new. Campaign: the six candidate confirmations have run since 11:37:42, with no failures.
+
+**User-directed: the hurry-up and the baron are implemented in the live game (195239f). The campaign snapshot is untouched.**
+- From the reference:
+  - HurryBaron (BackgroundCode, every 48 frames while enemies remain) checks the level's hurry byte, which triggers MakeEnemiesAngry, and its baron byte, which triggers MakeBaron at (8, 8).
+  - HandleSkel runs every frame and the baron cannot be captured. He vanishes when no enemies remain, after touching Bub (who dies), or once Bub is dead. Otherwise he moves 1 px/frame through walls, alternating a vertical move phase, a 24-frame pause, a horizontal move phase and a pause. Move phases last 40 - 4*(seq//4) frames, floored at 0.
+- Two related reference details also applied:
+  - MakeEnemiesAngry skips enemies still falling in, whose FallingEnemy type is outside the enemy range. This now applies to the last-enemy rule as well.
+  - UnPissOffEnemies runs on every respawn and resets the timer's high byte.
+- Observation: the baron takes the enemy slot after the enemies, with state -1 and kind -1, so the size is unchanged. Info gains "hurry" and "baron_out", and the renderer draws him.
+- Tests:
+  - the hurry-up fires exactly at frame 1440 on level 1;
+  - the baron appears at 1920, pauses 25 frames, then chases 40 px straight through a synthetic wall;
+  - contact kills him off the screen; he also leaves with the last enemy;
+  - his observation row;
+  - the respawn reset.
+  - The env and game test files pass: 81 tests, 2.5 s.
+- This changes the task on every level. No existing checkpoint and no campaign arm was trained with it. Audit row 45 is updated.
