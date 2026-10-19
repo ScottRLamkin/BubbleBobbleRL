@@ -761,3 +761,68 @@ generation, 8 generations, 8M steps each, in MLflow experiment
 `evolve-wideA`. Round B (next): from-scratch runs over the architecture,
 observation and training-distribution families, which cannot be reached by
 fine-tuning existing weights.
+
+## The October 18 review fixes, and what they were worth (2026-10-18/19)
+
+An independent review (`docs/training-review-2026-10-18.md`) found three code
+defects and three design problems. The code defects were repaired:
+
+1. **Parents lost their configuration.** `evolve.py` had been giving every
+   imported base default hyperparameters (lr 2.5e-4 instead of the 5e-5 the
+   best base was trained with), so "unmutated continuations" were nothing of
+   the kind. Now every run writes `config.json` and its optimizer state; a
+   continuation inherits both.
+2. **The policy could not see its own buttons.** Jump and shoot act on a fresh
+   press, but the observation omitted whether the button was already held, so
+   identical pictures led to a shot or to nothing. `--control-obs` appends the
+   previous jump/shoot state, the full jump counter and the time left.
+3. **Training and test horizons disagreed** (four-minute training episodes,
+   one-minute test). The trainer's default cap is now the test's one minute,
+   with timeout as a genuine outcome; `--bootstrap-truncation` exists for
+   longer caps.
+
+Then a bounded experiment: eight from-scratch arms, **one core and 60 minutes
+each including evaluation** (24-32M steps), training seed 101, each arm one
+change on the previous. Scored on held-out seeds never used for selection
+(99 levels x 10 episodes, seeds 777 and 92731):
+
+| Arm | Change | Held-out cleared / 990 (best.pt, two seeds) | Kills / episode | x range | Still |
+|---|---|---|---|---|---|
+| A | control: the recipe used so far | 55 / 63 | 1.5 | 5 px | 90% |
+| B | + control state observed | **114 / 129** | 2.0 | 3 px | 94% |
+| C | + one-minute training cap | 120 / 126 | 2.0 | 4 px | 94% |
+| D | + explicit kill/clear objective (no score reward, kill bonus 2) | 120 / 109 | 2.0 | 12 px | 60% |
+| E | D + entropy 0.03 | 68 / 74 | 1.7 | | |
+| F | D + random start | 77 / 73 | 1.3 | 48 px | 75% |
+| G | D + egocentric observation | **164 / 159** | **2.5** | 13 px | 54% |
+| H | D on levels 1-10 only, scored on 1-99 | 87 / 83 | 1.4 | | |
+
+Each arm is one training seed (seed-to-seed spread of a fixed recipe was
+48-84 of 990 earlier), so differences under about 30 are not claims.
+
+- **Seeing the buttons is the largest single effect in the project**: B
+  doubles the control's held-out clears (about 121 against 59) and raises
+  kills from 1.5 to 2.0 per episode, within 10M steps. Two days of reward
+  shaping and 1.5 billion steps of search had not found this; it was an
+  observation bug.
+- The horizon fix (C) and the kill/clear objective (D) are level with B:
+  harmless, and they make training consistent and the reward interpretable.
+  D moves more (12 px, 60% still) without clearing more.
+- More entropy (E) and random starts (F) cost clears; F is the only arm that
+  genuinely crosses the screen (132 of 300 episodes) and it dies for it.
+- **Arm G, egocentric view on top of D, reaches 159-164 held-out after 22M
+  steps, about 45 minutes of one core**, with 37 levels cleared at least once
+  and 2.5 kills per episode. The previous best model (`full1013/g10m20`, about
+  280M steps) scored 155 and 29 levels on the same held-out seed. G is also
+  less stationary than any earlier agent (54% of steps still against 88-94%),
+  though it still mostly fights from one spot. Gallery:
+  `exports/fixes1018_G_ego/index.html`.
+- Arm H (10 levels) transfers partly: 83-108 on all 99 levels.
+
+The one-hour competence target, defined as "from scratch, one core, sixty
+minutes, more held-out clears than the previous best model", is met by arm G.
+"Useful movement" is not yet met. A replication round (second and third
+training seeds for A, B and G; G continued with its optimizer resumed; G with
+nearest-first slots, width 512 and hard-level sampling) is running as this
+is written; its results go in the shared log `docs/fable-codex-progress.md`
+and here.
