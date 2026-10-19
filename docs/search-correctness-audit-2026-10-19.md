@@ -42,6 +42,7 @@ campaign's 18 core-hour cap. Spent so far: see the ledger at the end.
 | 27 | Floating bubbles push each other apart | `game._step_bubbles` | Z80 `BubbleHitBubble`: within 7 px in both axes and at least 4 px apart on an axis, flag a one-pixel move apart on it; `DoBubbleFlags` applies it next tick | `test_overlapping_bubbles_drift_apart_and_stacked_ones_stay`: 5 px apart becomes 7, 2 px apart stays stacked | Mechanic missing from the port, and not listed among its omissions | **Not in snapshot** | Fixed in the live repo `e717d9b`; not deployed |
 | 28 | Horizontal bubble moves probe the right tile | `game._step_bubbles` | Z80 `_MoveRight`/`_MoveLeft`: x+8 / x-1 at y+7 | Read: the port probed y+4 | Deviation | **Not in snapshot** | Fixed with row 27 |
 | 29 | A timed-out bubble pops at the next tick | `game._step_bubbles` | Z80 `HandleBubble`: counter at 0 sets bits 5 and 7; `DoBubbleFlags` pops next tick | `test_timed_out_bubble_pops_at_the_next_tick` | Deviation of one tick (4 frames) | **Not in snapshot** | Fixed with row 27 |
+| 30 | Bubbles float with the air current of their centre tile | `game._float_bubble` | Z80 `MoveBubble` → `GetAir` (tile at x+4, y+4): 2 left, 3 right, 4 down, otherwise up | Read side by side | Clean | In snapshot | — |
 
 ## Decision note: the bubble-contact mismatch and what the campaign can answer
 
