@@ -892,14 +892,18 @@ seeds 31337 and 2718 that nothing had been selected on:
 | 102 | 65.0 | 141.5 | +76.5 |
 | 103 | 54.5 | 163.0 | +108.5 |
 
-Paired differences +104.5, +76.5 and +108.5 of 990 (mean +96.5; criterion:
-each more than 30); kills 2.1-2.5 against 1.4-1.5; levels cleared at least
-once 30-37 against 10-20. So: **one hour of one core, from scratch, now produces an
-agent that out-fights anything this project trained before**, and the gain
-came from the review's observation fix plus the egocentric view, not from
-reward shaping or search breadth. Navigation competence, in the sense of
-traversing a level, is still not established: even S7 stands still 30% of
-the time and crosses the screen in one episode in six.
+The one-hour G recipe exceeded the one-hour A control by a mean of 96.5
+clears of 990 across three training seeds (paired gains +104.5, +76.5,
++108.5). The frozen criterion was a mean paired gain above 30 with all three
+differences reported; as it happened, each difference also exceeded 30.
+Kills were 2.1-2.5 per episode against 1.4-1.5; levels cleared at least once
+30-37 against 10-20. The observation-bundle and egocentric-view contrasts
+showed replicated improvements under the tested settings. G's clear rate is
+comparable to the older, heavily trained champion (155 / 164 on the
+validation seeds); navigation competence and the contribution of other
+design choices (reward, horizon, wider search) remain unresolved. Even S7
+stands still 30% of the time and crosses the screen in one profile episode
+in six.
 
 ### Round 4: the two questions the gate asked
 
@@ -965,5 +969,7 @@ navigation.
   four rounds (each run one core, 60-120 minutes, periodic standard tests
   included), plus about 1.5 hours of validation, profiles and galleries.
   Against the earlier 1.5 billion steps of reward shaping and search, the
-  whole night was about 1.2 billion steps and found the two things that
-  mattered, because the review pointed at the right defects.
+  whole night was about 1.2 billion steps, and the two changes with
+  replicated gains were the ones the review's defect list pointed at. That
+  does not show the earlier levers were irrelevant; they were not tested
+  against these fixes.
