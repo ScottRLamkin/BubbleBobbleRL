@@ -43,6 +43,8 @@ import sys
 from pathlib import Path
 
 LABELS = {"clear", "death", "timeout"}
+LEGACY_RENAMES = {"no_score_reward": ("score_reward", lambda v: not v),
+                  "no_pop_reward": ("pop_reward", lambda v: not v)}
 LEVEL_KEYS = {str(i) for i in range(1, 100)}
 TERMINAL = {"done", "failed", "not_run"}
 
@@ -174,6 +176,8 @@ def audit(root: Path, manifest: dict | None = None, parse_args=None) -> dict:
                 want = {**manifest["fixed_parameters"], **configs[j["config"]]["parameters"],
                         "seed": j["seed"], "wall_minutes": exp[j["phase"]]["minutes"], "run_dir": str(d)}
                 for k, v in want.items():
+                    if k not in a and k in LEGACY_RENAMES:  # a newer parser spells the switch positively
+                        k, v = LEGACY_RENAMES[k][0], LEGACY_RENAMES[k][1](v)
                     if k not in a:
                         bad(jid, f"argv has no parameter {k}")
                     elif a[k] != v and not (isinstance(v, float) and abs(a[k] - v) <= 1e-12 * abs(v)):

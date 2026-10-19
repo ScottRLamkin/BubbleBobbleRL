@@ -411,8 +411,9 @@ def test_continuation_records_the_parents_architecture_and_observation(tmp_path)
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
     from train_ppo import parse_args, train
 
-    common = ["--total-steps", "32", "--num-envs", "2", "--rollout-len", "16", "--eval-every", "0",
-              "--no-mlflow", "--no-tensorboard", "--quiet"]
+    base = str(Path(__file__).resolve().parents[1] / "configs" / "hparam-1019_anchor_G_screen.json")
+    common = ["--config", base, "--total-steps", "32", "--num-envs", "2", "--rollout-len", "16",
+              "--eval-every", "0", "--wall-minutes", "0", "--no-mlflow", "--no-tensorboard", "--quiet"]
     parent = tmp_path / "parent"
     train(parse_args(common + ["--obs", "ego", "--control-obs", "--act", "relu", "--hidden", "32",
                                "--run-dir", str(parent)]))
@@ -424,7 +425,7 @@ def test_continuation_records_the_parents_architecture_and_observation(tmp_path)
     c = json.loads((child / "arch.json").read_text())
     assert (c["act"], c["hidden"], c["obs"], c["control_obs"]) == ("relu", 32, "ego", True)
     with pytest.raises(ValueError, match="trained with observation"):
-        train(parse_args(common + ["--control-obs", "--init-model", str(parent / "model.pt"),
+        train(parse_args(common + ["--obs", "state", "--control-obs", "--init-model", str(parent / "model.pt"),
                                    "--run-dir", str(tmp_path / "bad")]))
 
 
@@ -530,8 +531,9 @@ def test_wall_limit_stops_between_updates_and_writes_a_summary(tmp_path):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
     from train_ppo import parse_args, train
 
-    train(parse_args(["--total-steps", "100000", "--num-envs", "2", "--rollout-len", "16", "--eval-every", "0",
-                      "--no-mlflow", "--no-tensorboard", "--quiet", "--wall-minutes", "0.0001",
+    base = str(Path(__file__).resolve().parents[1] / "configs" / "hparam-1019_anchor_G_screen.json")
+    train(parse_args(["--config", base, "--total-steps", "100000", "--num-envs", "2", "--rollout-len", "16",
+                      "--eval-every", "0", "--no-mlflow", "--no-tensorboard", "--quiet", "--wall-minutes", "0.0001",
                       "--run-dir", str(tmp_path)]))
     s = json.loads((tmp_path / "train_summary.json").read_text())
     assert (s["updates"], s["steps"]) == (1, 32) and (tmp_path / "model.pt").exists()
@@ -601,9 +603,11 @@ def test_trainer_rollout_storage_is_aligned_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setattr(train_ppo, "gae_with_autoreset", cap_gae)
     monkeypatch.setattr(train_ppo.Agent, "action_value", cap_av)
     T, N = 32, 2
+    base = str(Path(__file__).resolve().parents[1] / "configs" / "hparam-1019_anchor_G_screen.json")
     train_ppo.train(train_ppo.parse_args([
-        "--levels", "1", "--control-obs", "--max-episode-frames", "40", "--num-envs", str(N),
-        "--rollout-len", str(T), "--total-steps", str(2 * T * N), "--eval-every", "0", "--grace-frames", "10000",
+        "--config", base, "--obs", "state", "--levels", "1", "--control-obs", "--max-episode-frames", "40",
+        "--num-envs", str(N), "--rollout-len", str(T), "--total-steps", str(2 * T * N), "--eval-every", "0",
+        "--grace-frames", "10000", "--wall-minutes", "0", "--seed", "1",
         "--no-mlflow", "--no-tensorboard", "--quiet", "--run-dir", str(tmp_path)]))
     assert len(calls) == 2 and len(obs_seen) == 2 * T
     time_left = torch.stack(obs_seen)  # [2T, N]
@@ -695,9 +699,11 @@ def test_trainer_rollout_storage_is_aligned_for_death_terminations(tmp_path, mon
     monkeypatch.setattr(train_ppo, "gae_with_autoreset", cap_gae)
     monkeypatch.setattr(train_ppo.Agent, "action_value", cap_av)
     T, N = 256, 2
+    base = str(Path(__file__).resolve().parents[1] / "configs" / "hparam-1019_anchor_G_screen.json")
     train_ppo.train(train_ppo.parse_args([
-        "--levels", "1", "--control-obs", "--max-episode-frames", "400", "--num-envs", str(N),
-        "--rollout-len", str(T), "--total-steps", str(2 * T * N), "--eval-every", "0", "--seed", "3",
+        "--config", base, "--obs", "state", "--levels", "1", "--control-obs", "--max-episode-frames", "400",
+        "--num-envs", str(N), "--rollout-len", str(T), "--total-steps", str(2 * T * N), "--eval-every", "0",
+        "--seed", "3", "--grace-frames", "0", "--wall-minutes", "0",
         "--no-mlflow", "--no-tensorboard", "--quiet", "--run-dir", str(tmp_path)]))
     o = torch.stack(obs_seen)  # [2T, N, 2]
     rew = torch.cat([c[0] for c in calls])
@@ -1044,3 +1050,49 @@ def test_respawn_calms_enemies_and_resets_the_timer_high_byte():
             break
     assert g.lives == 2 and not any(e.angry for e in g.enemies if not e.falling_in)
     assert g.timer < 256 + 80
+
+
+
+def test_training_refuses_an_incomplete_experiment(tmp_path):
+    """No defaults: a run must state every hyperparameter (from a config file
+    and/or flags); a missing or unknown one stops it before anything is built."""
+    import json
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from train_ppo import parse_args
+
+    base = Path(__file__).resolve().parents[1] / "configs" / "hparam-1019_anchor_G_screen.json"
+    cfg = json.loads(base.read_text())
+    del cfg["death_penalty"]
+    partial = tmp_path / "partial.json"
+    partial.write_text(json.dumps(cfg))
+    with pytest.raises(SystemExit):
+        parse_args(["--config", str(partial)])
+    with pytest.raises(SystemExit):
+        parse_args(["--lr", "0.001"])  # flags alone, nothing else
+    a = parse_args(["--config", str(partial), "--death-penalty", "7"])  # the flag completes it
+    assert a.death_penalty == 7.0 and a.score_reward is False
+    cfg["death_penalty"], cfg["surprise"] = 5.0, 1
+    partial.write_text(json.dumps(cfg))
+    with pytest.raises(SystemExit):
+        parse_args(["--config", str(partial)])
+
+
+def test_training_envs_take_every_env_argument_from_the_experiment():
+    """env_kwargs must cover BubbleBobbleEnv's whole constructor, so no env
+    default can leak into an experiment."""
+    import inspect
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from train_ppo import env_kwargs, parse_args
+
+    base = str(Path(__file__).resolve().parents[1] / "configs" / "hparam-1019_anchor_G_screen.json")
+    kw = env_kwargs(parse_args(["--config", base]), [1, 2])
+    params = set(inspect.signature(BubbleBobbleEnv.__init__).parameters) - {"self"}
+    assert set(kw) == params
+    env = BubbleBobbleEnv(**kw)
+    assert (env.score_reward, env.kill_bonus, env.death_penalty, env.max_episode_frames) == (False, 2.0, 5.0, 3600)

@@ -171,7 +171,7 @@ def run_one(env, agent, policy, gen, rng, sit, max_steps, reach, facing, present
     shot_events = instrument_shots(g)
     g.alive_enemies = 1  # keep the level "alive" either way
     env._xs = []
-    env._visited = {g.player.x // 8}
+    env._visited = {g.player.x // env.explore_band}
     o = env._obs()
     first_dir = 0
     arrived_at = None

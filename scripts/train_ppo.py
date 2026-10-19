@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import shutil
+import sys
 import time
 from pathlib import Path
 
@@ -39,89 +40,62 @@ except ImportError:
 
 
 def parse_args(argv: list[str] | None = None):
-    p = argparse.ArgumentParser()
-    p.add_argument("--level", type=int, default=1)
-    p.add_argument("--levels", default=None, help='train on a pool, e.g. "1-100" or "1,5,20-30"')
-    p.add_argument("--time-penalty", type=float, default=0.0, help="reward lost per step")
-    p.add_argument("--stationary-penalty", type=float, default=0.0,
-                   help="reward lost per step while x stays within --stationary-band for --stationary-window steps")
-    p.add_argument("--stationary-window", type=int, default=30, help="agent steps (15 per second)")
-    p.add_argument("--stationary-band", type=int, default=8, help="pixels")
-    p.add_argument("--no-pop-reward", action="store_true", help="no reward for bare bubble pops")
-    p.add_argument("--clear-bonus", type=float, default=10.0)
-    p.add_argument("--death-penalty", type=float, default=1.0)
-    p.add_argument("--timeout-penalty", type=float, default=0.0, help="charged when the clock runs out")
-    p.add_argument("--kill-bonus", type=float, default=0.0, help="reward per enemy killed")
-    p.add_argument("--no-score-reward", action="store_true", help="drop the in-game score from the reward")
-    p.add_argument("--control-obs", action="store_true",
-                   help="observe previous jump/shoot buttons, full jump counter and time left")
-    p.add_argument("--max-episode-frames", type=int, default=3600,
-                   help="episode cap in game frames (3600 = the standard test's one minute)")
-    p.add_argument("--bootstrap-truncation", action="store_true",
-                   help="treat the time limit as a cut-off, not an outcome: bootstrap V at truncation")
-    p.add_argument("--max-minutes", type=float, default=0.0, help="stop after this much wall time")
-    p.add_argument("--wall-minutes", type=float, default=0.0,
-                   help="stop before starting an update projected (from the slowest update so far) "
-                        "to end past this much wall time, so the run never overshoots its budget")
-    p.add_argument("--wall-start", type=float, default=0.0,
-                   help="epoch seconds the --wall-minutes budget counts from (default: training start); "
-                        "a launcher passes its launch time so process startup is inside the budget")
-    p.add_argument("--save-every", type=int, default=0,
-                   help="also keep a numbered snapshot (ckpt_<steps>.pt) every N steps, for trajectory diagnostics")
-    p.add_argument("--futility-steps", type=int, default=0,
-                   help="stop when the best standard-test score has not improved for this many steps")
-    p.add_argument("--fresh-optimizer", action="store_true",
-                   help="with --init-model: do not load the optimizer state saved next to it")
-    p.add_argument("--capture-bonus", type=float, default=0.1)
-    p.add_argument("--explore-bonus", type=float, default=0.0,
-                   help="reward per new 8-px column of x reached in an episode")
-    p.add_argument("--random-start", action="store_true", help="random player start position")
-    p.add_argument("--curriculum", type=float, default=0.0,
-                   help="grow the level pool from level 1 to all of --levels over this fraction of training")
-    p.add_argument("--obs", choices=["state", "screen", "ego"], default="state")
-    p.add_argument("--frame-skip", type=int, default=4, help="game frames per agent step")
-    p.add_argument("--nearest-first", action="store_true",
-                   help="order observation slots by distance from the player")
-    p.add_argument("--grace-frames", type=int, default=0,
-                   help="enemies wait this many frames before entering (training only)")
-    p.add_argument("--grace-anneal", type=float, default=0.0,
-                   help="shrink --grace-frames linearly to 0 over this fraction of training")
-    p.add_argument("--lives", type=int, default=1, help="lives per training episode")
-    p.add_argument("--arch", choices=["mlp", "conv"], default="mlp", help="state-obs encoder")
-    p.add_argument("--hidden", type=int, default=256, help="MLP width")
-    p.add_argument("--layers", type=int, default=2, help="MLP depth")
-    p.add_argument("--act", choices=["tanh", "relu"], default="tanh", help="MLP activation")
-    p.add_argument("--level-sampling", choices=["uniform", "hard"], default="uniform",
-                   help="hard: draw levels in proportion to their recent failure rate")
-    p.add_argument("--total-steps", type=int, default=2_000_000)
-    p.add_argument("--num-envs", type=int, default=16)
-    p.add_argument("--rollout-len", type=int, default=128)
-    p.add_argument("--lr", type=float, default=2.5e-4)
-    p.add_argument("--anneal-lr", action="store_true", help="decay lr linearly to 0")
-    p.add_argument("--gamma", type=float, default=0.99)
-    p.add_argument("--gae-lambda", type=float, default=0.95)
-    p.add_argument("--clip", type=float, default=0.1)
-    p.add_argument("--epochs", type=int, default=4)
-    p.add_argument("--minibatches", type=int, default=4)
-    p.add_argument("--ent-coef", type=float, default=0.01)
-    p.add_argument("--vf-coef", type=float, default=0.5)
-    p.add_argument("--seed", type=int, default=1)
+    """Parse a training experiment. Every hyperparameter in hyperparams.SCHEMA
+    must be given, by one or more --config JSON files (merged in order) and/or
+    command-line flags (which override them); there are no defaults. Booleans
+    take true/false (a bare flag means true). Missing or unknown keys stop the
+    run before anything is built."""
+    from hyperparams import NAMES, RUN_CONTROLS, SCHEMA, validate
+
+    p = argparse.ArgumentParser(description=parse_args.__doc__)
+    p.add_argument("--config", action="append", default=[], metavar="JSON",
+                   help="experiment configuration(s); later files and explicit flags override earlier values")
+    for name, t, group, meaning in SCHEMA:
+        flag = "--" + name.replace("_", "-")
+        if t == "bool":
+            p.add_argument(flag, dest=name, nargs="?", const="true", default=None, metavar="true|false",
+                           help=f"[{group}] {meaning}")
+        else:
+            p.add_argument(flag, dest=name, default=None, help=f"[{group}] {meaning}")
+    # Pre-2026-10-19 spellings of two reward switches.
+    p.add_argument("--no-score-reward", dest="score_reward", action="store_const", const="false",
+                   help="same as --score-reward false")
+    p.add_argument("--no-pop-reward", dest="pop_reward", action="store_const", const="false",
+                   help="same as --pop-reward false")
+    # Run controls: where results go and how they are logged (not hyperparameters).
     p.add_argument("--run-name", default=None)
-    p.add_argument("--run-dir", default=None, help="output directory (default runs/<run-name>)")
-    p.add_argument("--init-model", default=None, help="model.pt to fine-tune from")
-    p.add_argument("--no-tensorboard", action="store_true")
-    p.add_argument("--no-mlflow", action="store_true")
+    p.add_argument("--run-dir", default=None, help="output directory (otherwise runs/<run-name>)")
     p.add_argument("--experiment", default="bubblebobble", help="MLflow experiment name")
     p.add_argument("--mlflow-tag", action="append", default=[], metavar="KEY=VALUE",
                    help="tag the MLflow run (repeatable)")
     p.add_argument("--log-every", type=int, default=5, help="log metrics every N PPO updates")
-    p.add_argument("--eval-every", type=int, default=2_000_000,
-                   help="agent steps between quick evaluations over all levels (0 = off)")
-    p.add_argument("--eval-episodes", type=int, default=10, help="episodes per level in the periodic standard test")
     p.add_argument("--quiet", action="store_true", help="one progress line per ~1M steps")
-    p.add_argument("--play", default=None, help="path to a model.pt to watch")
-    p.add_argument("--greedy", action="store_true", help="with --play: most likely action, no sampling")
-    return p.parse_args(argv)
+    p.add_argument("--no-tensorboard", action="store_true")
+    p.add_argument("--no-mlflow", action="store_true")
+    p.add_argument("--wall-start", type=float, default=0.0,
+                   help="epoch seconds the wall_minutes budget counts from (0: training start)")
+    a = p.parse_args(argv)
+    cfg: dict = {}
+    for path in a.config:
+        loaded = json.loads(Path(path).read_text())
+        stray = [k for k in loaded if k not in NAMES and k not in RUN_CONTROLS]
+        if stray:
+            p.error(f"{path}: unknown keys {stray}")
+        cfg.update({k: v for k, v in loaded.items() if k in NAMES})
+    for name in NAMES:
+        v = getattr(a, name)
+        if v is not None:
+            cfg[name] = None if (name == "init_model" and v in ("null", "none", "")) else v
+    try:
+        cfg = validate(cfg)
+    except ValueError as e:
+        p.error(str(e))
+    ns = argparse.Namespace(**cfg)
+    for k in ("run_name", "run_dir", "experiment", "mlflow_tag", "log_every", "quiet", "no_tensorboard",
+              "no_mlflow", "wall_start"):
+        setattr(ns, k, getattr(a, k))
+    ns.config_files = list(a.config)
+    return ns
 
 
 MLFLOW_URI = "sqlite:///mlflow.db"
@@ -183,37 +157,26 @@ def explained_variance(pred, target, real) -> float:
     return float("nan") if var_y == 0 else float(1 - np.var(y_true - y_pred) / var_y)
 
 
-def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_penalty, seed,
-             random_start=False, stationary_penalty=0.0, stationary_window=30, stationary_band=8,
-             capture_bonus=0.1, explore_bonus=0.0, frame_skip=4, lives=1, nearest_first=False,
-             grace_frames=0, timeout_penalty=0.0, control_obs=False, kill_bonus=0.0,
-             score_reward=True, max_episode_frames=3600):
+def env_kwargs(args, levels: list[int]) -> dict:
+    """Every BubbleBobbleEnv constructor argument of a training env, from the
+    experiment; nothing is left to the env's own defaults (a test checks that
+    this covers the whole signature)."""
+    return dict(
+        level=levels[0], levels=levels, obs_type=args.obs, frame_skip=args.frame_skip, lives=args.lives,
+        auto_advance=False, max_episode_frames=args.max_episode_frames,
+        death_penalty=args.death_penalty, clear_bonus=args.clear_bonus, capture_bonus=args.capture_bonus,
+        time_penalty=args.time_penalty, stationary_penalty=args.stationary_penalty,
+        stationary_window=args.stationary_window, stationary_band=args.stationary_band,
+        explore_bonus=args.explore_bonus, explore_band=args.explore_band, nearest_first=args.nearest_first,
+        grace_frames=args.grace_frames, timeout_penalty=args.timeout_penalty, control_obs=args.control_obs,
+        kill_bonus=args.kill_bonus, score_reward=args.score_reward, score_scale=args.score_scale,
+        reward_pops=args.pop_reward, random_start=args.random_start, render_mode=None,
+    )
+
+
+def make_env(kwargs: dict, seed: int):
     def thunk():
-        env = gym.make(
-            "BubbleBobble-v0",
-            level=level,
-            levels=levels,
-            obs_type=obs,
-            time_penalty=time_penalty,
-            reward_pops=reward_pops,
-            clear_bonus=clear_bonus,
-            death_penalty=death_penalty,
-            random_start=random_start,
-            stationary_penalty=stationary_penalty,
-            stationary_window=stationary_window,
-            stationary_band=stationary_band,
-            capture_bonus=capture_bonus,
-            explore_bonus=explore_bonus,
-            frame_skip=frame_skip,
-            lives=lives,
-            nearest_first=nearest_first,
-            grace_frames=grace_frames,
-            timeout_penalty=timeout_penalty,
-            control_obs=control_obs,
-            kill_bonus=kill_bonus,
-            score_reward=score_reward,
-            max_episode_frames=max_episode_frames,
-        )
+        env = gym.make("BubbleBobble-v0", **kwargs)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env.reset(seed=seed)
         return env
@@ -221,7 +184,7 @@ def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_p
     return thunk
 
 
-def layer_init(layer, std=np.sqrt(2), bias=0.0):
+def layer_init(layer, std, bias=0.0):
     nn.init.orthogonal_(layer.weight, std)
     nn.init.constant_(layer.bias, bias)
     return layer
@@ -235,26 +198,26 @@ class GridEncoder(nn.Module):
     agent needs to generalise across 100 layouts.
     """
 
-    def __init__(self, n_inputs: int):
+    def __init__(self, n_inputs: int, gain: float):
         super().__init__()
         from bubblebobblerl.levels import GRID_COLS, GRID_ROWS
 
         self.grid_slice = slice(8, 8 + GRID_ROWS * GRID_COLS)
         self.shape = (GRID_ROWS, GRID_COLS)
         self.grid = nn.Sequential(
-            layer_init(nn.Conv2d(1, 16, 3, padding=1)),
+            layer_init(nn.Conv2d(1, 16, 3, padding=1), gain),
             nn.ReLU(),
-            layer_init(nn.Conv2d(16, 32, 3, stride=2, padding=1)),
+            layer_init(nn.Conv2d(16, 32, 3, stride=2, padding=1), gain),
             nn.ReLU(),
             nn.Flatten(),
-            layer_init(nn.Linear(32 * (GRID_ROWS // 2) * (GRID_COLS // 2), 128)),
+            layer_init(nn.Linear(32 * (GRID_ROWS // 2) * (GRID_COLS // 2), 128), gain),
             nn.ReLU(),
         )
         self.rest = nn.Sequential(
-            layer_init(nn.Linear(n_inputs - GRID_ROWS * GRID_COLS, 128)),
+            layer_init(nn.Linear(n_inputs - GRID_ROWS * GRID_COLS, 128), gain),
             nn.Tanh(),
         )
-        self.head = nn.Sequential(layer_init(nn.Linear(256, 256)), nn.Tanh())
+        self.head = nn.Sequential(layer_init(nn.Linear(256, 256), gain), nn.Tanh())
 
     def forward(self, x):
         grid = x[:, self.grid_slice].reshape(-1, 1, *self.shape)
@@ -297,35 +260,43 @@ def check_obs_spec(path, env) -> None:
 
 class Agent(nn.Module):
     def __init__(self, obs_space, n_actions: int, arch: str = "mlp", hidden: int = 256,
-                 layers: int = 2, act: str = "tanh"):
+                 layers: int = 2, act: str = "tanh", gains: tuple[float, float, float] | None = None):
+        """gains = (hidden, actor head, critic head) orthogonal-init gains. Training
+        passes the experiment's values; None is only for building a network whose
+        weights are about to be loaded (the pre-2026-10-19 constants are used)."""
         super().__init__()
+        if gains is None:
+            from hyperparams import LEGACY_IMPLICIT as L
+
+            gains = (L["init_hidden_gain"], L["init_actor_gain"], L["init_critic_gain"])
+        g_hidden, g_actor, g_critic = gains
         self.arch_spec = {"arch": arch, "hidden": hidden, "layers": layers, "act": act}
         self.arch = arch
         Act = nn.ReLU if act == "relu" else nn.Tanh
         if len(obs_space.shape) == 2:  # screen: 64x96 binary
             self.encoder = nn.Sequential(
-                layer_init(nn.Conv2d(1, 16, 8, stride=4)),
+                layer_init(nn.Conv2d(1, 16, 8, stride=4), g_hidden),
                 nn.ReLU(),
-                layer_init(nn.Conv2d(16, 32, 4, stride=2)),
+                layer_init(nn.Conv2d(16, 32, 4, stride=2), g_hidden),
                 nn.ReLU(),
                 nn.Flatten(),
-                layer_init(nn.Linear(32 * 7 * 11, 256)),
+                layer_init(nn.Linear(32 * 7 * 11, 256), g_hidden),
                 nn.ReLU(),
             )
             self._is_image = True
         elif arch == "conv":
-            self.encoder = GridEncoder(int(np.prod(obs_space.shape)))
+            self.encoder = GridEncoder(int(np.prod(obs_space.shape)), g_hidden)
             self._is_image = False
         else:
             mods, n_in = [], int(np.prod(obs_space.shape))
             for _ in range(layers):
-                mods += [layer_init(nn.Linear(n_in, hidden)), Act()]
+                mods += [layer_init(nn.Linear(n_in, hidden), g_hidden), Act()]
                 n_in = hidden
             self.encoder = nn.Sequential(*mods)
             self._is_image = False
         width = 256 if (len(obs_space.shape) == 2 or arch == "conv") else hidden
-        self.actor = layer_init(nn.Linear(width, n_actions), std=0.01)
-        self.critic = layer_init(nn.Linear(width, 1), std=1.0)
+        self.actor = layer_init(nn.Linear(width, n_actions), g_actor)
+        self.critic = layer_init(nn.Linear(width, 1), g_critic)
 
     @classmethod
     def load(cls, path: str, obs_space, n_actions: int, pad_to: int | None = None, env=None) -> "Agent":
@@ -429,8 +400,8 @@ def watch(model_path: str, level: int, obs: str, greedy: bool = False):
 
 def train(args) -> Path:
     """Run PPO with the given parsed args; returns the path of the saved model."""
-    levels = parse_levels(args.levels) if args.levels else None
-    run_name = args.run_name or f"ppo_{args.obs}_L{args.levels or args.level}_{int(time.time())}"
+    levels = parse_levels(args.levels)
+    run_name = args.run_name or f"ppo_{args.obs}_L{args.levels}_{int(time.time())}"
     run_dir = Path(args.run_dir) if args.run_dir else Path("runs") / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
     writer = None
@@ -487,15 +458,7 @@ def train(args) -> Path:
 
     envs = gym.vector.SyncVectorEnv(
         [
-            make_env(
-                args.level, levels, args.obs, args.time_penalty,
-                not args.no_pop_reward, args.clear_bonus, args.death_penalty,
-                args.seed + i, args.random_start, args.stationary_penalty,
-                args.stationary_window, args.stationary_band, args.capture_bonus,
-                args.explore_bonus, args.frame_skip, args.lives, args.nearest_first,
-                args.grace_frames, args.timeout_penalty, args.control_obs, args.kill_bonus,
-                not args.no_score_reward, args.max_episode_frames,
-            )
+            make_env(env_kwargs(args, levels), args.seed + i)
             for i in range(args.num_envs)
         ]
     )
@@ -509,6 +472,7 @@ def train(args) -> Path:
         agent = Agent(
             envs.single_observation_space, envs.single_action_space.n, args.arch,
             args.hidden, args.layers, args.act,
+            gains=(args.init_hidden_gain, args.init_actor_gain, args.init_critic_gain),
         ).to(device)
     # What this run's checkpoints are: the loaded parent's actual architecture
     # when continuing (not the command-line defaults), and the observation.
@@ -517,7 +481,8 @@ def train(args) -> Path:
         "nearest_first": bool(args.nearest_first), "frame_skip": args.frame_skip}))
     # The full recipe, so a later run (or evolve.py) can inherit it exactly.
     (run_dir / "config.json").write_text(json.dumps(vars(args), indent=1, default=str))
-    optimizer = torch.optim.Adam(agent.parameters(), lr=args.lr, eps=1e-5)
+    optimizer = torch.optim.Adam(agent.parameters(), lr=args.lr, eps=args.adam_eps,
+                                 betas=(args.adam_beta1, args.adam_beta2))
     resumed_optimizer = False
     if args.init_model and not args.fresh_optimizer:
         init = Path(args.init_model)
@@ -557,7 +522,7 @@ def train(args) -> Path:
     ep_outcomes: list[str] = []  # "clear" / "death" / "timeout", from training episodes
     n_updates = 0
     next_eval = args.eval_every
-    eval_levels = [lv for lv in (levels or [args.level]) if lv != 100] or [args.level]
+    eval_levels = [lv for lv in levels if lv != 100] or levels
     best_cleared, best_step = -1, 0  # the run's result is its best evaluated checkpoint
     next_snapshot = args.save_every
     reward_parts = {f"r_{k}": 0.0 for k in ("score", "capture", "kill", "death", "clear", "time",
@@ -598,7 +563,7 @@ def train(args) -> Path:
             for lv in levels:
                 h = fails.get(lv, [])
                 rate = sum(h) / len(h) if h else 1.0
-                weighted += [lv] * (1 + int(round(9 * rate)))
+                weighted += [lv] * (1 + int(round(args.hard_sampling_weight * rate)))
             envs.set_attr("level_pool", [weighted] * args.num_envs)
         if args.anneal_lr:
             frac = max(0.0, 1.0 - global_step / args.total_steps)
@@ -639,7 +604,7 @@ def train(args) -> Path:
                     for lv, ok in zip(np.asarray(infos["level"])[mask], done_ok[mask]):
                         hist = fails.setdefault(int(lv), [])
                         hist.append(0 if ok else 1)
-                        del hist[:-20]
+                        del hist[:-args.hard_sampling_window]
 
         with torch.no_grad():
             next_value = agent.value(next_obs)
@@ -663,7 +628,8 @@ def train(args) -> Path:
                 _, newlogp, entropy, newv = agent.action_value(b_obs[mb_t], b_act[mb_t])
                 ratio = (newlogp - b_logp[mb_t]).exp()
                 adv = b_adv[mb_t]
-                adv = (adv - adv.mean()) / (adv.std() + 1e-8)
+                if args.norm_adv:
+                    adv = (adv - adv.mean()) / (adv.std() + 1e-8)
                 pg_loss = torch.max(
                     -adv * ratio,
                     -adv * ratio.clamp(1 - args.clip, 1 + args.clip),
@@ -672,7 +638,7 @@ def train(args) -> Path:
                 loss = pg_loss + args.vf_coef * v_loss - args.ent_coef * entropy.mean()
                 optimizer.zero_grad()
                 loss.backward()
-                nn.utils.clip_grad_norm_(agent.parameters(), 0.5)
+                nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
                 with torch.no_grad():
                     stats["pg_loss"].append(pg_loss.item())
@@ -786,11 +752,16 @@ def train(args) -> Path:
 
 
 def main():
-    args = parse_args()
-    if args.play:
-        watch(args.play, args.level, args.obs, args.greedy)
+    if "--play" in sys.argv:  # watch a model: not an experiment, so its own small parser
+        p = argparse.ArgumentParser()
+        p.add_argument("--play", required=True, help="path to a model.pt to watch")
+        p.add_argument("--level", type=int, required=True)
+        p.add_argument("--obs", choices=["state", "screen", "ego"], required=True)
+        p.add_argument("--greedy", action="store_true", help="most likely action, no sampling")
+        a = p.parse_args()
+        watch(a.play, a.level, a.obs, a.greedy)
         return
-    train(args)
+    train(parse_args())
 
 
 if __name__ == "__main__":

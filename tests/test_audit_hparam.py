@@ -20,8 +20,10 @@ MANIFEST = json.loads((ROOT / "scripts/campaigns/hyperparameter_search_1019.json
 
 
 def _argv(cfg, seed, minutes, run_dir):
-    """Independent of the runner: manifest values written as trainer flags."""
-    argv = ["train_ppo.py"]
+    """Independent of the runner: manifest values written as trainer flags, on
+    top of the complete anchor_G experiment file (the manifest predates the
+    no-defaults trainer and does not list every hyperparameter)."""
+    argv = ["train_ppo.py", "--config", str(ROOT / "configs" / "hparam-1019_anchor_G_screen.json")]
     for k, v in {**MANIFEST["fixed_parameters"], **cfg["parameters"]}.items():
         if v is None or v is False:
             continue

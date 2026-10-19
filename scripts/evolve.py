@@ -92,7 +92,6 @@ FLOORS = {"time_penalty": 0.001, "stationary_penalty": 0.001, "timeout_penalty":
           "capture_bonus": 0.01, "explore_bonus": 0.05}
 INT_GENES = {"stationary_band", "epochs", "num_envs", "rollout_len"}
 ONE_MINUS = {"gamma", "gae_lambda"}  # jittered as (1 - value)
-STATIONARY_WINDOW = 120  # steps (8 s); fixed, the band is the gene
 POP_FLIP_PROB = 0.1
 MUTATION_GENES = (1, 4)  # how many genes a child changes (uniform in this range)
 MUTATION_SCALE = 3.0  # each changed gene is multiplied by a factor in [1/scale, scale]
@@ -145,22 +144,27 @@ CONFIG_TO_GENE = {k: k for k in (
 )}
 
 
-def inherit_genome(model_path: Path, fallback: Genome) -> tuple[Genome, str]:
+def inherit_genome(model_path: Path) -> tuple[Genome, str]:
     """A base's real training recipe: from the evolve spec (genome.json) or the
-    trainer's config.json next to the model. Falls back to defaults, and says so."""
+    trainer's config.json next to the model. Every gene must be recorded there;
+    nothing is filled from defaults."""
     folder = model_path.parent
     spec = folder / "genome.json"
     if spec.exists():
-        g = json.loads(spec.read_text()).get("genome", {})
-        return Genome(**{**asdict(fallback), **g}), str(spec)
+        return Genome(**json.loads(spec.read_text())["genome"]), str(spec)
     cfg = folder / "config.json"
-    if cfg.exists():
-        c = json.loads(cfg.read_text())
-        fields = {gene: c[key] for key, gene in CONFIG_TO_GENE.items() if key in c}
-        if "no_pop_reward" in c:
-            fields["reward_pops"] = not c["no_pop_reward"]
-        return Genome(**{**asdict(fallback), **fields}), str(cfg)
-    return fallback, "DEFAULTS (no genome.json or config.json next to the model)"
+    if not cfg.exists():
+        raise FileNotFoundError(f"no genome.json or config.json next to {model_path}: its recipe is unknown")
+    c = json.loads(cfg.read_text())
+    fields = {gene: c[key] for key, gene in CONFIG_TO_GENE.items() if key in c}
+    if "pop_reward" in c:
+        fields["reward_pops"] = bool(c["pop_reward"])
+    elif "no_pop_reward" in c:
+        fields["reward_pops"] = not c["no_pop_reward"]
+    missing = [f for f in Genome.__dataclass_fields__ if f not in fields]
+    if missing:
+        raise KeyError(f"{cfg} does not record genes {missing}")
+    return Genome(**fields), str(cfg)
 
 
 def fitness(result: dict) -> tuple:
@@ -223,55 +227,25 @@ def train_member(spec: dict) -> dict:
     (member_dir / "genome.json").write_text(json.dumps(spec, indent=2))
     start = time.time()
     try:
-        from train_ppo import parse_args, train
+        from hyperparams import validate
+        from train_ppo import checkpoint_obs_spec, parse_args, train
 
+        # The child's experiment: the run's base configuration (every
+        # hyperparameter stated), its genome's genes, its parent and budget.
         g = spec["genome"]
-        argv = [
-            "--levels", LEVELS,
-            "--total-steps", str(spec["steps"]),
-            "--init-model", spec["parent_model"],
-            "--run-dir", str(member_dir),
-            "--run-name", spec["id"],
-            "--seed", str(spec["seed"]),
-            "--lr", str(g["lr"]),
-            "--ent-coef", str(g["ent_coef"]),
-            "--clip", str(g["clip"]),
-            "--gae-lambda", str(g["gae_lambda"]),
-            "--epochs", str(g["epochs"]),
-            "--num-envs", str(g["num_envs"]),
-            "--rollout-len", str(g["rollout_len"]),
-            "--explore-bonus", str(g["explore_bonus"]),
-            "--gamma", str(g["gamma"]),
-            "--vf-coef", str(g["vf_coef"]),
-            "--time-penalty", str(g["time_penalty"]),
-            "--stationary-penalty", str(g["stationary_penalty"]),
-            "--stationary-band", str(g["stationary_band"]),
-            "--stationary-window", str(STATIONARY_WINDOW),
-            "--clear-bonus", str(g["clear_bonus"]),
-            "--death-penalty", str(g["death_penalty"]),
-            "--timeout-penalty", str(g.get("timeout_penalty", spec.get("timeout_penalty", 0.0))),
-            "--max-episode-frames", str(spec.get("max_episode_frames", 3600)),
-            "--capture-bonus", str(g["capture_bonus"]),
-            "--no-tensorboard",
-            "--quiet",
-        ]
-        if not g["reward_pops"]:
-            argv.append("--no-pop-reward")
-        for flag in ("control_obs", "bootstrap_truncation", "no_score_reward"):
-            if spec.get(flag):
-                argv.append("--" + flag.replace("_", "-"))
-        # Children must see the observation their parent was trained on.
-        from train_ppo import checkpoint_obs_spec
-
-        parent_obs = checkpoint_obs_spec(spec["parent_model"])
-        if parent_obs:
-            argv += ["--obs", parent_obs["obs"]]
-            if parent_obs["nearest_first"]:
-                argv.append("--nearest-first")
-            if parent_obs["control_obs"] and "--control-obs" not in argv:
-                argv.append("--control-obs")
-        if spec.get("kill_bonus"):
-            argv += ["--kill-bonus", str(spec["kill_bonus"])]
+        cfg = json.loads(Path(spec["config"]).read_text())
+        cfg.update({gene: g[gene] for gene in CONFIG_TO_GENE.values()})
+        cfg.update(pop_reward=bool(g["reward_pops"]), total_steps=spec["steps"], seed=spec["seed"],
+                   init_model=spec["parent_model"], fresh_optimizer=False)
+        cfg = validate(cfg)
+        parent = checkpoint_obs_spec(spec["parent_model"])
+        if parent is None or any(parent[k] != cfg[k] for k in parent):
+            raise ValueError(f"parent {spec['parent_model']} observation {parent} differs from the run "
+                             f"configuration {({k: cfg[k] for k in ('obs', 'control_obs', 'nearest_first')})}")
+        experiment = member_dir / "experiment.json"
+        experiment.write_text(json.dumps(cfg, indent=1))
+        argv = ["--config", str(experiment), "--run-dir", str(member_dir), "--run-name", spec["id"],
+                "--no-tensorboard", "--quiet"]
         if spec.get("experiment"):
             argv += ["--experiment", spec["experiment"], "--log-every", "10"]
             for k in ("generation", "parent"):
@@ -303,8 +277,9 @@ def score_member(job: dict) -> dict:
 
         from train_ppo import checkpoint_obs_spec
 
-        o = checkpoint_obs_spec(job["model"]) or {"obs": "state", "control_obs": job.get("control_obs", False),
-                                                  "nearest_first": False}
+        o = checkpoint_obs_spec(job["model"])
+        if o is None:
+            raise ValueError(f"{job['model']} records no observation (arch.json/config.json); refusing to guess")
         result = evaluate(
             job["model"], parse_levels(LEVELS), job["episodes"], job["max_steps"], job["seed"],
             obs=o["obs"], control_obs=o["control_obs"], nearest_first=o["nearest_first"],
@@ -396,7 +371,7 @@ class Run:
             for meta in ("config.json", "arch.json"):  # keep the base's recorded recipe and observation
                 if Path(path).with_name(meta).exists():
                     shutil.copy(Path(path).with_name(meta), base_dir / meta)
-            genome, source = inherit_genome(Path(path), Genome(timeout_penalty=self.args.timeout_penalty))
+            genome, source = inherit_genome(Path(path))
             self.log(f"{bid}: genome from {source}; optimizer state {'copied' if opt.exists() else 'absent'}")
             bases.append({
                 "id": bid,
@@ -428,10 +403,7 @@ class Run:
                 c["dir"] = str(gen_dir / c["id"])
                 c["model"] = str(gen_dir / c["id"] / "model.pt")
                 c["generation"] = gen
-                c["timeout_penalty"] = a.timeout_penalty
-                for flag in ("control_obs", "bootstrap_truncation", "no_score_reward",
-                             "kill_bonus", "max_episode_frames"):
-                    c[flag] = getattr(a, flag)
+                c["config"] = str(Path(a.config).resolve())
                 if self.mlflow:
                     c["experiment"] = f"evolve-{a.name}"
             plan_path.write_text(json.dumps(children, indent=2))
@@ -456,8 +428,7 @@ class Run:
         to_score.setdefault(state["base"]["id"], state["base"])
         jobs = [
             {"id": m["id"], "model": m["model"], "episodes": a.eval_episodes,
-             "max_steps": a.eval_max_steps, "seed": a.seed * 1000 + gen,
-             "control_obs": a.control_obs}
+             "max_steps": a.eval_max_steps, "seed": a.seed * 1000 + gen}
             for m in to_score.values()
         ]
         self.log(f"generation {gen}: scoring {len(jobs)} models")
@@ -588,23 +559,19 @@ class Run:
 
 def parse_args(argv: list[str] | None = None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--base", nargs="+", default=["runs/ppo_state_all_50M/model.pt"],
-                   help="one or more model.pt files to start from")
-    p.add_argument("--timeout-penalty", type=float, default=0.0, help="fixed for all children")
-    p.add_argument("--control-obs", action="store_true", help="env flag for all children (must match the bases)")
-    p.add_argument("--bootstrap-truncation", action="store_true")
-    p.add_argument("--no-score-reward", action="store_true")
-    p.add_argument("--kill-bonus", type=float, default=0.0)
-    p.add_argument("--max-episode-frames", type=int, default=3600)
+    p.add_argument("--config", required=True,
+                   help="complete experiment configuration (scripts/hyperparams.py): every child's hyperparameters "
+                        "except its genome's genes, parent, seed and step budget")
+    p.add_argument("--base", nargs="+", required=True, help="one or more model.pt files to start from")
     p.add_argument("--name", required=True, help="run directory under runs/evolve/")
-    p.add_argument("--generations", type=int, default=3)
-    p.add_argument("--population", type=int, default=30)
-    p.add_argument("--survivors", type=int, default=10)
-    p.add_argument("--steps", type=int, default=10_000_000, help="fine-tune steps per child")
-    p.add_argument("--workers", type=int, default=8)
-    p.add_argument("--eval-episodes", type=int, default=10, help="episodes per level when scoring (the standard test)")
-    p.add_argument("--eval-max-steps", type=int, default=900)
-    p.add_argument("--seed", type=int, default=1)
+    p.add_argument("--generations", type=int, required=True)
+    p.add_argument("--population", type=int, required=True)
+    p.add_argument("--survivors", type=int, required=True)
+    p.add_argument("--steps", type=int, required=True, help="fine-tune steps per child")
+    p.add_argument("--workers", type=int, required=True)
+    p.add_argument("--eval-episodes", type=int, required=True, help="episodes per level when scoring")
+    p.add_argument("--eval-max-steps", type=int, required=True)
+    p.add_argument("--seed", type=int, required=True)
     p.add_argument("--no-mlflow", action="store_true", help="skip MLflow tracking")
     p.add_argument("--mlflow-port", type=int, default=5001)
     return p.parse_args(argv)

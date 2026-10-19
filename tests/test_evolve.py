@@ -106,19 +106,27 @@ def test_wide_mutation_changes_one_to_four_genes_within_ranges():
     assert min(counts) >= 1 and max(counts) <= 4 and max(counts) >= 3
 
 
-def test_inherit_genome_reads_the_trainer_config(tmp_path):
+def test_inherit_genome_reads_the_trainer_config_and_never_fills_gaps(tmp_path):
     import json
+    from pathlib import Path
 
+    import pytest
     from evolve import inherit_genome
 
-    (tmp_path / "config.json").write_text(json.dumps({"lr": 5.2e-05, "gamma": 0.985, "no_pop_reward": True,
-                                                       "num_envs": 32, "time_penalty": 0.004}))
-    g, source = inherit_genome(tmp_path / "model.pt", Genome())
+    base = json.loads((Path(__file__).resolve().parents[1] / "configs" / "hparam-1019_anchor_G_screen.json").read_text())
+    full = {**base, "lr": 5.2e-05, "gamma": 0.985, "pop_reward": False, "num_envs": 32, "time_penalty": 0.004}
+    (tmp_path / "config.json").write_text(json.dumps(full))
+    g, source = inherit_genome(tmp_path / "model.pt")
     assert g.lr == 5.2e-05 and g.gamma == 0.985 and g.reward_pops is False and g.num_envs == 32
-    assert g.time_penalty == 0.004 and g.clear_bonus == Genome().clear_bonus
-    assert source.endswith("config.json")
-    g2, source2 = inherit_genome(tmp_path / "nothing" / "model.pt", Genome())
-    assert g2 == Genome() and source2.startswith("DEFAULTS")
+    assert g.time_penalty == 0.004 and g.clear_bonus == base["clear_bonus"] and source.endswith("config.json")
+    legacy = {k: v for k, v in full.items() if k != "pop_reward"} | {"no_pop_reward": True}
+    (tmp_path / "config.json").write_text(json.dumps(legacy))
+    assert inherit_genome(tmp_path / "model.pt")[0].reward_pops is False
+    (tmp_path / "config.json").write_text(json.dumps({"lr": 1e-4}))  # incomplete: refuse
+    with pytest.raises(KeyError):
+        inherit_genome(tmp_path / "model.pt")
+    with pytest.raises(FileNotFoundError):
+        inherit_genome(tmp_path / "nothing" / "model.pt")
 
 
 def test_promotion_never_pairs_best_weights_with_final_optimizer(tmp_path):
@@ -132,8 +140,14 @@ def test_promotion_never_pairs_best_weights_with_final_optimizer(tmp_path):
     member.mkdir()
     for name in ("model.pt", "best.pt", "optimizer.pt"):
         (member / name).write_bytes(name.encode())
-    spec = {"id": "t", "dir": str(member), "parent_model": "x", "steps": 1, "seed": 1,
-            "genome": evolve.asdict(evolve.Genome()), "lineage": []}
+    from pathlib import Path
+
+    parent = tmp_path / "parent"
+    parent.mkdir()
+    (parent / "arch.json").write_text(json.dumps({"obs": "ego", "control_obs": True, "nearest_first": False}))
+    config = Path(__file__).resolve().parents[1] / "configs" / "hparam-1019_anchor_G_screen.json"
+    spec = {"id": "t", "dir": str(member), "parent_model": str(parent / "model.pt"), "steps": 1, "seed": 1,
+            "genome": evolve.asdict(evolve.Genome()), "lineage": [], "config": str(config)}
     evolve.train = lambda *a, **k: None  # type: ignore[attr-defined]
     import train_ppo
 

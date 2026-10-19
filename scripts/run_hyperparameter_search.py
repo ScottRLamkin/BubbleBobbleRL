@@ -49,6 +49,7 @@ CAMPAIGN = "hparam-1019-v1"
 MANIFEST_REL = "scripts/campaigns/hyperparameter_search_1019.json"
 MANIFEST_SHA256 = "1d00742bab2cedef69cc706dc42612f859809ea970a9aed6bd060e6cbb976ee9"
 PARAM_FLAGS = ("lr", "ent_coef", "gamma", "rollout_len", "epochs", "clip")
+LEGACY_SWITCHES = {"no_score_reward": "score_reward", "no_pop_reward": "pop_reward"}
 THREAD_ENV = {k: "1" for k in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS",
                                "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS")}
 SNAPSHOT_PATHS = ("src", "scripts", "tests", "pyproject.toml", "uv.lock", "docs/hyperparameter-search-2026-10-19.md")
@@ -175,9 +176,15 @@ class Campaign:
         params = self.configs[cfg_id]["parameters"]
         argv = []
         for k, v in fixed.items():
-            if v is None or v is False:
+            if k in ("quiet", "no_tensorboard", "no_mlflow"):  # run controls
+                if v:
+                    argv.append(f"--{k.replace('_', '-')}")
                 continue
-            argv += [f"--{k.replace('_', '-')}"] if v is True else [f"--{k.replace('_', '-')}", str(v)]
+            if k in LEGACY_SWITCHES:  # pre-2026-10-19 negative spelling in a manifest
+                k, v = LEGACY_SWITCHES[k], not v
+            if isinstance(v, bool):
+                v = "true" if v else "false"
+            argv += [f"--{k.replace('_', '-')}", "null" if v is None else str(v)]
         for k in PARAM_FLAGS:
             v = params[k]
             argv += [f"--{k.replace('_', '-')}", str(int(v)) if k in ("rollout_len", "epochs") else repr(float(v))]
@@ -582,12 +589,18 @@ def cmd_preflight(args) -> None:
     sys.path[:0] = [str(c.snap / "scripts"), str(c.snap / "src")]
     from train_ppo import parse_args
 
+    from hyperparams import NAMES
+
+    covered = {LEGACY_SWITCHES.get(k, k) for k in m["fixed_parameters"]} | set(PARAM_FLAGS) | {"seed", "wall_minutes"}
+    check("the manifest states every hyperparameter (no defaults)", set(NAMES) <= covered,
+          f"missing: {sorted(set(NAMES) - covered)}")
     flag_ok, notes = True, []
-    defaults = vars(parse_args([]))
     for cid in ids:
         a = vars(parse_args(c.train_argv(cid, 4100, 15, root / "x")))
         want = {**m["fixed_parameters"], **c.configs[cid]["parameters"]}
         for k, v in want.items():
+            if k in LEGACY_SWITCHES:
+                k, v = LEGACY_SWITCHES[k], not v
             if k not in a:
                 flag_ok = False
                 notes.append(f"{cid}: unknown parameter {k}")
@@ -595,13 +608,7 @@ def cmd_preflight(args) -> None:
                 flag_ok = False
                 notes.append(f"{cid}: {k} parsed {a[k]!r} != {v!r}")
         flag_ok &= a["init_model"] is None and a["wall_minutes"] == 15 and a["seed"] == 4100 and a["wall_start"] == 0
-    unset = {k: v for k, v in defaults.items() if k not in m["fixed_parameters"] and k not in PARAM_FLAGS
-             and k not in ("seed", "wall_minutes", "wall_start", "run_dir")}
     check("every configuration's flags parse to the manifest values; fresh start", flag_ok, "; ".join(notes[:5]))
-    print("  options left at trainer defaults:", json.dumps(unset), flush=True)
-    a = dict(c.configs["anchor_G"]["parameters"])
-    check("anchor_G uses the trainer's defaults for the searched parameters",
-          all(defaults[k] == a[k] for k in PARAM_FLAGS))
     # Targeted correctness tests from the snapshot's own test suite.
     t = subprocess.run([c.python, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(c.snap / "tests" / "test_env.py"),
                         "-k", "rng or clear or countdown or autoreset or gae or observation or continuation or falling"],
@@ -643,8 +650,7 @@ def cmd_preflight(args) -> None:
     seconds = round(time.time() - t0, 1)
     passed = all(v["ok"] for v in checks.values()) and seconds <= 60 * m["budget"]["preflight_max_core_minutes"]
     write_json_atomic(root / "preflight.json", {"passed": passed, "seconds": seconds, "time": iso(),
-                                                "snapshot_commit": c.info["commit"], "checks": checks,
-                                                "trainer_defaults_not_in_manifest": unset})
+                                                "snapshot_commit": c.info["commit"], "checks": checks})
     print(f"preflight {'PASSED' if passed else 'FAILED'} in {seconds} s", flush=True)
     if not passed:
         raise SystemExit(1)

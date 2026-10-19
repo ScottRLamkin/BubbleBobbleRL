@@ -114,12 +114,14 @@ class BubbleBobbleEnv(gym.Env):
         stationary_window: int = 30,
         stationary_band: int = 8,
         explore_bonus: float = 0.0,
+        explore_band: int = 8,
         nearest_first: bool = False,
         grace_frames: int = 0,
         timeout_penalty: float = 0.0,
         control_obs: bool = False,
         kill_bonus: float = 0.0,
         score_reward: bool = True,
+        score_scale: float = 0.01,
         reward_pops: bool = True,
         random_start: bool = False,
         render_mode: str | None = None,
@@ -138,12 +140,14 @@ class BubbleBobbleEnv(gym.Env):
         self.stationary_window = stationary_window
         self.stationary_band = stationary_band
         self.explore_bonus = explore_bonus
+        self.explore_band = explore_band
         self.nearest_first = nearest_first
         self.grace_frames = grace_frames
         self.timeout_penalty = timeout_penalty
         self.control_obs = control_obs
         self.kill_bonus = kill_bonus
         self.score_reward = score_reward
+        self.score_scale = score_scale
         self.reward_pops = reward_pops
         self.random_start = random_start
         self.level_pool = list(levels) if levels else None
@@ -296,7 +300,7 @@ class BubbleBobbleEnv(gym.Env):
             self._randomize_start()
         self._frames = 0
         self._xs: list[int] = []
-        self._visited: set[int] = {self.game.player.x // 8}
+        self._visited: set[int] = {self.game.player.x // self.explore_band}
         self._kills = 0
         return self._obs(), self._info()
 
@@ -330,7 +334,7 @@ class BubbleBobbleEnv(gym.Env):
             self._frames += 1
             if self.score_reward:
                 score = ev.score_delta if self.reward_pops else ev.score_delta - ev.pop_score
-                parts["score"] += score / 100.0
+                parts["score"] += score * self.score_scale
             parts["capture"] += ev.captured * self.capture_bonus
             parts["kill"] += ev.killed * self.kill_bonus
             killed += ev.killed
@@ -346,7 +350,7 @@ class BubbleBobbleEnv(gym.Env):
             if terminated:
                 break
         if self.explore_bonus:
-            band = self.game.player.x // 8
+            band = self.game.player.x // self.explore_band
             if band not in self._visited:
                 self._visited.add(band)
                 parts["explore"] += self.explore_bonus
