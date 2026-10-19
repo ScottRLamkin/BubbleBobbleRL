@@ -89,7 +89,7 @@ def main():
     p.add_argument("--control-obs", action="store_true")
     p.add_argument("--episodes", type=int, default=5, help="per situation")
     p.add_argument("--max-steps", type=int, default=150, help="10 s at 15 steps/s")
-    p.add_argument("--reach", type=int, default=16)
+    p.add_argument("--reach", type=int, default=8, help="arrival = |x - target| within this many px")
     p.add_argument("--seed", type=int, default=7777)
     p.add_argument("--out", required=True)
     args = p.parse_args()
