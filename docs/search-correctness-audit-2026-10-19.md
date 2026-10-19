@@ -43,6 +43,7 @@ campaign's 18 core-hour cap. Spent so far: see the ledger at the end.
 | 28 | Horizontal bubble moves probe the right tile | `game._step_bubbles` | Z80 `_MoveRight`/`_MoveLeft`: x+8 / x-1 at y+7 | Read: the port probed y+4 | Deviation | **Not in snapshot** | Fixed with row 27 |
 | 29 | A timed-out bubble pops at the next tick | `game._step_bubbles` | Z80 `HandleBubble`: counter at 0 sets bits 5 and 7; `DoBubbleFlags` pops next tick | `test_timed_out_bubble_pops_at_the_next_tick` | Deviation of one tick (4 frames) | **Not in snapshot** | Fixed with row 27 |
 | 30 | Bubbles float with the air current of their centre tile | `game._float_bubble` | Z80 `MoveBubble` → `GetAir` (tile at x+4, y+4): 2 left, 3 right, 4 down, otherwise up | Read side by side | Clean | In snapshot | — |
+| 31 | A shot flies 26 px before it becomes a bubble | `game._step_prebubbles` | Z80 `PrebubbleCounter`: on the 27th frame the sprite becomes a Bubble and the handler returns before the move | `test_a_shot_flies_26_pixels_before_it_becomes_a_bubble`; `test_game` had pinned the port's 27 px and is updated | Deviation of one pixel. Capture timing was already right | **Not in snapshot** | Fixed in the live repo `2ee51f7`; not deployed |
 
 ## Decision note: the bubble-contact mismatch and what the campaign can answer
 
@@ -119,5 +120,5 @@ if runner PID 33901 exits.
 | Real preflight | 5.4 | Measured |
 | Pre-launch dry run, including interrupted attempts | about 508 | Mixed: 447.5 measured for completed attempts and 5.4 for the dry preflight; about 55 estimated for the interrupted attempts from their loop times plus startup |
 | Validator and runner overhead, production | about 77 forecast (2.2 per training job x 35) | Measured 6.5 s over the first three production jobs; outside reservations, so added here. Forecast, not a 60 s worst-case reservation |
-| This audit's test execution | about 40 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
+| This audit's test execution | about 48 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
 | Total | about 64,322 of 64,800 (about 478 s reserve) | Reservations + preflight + dry run + forecast overhead + this audit |
