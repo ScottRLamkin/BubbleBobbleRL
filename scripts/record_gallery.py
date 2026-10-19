@@ -41,6 +41,10 @@ def main() -> None:
     arch = json.loads((ckpt.parent / "arch.json").read_text())
     config = json.loads((ckpt.parent / "config.json").read_text())
     snap_info = json.loads((snap.parent / "snapshot.json").read_text()) if (snap.parent / "snapshot.json").exists() else {}
+    for prior in (REPO / "exports").glob("*/identity.json"):  # duplicate-safe on restart
+        if json.loads(prior.read_text()).get("checkpoint_sha256") == sha:
+            print(f"already recorded: {prior.parent / 'index.html'}")
+            return
     stamp = dt.datetime.now().astimezone()
     out = REPO / "exports" / f"{stamp:%Y-%m-%d_%H%M%S}-{a.label}-{sha[:8]}"
     if out.exists():
@@ -69,6 +73,19 @@ def main() -> None:
             f" {a.note}" if a.note else ""),
     }
     (out / "identity.json").write_text(json.dumps(identity, indent=1))
+    # The frozen generator's page says "best of several episodes each"; this
+    # NEW page shows one unselected episode per level, so say that, and show
+    # the identity and limitations on the page (older pages are not touched).
+    page = (out / "index.html").read_text()
+    page = page.replace("(best of several episodes each)", "(one unselected episode per level)")
+    import html as _html
+
+    box = (f'<p style="max-width:70em">Policy: {_html.escape(identity["policy"])} &middot; checkpoint '
+           f'{sha[:12]} &middot; game: {_html.escape(identity["game_revision"])} &middot; recorded '
+           f'{_html.escape(identity["created"])} &middot; {_html.escape(identity["recording"])}. '
+           f'{_html.escape(identity["note"])} <a href="identity.json">identity.json</a></p>')
+    page = page.replace("<main>", box + "\n<main>", 1)
+    (out / "index.html").write_text(page)
     subprocess.run([sys.executable, str(REPO / "scripts" / "gallery_catalog.py")], check=True)
     print(f"version: {out / 'index.html'}\ncatalog: {REPO / 'exports' / 'index.html'}")
 
