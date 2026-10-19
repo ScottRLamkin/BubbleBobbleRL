@@ -56,6 +56,7 @@ campaign's 18 core-hour cap. Spent so far: see the ledger at the end.
 | 41 | Beluga drift and wall probes | `game._beluga_ai` | Z80 `BeluMoveForward`, `BeluUp`, `BeluDown` | Read side by side | Clean | In snapshot | — |
 | 42 | Projectiles: laser, stone, enemy fireball | `game._step_projectiles` | Z80 `HandleLaser`, `HandleStone`, `HandleHostileFire` | Read side by side; `test_a_stone_breaks_when_it_hits_the_player` | Laser clean. A stone that hits the player breaks in the original but flew on in the port, which matters only while the player is invincible, never with one life. The enemy fireball leaves at x <= -8 in the original against x <= -6 in the port, where it cannot touch the player | Stone fix **not in snapshot**; no effect with one life | Stone fixed in the live repo; fireball edge recorded only |
 | 43 | Beer flight, bounce and catch | `game._step_beer` | Z80 `HandleBeer`, `StandardBeer`, `BounceBeer` | `test_beer_moves_into_the_wall_on_its_bounce_frame` | Deviation: on the bounce frame the original still moves one pixel the old way. Catch and touch order match. The idle wait may differ by a frame depending on sprite-table slot order, which the port does not model | **Not in snapshot** | Bounce fixed in the live repo; idle wait recorded only |
+| 44 | Death animation length before game over | `game._step_dead_player` | Z80 `HandleDeadPlayer`: one tick every 4 frames, done at 14 | Read side by side | Clean | In snapshot | — |
 
 ## Decision note: the bubble-contact mismatch and what the campaign can answer
 
