@@ -567,3 +567,71 @@ def test_bubble_contact_follows_bubblehitplayer():
     assert bub.breaking is None and bub.x == x0 + 1 and px < 40
     px, bub, x0 = _bubble_contact(facing=1, dx=2, dy=0)  # too close: breaks
     assert bub.breaking == "explode"
+
+
+def test_trainer_rollout_storage_is_aligned_end_to_end(tmp_path, monkeypatch):
+    """Oracle from the episode structure, not from the trainer's code: with a
+    40-frame clock (10 agent steps) every episode is truncated after 10 real
+    steps, and in NEXT_STEP autoreset the step after it is a fake transition.
+    Captures what train() actually stores and hands to GAE: the done flag marks
+    exactly the steps whose observation is a truncated episode's final one
+    (time left 0), those steps have reward 0, the next observation is a reset
+    one (time left 1), every episode contributes exactly 10 real steps, and the
+    done flag carries over between rollouts."""
+    import sys
+    from pathlib import Path
+
+    import torch
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import train_ppo
+
+    calls, obs_seen = [], []
+    orig_gae, orig_av = train_ppo.gae_with_autoreset, train_ppo.Agent.action_value
+
+    def cap_gae(rew, val, done, next_value, next_done, gamma, lam):
+        calls.append((rew.clone(), done.clone(), next_done.clone()))
+        return orig_gae(rew, val, done, next_value, next_done, gamma, lam)
+
+    def cap_av(self, x, action=None, greedy=False):
+        if action is None:  # rollout step: record the time-left feature of each env
+            obs_seen.append(x[..., -1].clone())
+        return orig_av(self, x, action, greedy)
+
+    monkeypatch.setattr(train_ppo, "gae_with_autoreset", cap_gae)
+    monkeypatch.setattr(train_ppo.Agent, "action_value", cap_av)
+    T, N = 32, 2
+    train_ppo.train(train_ppo.parse_args([
+        "--levels", "1", "--control-obs", "--max-episode-frames", "40", "--num-envs", str(N),
+        "--rollout-len", str(T), "--total-steps", str(2 * T * N), "--eval-every", "0", "--grace-frames", "10000",
+        "--no-mlflow", "--no-tensorboard", "--quiet", "--run-dir", str(tmp_path)]))
+    assert len(calls) == 2 and len(obs_seen) == 2 * T
+    time_left = torch.stack(obs_seen)  # [2T, N]
+    rew = torch.cat([c[0] for c in calls])
+    done = torch.cat([c[1] for c in calls])
+    assert torch.equal(calls[0][2], calls[1][1][0])  # next_done of rollout 1 == done[0] of rollout 2
+    for n in range(N):
+        fake = done[:, n] == 1
+        assert torch.equal(fake, time_left[:, n] == 0)  # fake steps are exactly the final observations
+        assert torch.all(rew[fake, n] == 0)
+        after = [t + 1 for t in torch.nonzero(fake).flatten().tolist() if t + 1 < 2 * T]
+        assert all(time_left[t, n] == 1.0 for t in after)  # then a reset observation
+        idx = torch.nonzero(fake).flatten().tolist()
+        assert [b - a - 1 for a, b in zip(idx, idx[1:])] == [10] * (len(idx) - 1)  # 10 real steps each
+        assert idx[0] == 10  # the first episode starts at t=0 after the initial reset
+
+
+def test_explained_variance_ignores_fake_transitions():
+    """Logged explained variance used every stored step, including the fake
+    autoreset steps. Hand-computed: real targets [1, 3], predictions [1, 2]
+    -> 1 - Var([0, 1]) / Var([1, 3]) = 1 - 0.25 / 1 = 0.75; the fake step's
+    wild prediction must not count."""
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from train_ppo import explained_variance
+
+    assert explained_variance([1.0, 2.0, 50.0], [1.0, 3.0, 0.0], [True, True, False]) == 0.75
+    assert explained_variance([[1.0], [2.0]], [[2.0], [2.0]], [[True], [True]]) != explained_variance(
+        [[1.0], [2.0]], [[2.0], [2.0]], [[True], [True]])  # nan when the targets do not vary

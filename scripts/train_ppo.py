@@ -174,6 +174,15 @@ def gae_with_autoreset(rew, val, done, next_value, next_done, gamma, lam):
     return adv, adv + val, done == 0
 
 
+def explained_variance(pred, target, real) -> float:
+    """1 - Var(target - pred) / Var(target) over the real transitions only (the
+    fake autoreset steps carry no learning signal); nan if Var(target) is 0."""
+    m = np.asarray(real, dtype=bool).ravel()
+    y_pred, y_true = np.asarray(pred).ravel()[m], np.asarray(target).ravel()[m]
+    var_y = np.var(y_true) if y_true.size else 0.0
+    return float("nan") if var_y == 0 else float(1 - np.var(y_true - y_pred) / var_y)
+
+
 def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_penalty, seed,
              random_start=False, stationary_penalty=0.0, stationary_window=30, stationary_band=8,
              capture_bonus=0.1, explore_bonus=0.0, frame_skip=4, lives=1, nearest_first=False,
@@ -732,8 +741,7 @@ def train(args) -> Path:
             logged_parts = dict(reward_parts)
             for k in reward_parts:
                 reward_parts[k] = 0.0
-            y_pred, y_true = val_t.ravel().cpu().numpy(), ret_t.ravel().cpu().numpy()
-            var_y = np.var(y_true)
+            ev = explained_variance(val_t.cpu().numpy(), ret_t.cpu().numpy(), real)
             log_metrics({
                 "charts/episodic_return": recent,
                 "charts/train_clear_rate": rates["clear"],
@@ -751,7 +759,7 @@ def train(args) -> Path:
                 "losses/entropy": np.mean(stats["entropy"]),
                 "losses/approx_kl": np.mean(stats["approx_kl"]),
                 "losses/clipfrac": np.mean(stats["clipfrac"]),
-                "losses/explained_variance": float("nan") if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y,
+                "losses/explained_variance": ev,
             }, global_step)
         torch.save(optimizer.state_dict(), run_dir / "optimizer.pt")  # model.pt was saved atomically above
         if args.save_every and global_step >= next_snapshot:
