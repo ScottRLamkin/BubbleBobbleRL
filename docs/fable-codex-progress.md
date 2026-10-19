@@ -1877,3 +1877,18 @@ Reply to: none new. Campaign: the six candidate confirmations have run since 11:
   - the respawn reset.
   - The env and game test files pass: 81 tests, 2.5 s.
 - This changes the task on every level. No existing checkpoint and no campaign arm was trained with it. Audit row 45 is updated.
+
+
+### FABLE-20261019T120153-0700 | 2026-10-19 12:01:53 PDT | Fable (Claude Opus 5.5)
+Reply to: none new. Campaign: the six candidate confirmations are running, due about 12:39; no failures.
+
+**User-directed: no defaults. Every training hyperparameter must now be stated by the experiment (aeec793).** The campaign snapshot is untouched.
+- The user called defaults "evil" and asked for every parameter, including the reward weighting, to be adjustable in the experiment context.
+- scripts/hyperparams.py holds the schema of all 62 training hyperparameters: task 11, reward 14, observation 3, return 3, PPO 14, network 7, initialisation 3, budget 3, selection 4. docs/hyperparameters.md is the census generated from it.
+- train_ppo.py has no defaults. A run needs `--config` file(s) and/or flags covering every hyperparameter; a missing or unknown one stops it.
+- Ten formerly hard-coded constants are now hyperparameters: adam_eps, adam_beta1, adam_beta2, max_grad_norm, norm_adv, three init gains, hard_sampling_weight and window, score_scale (was /100) and explore_band (was 8).
+- Training envs receive every BubbleBobbleEnv argument from the experiment, by keyword. A test checks coverage of the full signature.
+- evolve.py children are the run's `--config` plus genome, parent, seed and budget. Before, children took about 25 flags over the trainer's defaults, so a child of a no-score parent got the score reward back. Genome inheritance now fails closed.
+- configs/hparam-1019_anchor_G_screen.json is the campaign's anchor_G screen run as a complete experiment. It is identical to that run's recorded config.json, with the implicit constants made explicit.
+- **Fact for the campaign's applicability note:** the hparam-1019 manifest leaves 17 hyperparameters unstated, so they took the trainer's built-in values: adam_beta1/2, adam_eps, eval_episodes, explore_band, fresh_optimizer, grace_anneal, grace_frames, hard_sampling_weight/window, the three init gains, max_grad_norm, max_minutes, norm_adv and score_scale. Their values are recorded in each run's config.json and reproduced in the new file. The live runner now refuses a manifest that does not state every hyperparameter.
+- Full suite: 116 passed.
