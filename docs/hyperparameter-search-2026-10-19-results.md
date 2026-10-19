@@ -25,15 +25,18 @@ were frozen. Clears are level completions per 990 episodes, averaged over the tw
 The rule required a mean gain of at least 30 and no negative pair. It is an operational
 acceptance rule, not a calibrated significance test.
 
-How the two recipes' policies differ on the final bank (per 990 episodes, mean over the two seeds):
+How the two recipes' policies differ on the final bank. Each value is a training seed's mean over
+the two final seeds, per 990 episodes; ranges run over the three training seeds. (Correction: an
+earlier version labelled these as two-seed means but showed the extremes of the six individual
+evaluations.)
 
 | | ff12 (3 policies) | anchor_G (3 policies) |
 |---|---|---|
-| Clears | 282–355 | 128–167 |
-| Deaths | 618–698 | 484–564 |
-| Timeouts | 10–28 | 287–339 |
+| Clears | 285.0–354.5 | 129.5–164.5 |
+| Deaths | 620.0–691.0 | 489.0–552.0 |
+| Timeouts | 14.0–25.0 | 296.0–336.5 |
 | Kills per episode | 2.88–3.36 | 2.18–2.29 |
-| Levels cleared at least once (of 99) | 58–65 | 27–34 |
+| Levels cleared at least once (of 99) | 58.5–63.5 | 27.5–33.5 |
 
 ff12's policies almost never run out the clock: an episode ends in a clear or a death. This is
 observed behaviour on this game version, not a demonstration of navigation competence.
