@@ -62,12 +62,24 @@ def evaluate(
         np.random.set_state(np_state)
 
 
+def classify_outcome(completed: bool, game) -> str:
+    """Episode outcome. "clear" means the level was completed (the game's
+    completion event fired). Before 2026-10-19 the evaluator counted any
+    episode that ended with every enemy dead as a clear, including deaths and
+    timeouts during the 256-frame countdown that follows the last kill; the
+    old count is still reported as "all_killed" for comparability."""
+    if completed:
+        return "clear"
+    return "death" if game.game_over else "timeout"
+
+
 def _evaluate(envs, model_path, levels, episodes, max_steps, seed) -> dict:
     agent = Agent.load(model_path, envs[0].observation_space, envs[0].action_space.n)
     # Own generator, so results do not depend on the caller's torch RNG state.
     gen = torch.Generator().manual_seed(seed)
 
     cleared = died = timeout = 0
+    all_killed = killed_then_died = killed_then_timeout = 0
     score = 0
     kills = 0
     per_level = {level: 0 for level in levels}
@@ -80,6 +92,7 @@ def _evaluate(envs, model_path, levels, episodes, max_steps, seed) -> dict:
         obs_batch = np.stack(obs_batch)
         active = np.ones(len(levels), dtype=bool)
         last_info: list[dict] = [{} for _ in levels]
+        completed = np.zeros(len(levels), dtype=bool)
         for _ in range(max_steps):
             idx = np.flatnonzero(active)
             if not len(idx):
@@ -91,22 +104,26 @@ def _evaluate(envs, model_path, levels, episodes, max_steps, seed) -> dict:
                 o, _, term, trunc, info = envs[i].step(int(actions[j]))
                 obs_batch[i] = o
                 last_info[i] = info
+                completed[i] |= bool(info.get("level_complete", False))
                 if term or trunc:
                     active[i] = False
         for i, level in enumerate(levels):
             info = last_info[i]
             score += info["score"]
             kills += info.get("kills", 0)
+            outcome = classify_outcome(bool(completed[i]), envs[i].unwrapped.game)
             if info["enemies_alive"] == 0:
+                all_killed += 1
+                killed_then_died += outcome == "death"
+                killed_then_timeout += outcome == "timeout"
+            if outcome == "clear":
                 cleared += 1
                 per_level[level] += 1
-                per_level_outcomes[level].append("clear")
-            elif envs[i].unwrapped.game.game_over:
+            elif outcome == "death":
                 died += 1
-                per_level_outcomes[level].append("death")
             else:
                 timeout += 1
-                per_level_outcomes[level].append("timeout")
+            per_level_outcomes[level].append(outcome)
     n = len(levels) * episodes
     return {
         "episodes": n,
@@ -114,6 +131,9 @@ def _evaluate(envs, model_path, levels, episodes, max_steps, seed) -> dict:
         "died": died,
         "timeout": timeout,
         "levels_cleared": sum(1 for c in per_level.values() if c),
+        "all_killed": all_killed,  # the pre-2026-10-19 "cleared" count
+        "killed_all_then_died": killed_then_died,
+        "killed_all_then_timeout": killed_then_timeout,
         "mean_score": score / n,
         "kills_per_episode": kills / n,
         "per_level": per_level_outcomes,
@@ -147,7 +167,9 @@ def main() -> None:
     print(
         f"{args.model}: cleared {r['cleared']}/{r['episodes']} episodes "
         f"({r['levels_cleared']} levels), died {r['died']}, timed out {r['timeout']}, "
-        f"mean score {r['mean_score']:.0f}, kills/episode {r['kills_per_episode']:.2f}, {r['seconds']} s"
+        f"mean score {r['mean_score']:.0f}, kills/episode {r['kills_per_episode']:.2f}, {r['seconds']} s; "
+        f"all enemies killed {r['all_killed']} (then died {r['killed_all_then_died']}, "
+        f"then timed out {r['killed_all_then_timeout']})"
     )
 
 

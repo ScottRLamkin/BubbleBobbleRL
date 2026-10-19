@@ -538,18 +538,18 @@ def train(args) -> Path:
             )
             if "episode" in infos and "_episode" in infos:
                 mask = infos["_episode"]
-                alive = np.asarray(infos.get("enemies_alive", np.ones(args.num_envs)))
-                for er, el, ea, tr in zip(
+                done_ok = np.asarray(infos.get("level_complete", np.zeros(args.num_envs, dtype=bool)))
+                for er, el, ok, tr in zip(
                     np.asarray(infos["episode"]["r"])[mask], np.asarray(infos["episode"]["l"])[mask],
-                    alive[mask], np.asarray(trunc)[mask],
+                    done_ok[mask], np.asarray(trunc)[mask],
                 ):
                     ep_returns.append(float(er))
                     ep_lengths.append(float(el))
-                    ep_outcomes.append("clear" if ea == 0 else ("timeout" if tr else "death"))
+                    ep_outcomes.append("clear" if ok else ("timeout" if tr else "death"))
                 if args.level_sampling == "hard" and levels and "level" in infos:
-                    for lv, ea in zip(np.asarray(infos["level"])[mask], alive[mask]):
+                    for lv, ok in zip(np.asarray(infos["level"])[mask], done_ok[mask]):
                         hist = fails.setdefault(int(lv), [])
-                        hist.append(0 if ea == 0 else 1)
+                        hist.append(0 if ok else 1)
                         del hist[:-20]
 
         # GAE

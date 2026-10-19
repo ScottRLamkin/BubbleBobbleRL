@@ -56,6 +56,7 @@ def run(model, levels, obs, control_obs, policy, seed, max_steps):
         rec = {"level": level, "steps": 0, "approach": 0, "retreat": 0, "far_steps": 0,
                "kills": [], "xs": [], "outcome": None}
         prev_kills = 0
+        completed = False
         for _ in range(max_steps):
             if policy == "random":
                 a = int(rng.integers(len(ACTIONS)))
@@ -75,13 +76,15 @@ def run(model, levels, obs, control_obs, policy, seed, max_steps):
                     rec["approach"] += 1
                 else:
                     rec["retreat"] += 1
+            completed = completed or bool(info.get("level_complete", False))
             k = info.get("kills", 0)
             if k > prev_kills:
                 rec["kills"] += [x1] * (k - prev_kills)
                 prev_kills = k
             if term or trunc:
                 break
-        rec["outcome"] = "clear" if info["enemies_alive"] == 0 else ("death" if g.game_over else "timeout")
+        rec["outcome"] = "clear" if completed else ("death" if g.game_over else "timeout")
+        rec["all_enemies_dead"] = info["enemies_alive"] == 0
         rec["x_range"] = int(max(rec["xs"]) - min(rec["xs"])) if rec["xs"] else 0
         rec["still_share"] = float(np.mean([
             max(rec["xs"][i - 30:i + 1]) - min(rec["xs"][i - 30:i + 1]) < 8 for i in range(30, len(rec["xs"]))

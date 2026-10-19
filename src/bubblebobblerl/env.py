@@ -313,6 +313,7 @@ class BubbleBobbleEnv(gym.Env):
         parts["time"] = -self.time_penalty
         terminated = False
         killed = 0
+        completed = False
         for _ in range(self.frame_skip):
             ev = self.game.step(buttons)
             self._frames += 1
@@ -325,6 +326,7 @@ class BubbleBobbleEnv(gym.Env):
             if ev.died:
                 parts["death"] -= self.death_penalty
             if ev.level_complete:
+                completed = True
                 parts["clear"] += self.clear_bonus
                 if not self.game.auto_advance:
                     terminated = True
@@ -350,6 +352,12 @@ class BubbleBobbleEnv(gym.Env):
         info = self._info()
         info.update({f"r_{k}": v for k, v in parts.items()})
         info["kills"] = self._kills
+        # Outcome bookkeeping. "level_complete" is the game's own completion
+        # event (the 256-frame countdown after the last kill has finished);
+        # killing every enemy is not the same thing: the player can still die
+        # or run out of time during the countdown.
+        info["level_complete"] = completed
+        info["all_enemies_dead"] = self.game.alive_enemies == 0
         return self._obs(), sum(parts.values()), terminated, truncated, info
 
     def _info(self) -> dict[str, Any]:

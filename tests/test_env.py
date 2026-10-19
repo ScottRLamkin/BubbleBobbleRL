@@ -268,3 +268,73 @@ def test_evaluate_preserves_caller_rng_and_is_reproducible(tmp_path):
     assert np.array_equal(np.random.get_state()[1], before_n)
     r2 = evaluate(str(ckpt), [1, 2], episodes=1, max_steps=30, seed=1001)
     assert r1["per_level"] == r2["per_level"] and r1["mean_score"] == r2["mean_score"]
+
+
+def _countdown_state(env):
+    """All enemies dead: the game's 256-frame clear countdown is running."""
+    g = env.game
+    g.enemies = []
+    g.alive_enemies = 1
+    g._enemy_died()
+    assert g.alive_enemies == 0 and g.clear_countdown > 0
+    return g
+
+
+def test_dying_during_the_clear_countdown_is_not_a_clear():
+    """Regression (2026-10-19): the evaluator used to count any episode that
+    ended with every enemy dead as a clear."""
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from evaluate import classify_outcome
+
+    from bubblebobblerl.game import Projectile
+
+    env = BubbleBobbleEnv(death_penalty=5, clear_bonus=10)
+    env.reset(seed=0, options={"level": 1})
+    g = _countdown_state(env)
+    g.projectiles.append(Projectile("fire", x=g.player.x - 4, y=g.player.y, dx=1))
+    completed, total = False, 0.0
+    while True:
+        _, r, term, trunc, info = env.step(0)
+        total += r
+        completed |= info["level_complete"]
+        if term or trunc:
+            break
+    assert info["all_enemies_dead"] and g.game_over and not completed
+    assert total == pytest.approx(-5.0)  # training saw a death, no clear bonus
+    assert classify_outcome(completed, g) == "death"
+
+
+def test_running_out_of_time_during_the_countdown_is_a_timeout_and_a_full_countdown_is_a_clear():
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from evaluate import classify_outcome
+
+    env = BubbleBobbleEnv(max_episode_frames=40, timeout_penalty=4, clear_bonus=10)
+    env.reset(seed=0, options={"level": 1})
+    g = _countdown_state(env)
+    g.player.invincible = 10**6
+    completed = False
+    while True:
+        _, r, term, trunc, info = env.step(0)
+        completed |= info["level_complete"]
+        if term or trunc:
+            break
+    assert trunc and not completed and classify_outcome(completed, g) == "timeout"
+
+    env = BubbleBobbleEnv(max_episode_frames=3600, clear_bonus=10)
+    env.reset(seed=0, options={"level": 1})
+    g = _countdown_state(env)
+    g.player.invincible = 10**6
+    completed, total = False, 0.0
+    while True:
+        _, r, term, trunc, info = env.step(0)
+        total += r
+        completed |= info["level_complete"]
+        if term or trunc:
+            break
+    assert term and completed and total == pytest.approx(10.0) and classify_outcome(completed, g) == "clear"
