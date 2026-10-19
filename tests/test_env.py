@@ -338,3 +338,40 @@ def test_running_out_of_time_during_the_countdown_is_a_timeout_and_a_full_countd
         if term or trunc:
             break
     assert term and completed and total == pytest.approx(10.0) and classify_outcome(completed, g) == "clear"
+
+
+def test_vector_autoreset_is_next_step():
+    """The trainer's masking assumes NEXT_STEP autoreset: the step after a
+    terminal/truncated step returns reward 0 and the reset observation. If a
+    Gymnasium upgrade changes this, the masking would drop real first steps."""
+    import gymnasium as gym
+
+    import bubblebobblerl  # noqa: F401
+
+    envs = gym.vector.SyncVectorEnv([lambda: gym.make(
+        "BubbleBobble-v0", obs_type="state", control_obs=True, max_episode_frames=12, time_penalty=0.5)])
+    envs.reset(seed=0)
+    out = [envs.step(np.array([0])) for _ in range(4)]
+    assert [bool(o[3][0]) for o in out] == [False, False, True, False]  # truncated at the 3rd step
+    assert out[3][1][0] == 0.0 and out[3][0][0][-1] == 1.0  # fake step: reward 0, time-left reset to 1
+
+
+def test_gae_stops_at_terminal_steps_and_masks_fake_transitions():
+    import sys
+    from pathlib import Path
+
+    import torch
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from train_ppo import gae_with_autoreset
+
+    # One env, five steps: s0 s1 s2(terminal) F(fake, after the terminal step) s4; bootstrap after s4.
+    rew = torch.tensor([[1.0], [1.0], [5.0], [0.0], [1.0]])
+    val = torch.tensor([[0.5], [0.5], [0.5], [9.0], [0.5]])
+    done = torch.tensor([[0.0], [0.0], [0.0], [1.0], [0.0]])  # done flag returned by the previous step
+    adv, ret, real = gae_with_autoreset(rew, val, done, torch.tensor([2.0]), torch.tensor([0.0]), 0.9, 1.0)
+    assert real.squeeze().tolist() == [True, True, True, False, True]
+    assert adv[2].item() == 5.0 - 0.5  # terminal: no bootstrap from the fake step's value (9.0)
+    assert adv[1].item() == pytest.approx(1.0 + 0.9 * 0.5 - 0.5 + 0.9 * (5.0 - 0.5))
+    assert adv[4].item() == pytest.approx(1.0 + 0.9 * 2.0 - 0.5)  # last step bootstraps next_value
+    assert torch.allclose(ret, adv + val)

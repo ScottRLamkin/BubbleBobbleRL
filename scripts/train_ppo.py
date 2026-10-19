@@ -145,6 +145,29 @@ def parse_levels(spec: str) -> list[int]:
     return levels
 
 
+def gae_with_autoreset(rew, val, done, next_value, next_done, gamma, lam):
+    """GAE over a [T, N] rollout collected from a Gymnasium vector env in
+    NEXT_STEP autoreset mode.
+
+    done[t] is the done flag returned by the step BEFORE t (so done[t] = 1
+    means step t is the fake transition that only resets the env: its action
+    is ignored, its reward is 0 and its observation is the previous episode's
+    final one). A step whose successor has done = 1 is terminal: no bootstrap
+    and no advantage flows back through it. Returns (advantages, returns,
+    real) where real marks the transitions to train on.
+    """
+    T = rew.shape[0]
+    adv = torch.zeros_like(rew)
+    last_gae = torch.zeros_like(rew[0])
+    for t in reversed(range(T)):
+        nonterminal = 1.0 - (next_done if t == T - 1 else done[t + 1])
+        nv = next_value if t == T - 1 else val[t + 1]
+        delta = rew[t] + gamma * nv * nonterminal - val[t]
+        last_gae = delta + gamma * lam * nonterminal * last_gae
+        adv[t] = last_gae
+    return adv, adv + val, done == 0
+
+
 def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_penalty, seed,
              random_start=False, stationary_penalty=0.0, stationary_window=30, stationary_band=8,
              capture_bonus=0.1, explore_bonus=0.0, frame_skip=4, lives=1, nearest_first=False,
@@ -552,23 +575,12 @@ def train(args) -> Path:
                         hist.append(0 if ok else 1)
                         del hist[:-20]
 
-        # GAE
         with torch.no_grad():
             next_value = agent.value(next_obs)
-        adv_t = torch.zeros_like(rew_t)
-        last_gae = 0.0
-        for t in reversed(range(args.rollout_len)):
-            nonterminal = 1.0 - (next_done if t == args.rollout_len - 1 else done_t[t + 1])
-            nv = next_value if t == args.rollout_len - 1 else val_t[t + 1]
-            delta = rew_t[t] + args.gamma * nv * nonterminal - val_t[t]
-            last_gae = delta + args.gamma * args.gae_lambda * nonterminal * last_gae
-            adv_t[t] = last_gae
-        ret_t = adv_t + val_t
-        # Gymnasium's vector autoreset (next-step mode) makes the step after a
-        # terminal one a fake transition: the action is ignored, the reward is
-        # 0 and the "observation" was the previous episode's final frame.
-        # done_t marks exactly those steps; keep them out of the update.
-        real = (done_t == 0).reshape(-1).cpu().numpy()
+        adv_t, ret_t, real_t = gae_with_autoreset(
+            rew_t, val_t, done_t, next_value, next_done, args.gamma, args.gae_lambda
+        )
+        real = real_t.reshape(-1).cpu().numpy()
 
         b_obs = obs_t.reshape(batch, *envs.single_observation_space.shape)
         b_act = act_t.reshape(batch)
