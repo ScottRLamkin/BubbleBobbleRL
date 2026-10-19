@@ -90,13 +90,16 @@ def main() -> None:
     p.add_argument("--max-steps", type=int, default=600, help="agent steps per episode")
     p.add_argument("--scale", type=int, default=3)
     p.add_argument("--greedy", action="store_true", help="most likely action, no sampling")
+    p.add_argument("--control-obs", action="store_true", help="must match the model's training")
+    p.add_argument("--nearest-first", action="store_true", help="must match the model's training")
     p.add_argument("--out", default=None)
     args = p.parse_args()
 
     out = Path(args.out or Path("exports") / Path(args.model).parent.name)
     out.mkdir(parents=True, exist_ok=True)
 
-    env = gym.make("BubbleBobble-v0", obs_type=args.obs)
+    env = gym.make("BubbleBobble-v0", obs_type=args.obs, control_obs=args.control_obs,
+                   nearest_first=args.nearest_first, max_episode_frames=4 * args.max_steps)
     agent = Agent.load(args.model, env.observation_space, env.action_space.n)
 
     rows = []

@@ -7,10 +7,10 @@ export MLFLOW_DISABLE_AGENT_HINT=1 MLFLOW_DISABLE_TELEMETRY=true
 uv run mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns \
     --host 127.0.0.1 --port 5002 --workers 1 > runs/mlflow_server_5002.log 2>&1 &
 MLFLOW_SERVER_PID=$!
-disown $MLFLOW_SERVER_PID 2>/dev/null  # so a campaign's `wait` only waits for its training jobs
+disown 2>/dev/null || true  # zsh: disown the job just started, so a campaign's `wait` only waits for training
 until curl -sf http://127.0.0.1:5002/health > /dev/null; do sleep 1; done
 export MLFLOW_TRACKING_URI=http://127.0.0.1:5002
 zsh scripts/campaigns/memwatch.sh > runs/memwatch.log 2>&1 &
 MEMWATCH_PID=$!
-disown $MEMWATCH_PID 2>/dev/null
+disown 2>/dev/null || true
 trap 'kill $MLFLOW_SERVER_PID $MEMWATCH_PID 2>/dev/null' EXIT
