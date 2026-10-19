@@ -176,12 +176,16 @@ def main() -> None:
     p.add_argument("--out", default=None)
     p.add_argument("--obs", choices=["state", "ego"], default="state",
                    help="ego models: only the outcomes/behaviour/actions/cap sections apply")
+    p.add_argument("--control-obs", action="store_true", help="must match the model's training")
+    p.add_argument("--max-steps-env", type=int, default=None,
+                   help="episode cap inside the env in agent steps (default: --max-steps)")
     p.add_argument("--sections", default="outcomes,timeouts,behaviour,actions,ablation,levels,cap")
     args = p.parse_args()
     sections = set(args.sections.split(","))
 
     levels = parse_levels(args.levels)
-    env = BubbleBobbleEnv(obs_type=args.obs)
+    env = BubbleBobbleEnv(obs_type=args.obs, control_obs=args.control_obs,
+                          max_episode_frames=4 * (args.max_steps_env or args.max_steps))
     agent = Agent.load(args.model, env.observation_space, env.action_space.n)
     report: dict = {"model": args.model}
 
@@ -254,6 +258,7 @@ def main() -> None:
             ("steps spent still (no x movement for 2 s)", f"{100 * still / max(steps, 1):.0f}%"),
             ("bubble bounces per minute", f"{60 * 15 * sum(r['bounces'] for r in base) / max(steps, 1):.1f}"),
             ("episodes that cross the screen (x range >= 64)", f"{sum(r['x_range'] >= 64 for r in base)} of {n}"),
+            ("kills per episode", f"{np.mean([r['kills'] for r in base]):.2f}"),
         ]
         report["behaviour"] = rows
         print("\n### Behaviour profile\n")
