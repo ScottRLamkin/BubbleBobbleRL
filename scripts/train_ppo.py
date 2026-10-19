@@ -51,6 +51,17 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--clear-bonus", type=float, default=10.0)
     p.add_argument("--death-penalty", type=float, default=1.0)
     p.add_argument("--timeout-penalty", type=float, default=0.0, help="charged when the clock runs out")
+    p.add_argument("--kill-bonus", type=float, default=0.0, help="reward per enemy killed")
+    p.add_argument("--no-score-reward", action="store_true", help="drop the in-game score from the reward")
+    p.add_argument("--control-obs", action="store_true",
+                   help="observe previous jump/shoot buttons, full jump counter and time left")
+    p.add_argument("--max-episode-frames", type=int, default=3600,
+                   help="episode cap in game frames (3600 = the standard test's one minute)")
+    p.add_argument("--bootstrap-truncation", action="store_true",
+                   help="treat the time limit as a cut-off, not an outcome: bootstrap V at truncation")
+    p.add_argument("--max-minutes", type=float, default=0.0, help="stop after this much wall time")
+    p.add_argument("--fresh-optimizer", action="store_true",
+                   help="with --init-model: do not load the optimizer state saved next to it")
     p.add_argument("--capture-bonus", type=float, default=0.1)
     p.add_argument("--explore-bonus", type=float, default=0.0,
                    help="reward per new 8-px column of x reached in an episode")
@@ -133,7 +144,8 @@ def parse_levels(spec: str) -> list[int]:
 def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_penalty, seed,
              random_start=False, stationary_penalty=0.0, stationary_window=30, stationary_band=8,
              capture_bonus=0.1, explore_bonus=0.0, frame_skip=4, lives=1, nearest_first=False,
-             grace_frames=0, timeout_penalty=0.0):
+             grace_frames=0, timeout_penalty=0.0, control_obs=False, kill_bonus=0.0,
+             score_reward=True, max_episode_frames=3600):
     def thunk():
         env = gym.make(
             "BubbleBobble-v0",
@@ -155,6 +167,10 @@ def make_env(level, levels, obs, time_penalty, reward_pops, clear_bonus, death_p
             nearest_first=nearest_first,
             grace_frames=grace_frames,
             timeout_penalty=timeout_penalty,
+            control_obs=control_obs,
+            kill_bonus=kill_bonus,
+            score_reward=score_reward,
+            max_episode_frames=max_episode_frames,
         )
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env.reset(seed=seed)
@@ -375,7 +391,8 @@ def train(args) -> Path:
                 args.seed + i, args.random_start, args.stationary_penalty,
                 args.stationary_window, args.stationary_band, args.capture_bonus,
                 args.explore_bonus, args.frame_skip, args.lives, args.nearest_first,
-                args.grace_frames, args.timeout_penalty,
+                args.grace_frames, args.timeout_penalty, args.control_obs, args.kill_bonus,
+                not args.no_score_reward, args.max_episode_frames,
             )
             for i in range(args.num_envs)
         ]
@@ -392,7 +409,21 @@ def train(args) -> Path:
             args.hidden, args.layers, args.act,
         ).to(device)
     (run_dir / "arch.json").write_text(json.dumps({"act": args.act}))
+    # The full recipe, so a later run (or evolve.py) can inherit it exactly.
+    (run_dir / "config.json").write_text(json.dumps(vars(args), indent=1, default=str))
     optimizer = torch.optim.Adam(agent.parameters(), lr=args.lr, eps=1e-5)
+    resumed_optimizer = False
+    if args.init_model and not args.fresh_optimizer:
+        opt_path = Path(args.init_model).with_name("optimizer.pt")
+        if opt_path.exists():
+            try:
+                optimizer.load_state_dict(torch.load(opt_path, map_location=device))
+                for group in optimizer.param_groups:
+                    group["lr"] = args.lr
+                resumed_optimizer = True
+            except Exception as exc:  # shape mismatch (different architecture/inputs): start fresh
+                print(f"optimizer state not loaded ({exc}); fresh Adam", flush=True)
+    print(f"optimizer: {'resumed from ' + str(args.init_model) if resumed_optimizer else 'fresh Adam'}", flush=True)
 
     batch = args.num_envs * args.rollout_len
     obs_t = torch.zeros(
@@ -417,11 +448,16 @@ def train(args) -> Path:
     next_eval = args.eval_every
     eval_levels = [lv for lv in (levels or [args.level]) if lv != 100] or [args.level]
     best_cleared, best_step = -1, 0  # the run's result is its best evaluated checkpoint
+    reward_parts = {f"r_{k}": 0.0 for k in ("score", "capture", "kill", "death", "clear", "time",
+                                            "stationary", "timeout", "explore")}
 
     pool_size = 0
     grace = args.grace_frames
     fails: dict[int, list[int]] = {lv: [] for lv in (levels or [])}  # recent outcomes per level
     while global_step < args.total_steps:
+        if args.max_minutes and (time.time() - start) / 60 >= args.max_minutes:
+            print(f"wall budget of {args.max_minutes} min reached at step {global_step}", flush=True)
+            break
         if args.grace_frames and args.grace_anneal:
             frac = min(1.0, global_step / (args.grace_anneal * args.total_steps))
             g_now = int(round(args.grace_frames * (1.0 - frac)))
@@ -456,6 +492,15 @@ def train(args) -> Path:
             o, r, term, trunc, infos = envs.step(a.cpu().numpy())
             rew_t[t] = torch.as_tensor(r, dtype=torch.float32, device=device)
             next_obs = torch.as_tensor(o, dtype=torch.float32, device=device)
+            for k in reward_parts:
+                if k in infos:
+                    reward_parts[k] += float(np.sum(infos[k]))
+            if args.bootstrap_truncation:
+                cut = np.logical_and(trunc, np.logical_not(term))
+                if cut.any():  # the obs returned at a time-limit cut is the final one: bootstrap it
+                    with torch.no_grad():
+                        v_final = agent.value(next_obs[torch.as_tensor(cut, device=device)])
+                    rew_t[t][torch.as_tensor(cut, device=device)] += args.gamma * v_final
             next_done = torch.as_tensor(
                 np.logical_or(term, trunc), dtype=torch.float32, device=device
             )
@@ -542,17 +587,22 @@ def train(args) -> Path:
         if args.eval_every and global_step >= next_eval:
             next_eval += args.eval_every
             torch.save(agent.state_dict(), run_dir / "model.pt")
+            torch.save(optimizer.state_dict(), run_dir / "optimizer.pt")
             from evaluate import evaluate
 
             agent.eval()
             ev = evaluate(str(run_dir / "model.pt"), eval_levels, args.eval_episodes,
                           900 * 4 // args.frame_skip, obs=args.obs,
-                          frame_skip=args.frame_skip, nearest_first=args.nearest_first)
+                          frame_skip=args.frame_skip, nearest_first=args.nearest_first,
+                          control_obs=args.control_obs)
             agent.train()
             share = ev["cleared"] / ev["episodes"]
             if ev["cleared"] > best_cleared:
                 best_cleared, best_step = ev["cleared"], global_step
                 shutil.copy(run_dir / "model.pt", run_dir / "best.pt")
+                shutil.copy(run_dir / "optimizer.pt", run_dir / "best_optimizer.pt")
+                (run_dir / "best_eval.json").write_text(json.dumps(
+                    {"step": global_step, **{k: v for k, v in ev.items()}}, indent=1))
             print(
                 f"  eval @ {global_step:>9}: cleared {ev['cleared']}/{ev['episodes']} "
                 f"({100 * share:.0f}%), died {ev['died']}, timed out {ev['timeout']}, "
@@ -567,8 +617,13 @@ def train(args) -> Path:
                 "eval/timeout_rate": ev["timeout"] / ev["episodes"],
                 "eval/levels_cleared": ev["levels_cleared"],
                 "eval/mean_score": ev["mean_score"],
+                "eval/kills_per_episode": ev["kills_per_episode"],
+                "eval/minutes_elapsed": (time.time() - start) / 60,
             }, global_step)
         if n_updates % args.log_every == 0:
+            logged_parts = dict(reward_parts)
+            for k in reward_parts:
+                reward_parts[k] = 0.0
             y_pred, y_true = val_t.ravel().cpu().numpy(), ret_t.ravel().cpu().numpy()
             var_y = np.var(y_true)
             log_metrics({
@@ -576,6 +631,8 @@ def train(args) -> Path:
                 "charts/train_clear_rate": rates["clear"],
                 "charts/train_death_rate": rates["death"],
                 "charts/train_timeout_rate": rates["timeout"],
+                **{f"reward/{k[2:]}_per_step": v / (args.log_every * args.num_envs * args.rollout_len)
+                   for k, v in logged_parts.items()},
                 "charts/episodic_length": np.mean(ep_lengths[-20:]) if ep_lengths else float("nan"),
                 "charts/sps": sps,
                 "charts/learning_rate": optimizer.param_groups[0]["lr"],
@@ -589,6 +646,7 @@ def train(args) -> Path:
                 "losses/explained_variance": float("nan") if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y,
             }, global_step)
         torch.save(agent.state_dict(), run_dir / "model.pt")
+        torch.save(optimizer.state_dict(), run_dir / "optimizer.pt")
 
     envs.close()
     if writer:

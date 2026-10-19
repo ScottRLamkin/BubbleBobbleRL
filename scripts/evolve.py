@@ -137,6 +137,32 @@ def seed_variants(base: Genome) -> list[Genome]:
     ]
 
 
+# Names in train_ppo's config.json -> Genome fields (reward_pops is the inverse of no_pop_reward).
+CONFIG_TO_GENE = {k: k for k in (
+    "clear_bonus", "time_penalty", "stationary_penalty", "stationary_band", "death_penalty",
+    "timeout_penalty", "capture_bonus", "explore_bonus", "lr", "ent_coef", "clip", "gamma",
+    "gae_lambda", "vf_coef", "epochs", "num_envs", "rollout_len",
+)}
+
+
+def inherit_genome(model_path: Path, fallback: Genome) -> tuple[Genome, str]:
+    """A base's real training recipe: from the evolve spec (genome.json) or the
+    trainer's config.json next to the model. Falls back to defaults, and says so."""
+    folder = model_path.parent
+    spec = folder / "genome.json"
+    if spec.exists():
+        g = json.loads(spec.read_text()).get("genome", {})
+        return Genome(**{**asdict(fallback), **g}), str(spec)
+    cfg = folder / "config.json"
+    if cfg.exists():
+        c = json.loads(cfg.read_text())
+        fields = {gene: c[key] for key, gene in CONFIG_TO_GENE.items() if key in c}
+        if "no_pop_reward" in c:
+            fields["reward_pops"] = not c["no_pop_reward"]
+        return Genome(**{**asdict(fallback), **fields}), str(cfg)
+    return fallback, "DEFAULTS (no genome.json or config.json next to the model)"
+
+
 def fitness(result: dict) -> tuple:
     """Higher is better: most episodes cleared, then fewest deaths."""
     return (result["cleared"], -result["died"])
@@ -224,12 +250,18 @@ def train_member(spec: dict) -> dict:
             "--clear-bonus", str(g["clear_bonus"]),
             "--death-penalty", str(g["death_penalty"]),
             "--timeout-penalty", str(g.get("timeout_penalty", spec.get("timeout_penalty", 0.0))),
+            "--max-episode-frames", str(spec.get("max_episode_frames", 3600)),
             "--capture-bonus", str(g["capture_bonus"]),
             "--no-tensorboard",
             "--quiet",
         ]
         if not g["reward_pops"]:
             argv.append("--no-pop-reward")
+        for flag in ("control_obs", "bootstrap_truncation", "no_score_reward"):
+            if spec.get(flag):
+                argv.append("--" + flag.replace("_", "-"))
+        if spec.get("kill_bonus"):
+            argv += ["--kill-bonus", str(spec["kill_bonus"])]
         if spec.get("experiment"):
             argv += ["--experiment", spec["experiment"], "--log-every", "10"]
             for k in ("generation", "parent"):
@@ -256,8 +288,10 @@ def score_member(job: dict) -> dict:
         from train_ppo import parse_levels
 
         result = evaluate(
-            job["model"], parse_levels(LEVELS), job["episodes"], job["max_steps"], job["seed"]
+            job["model"], parse_levels(LEVELS), job["episodes"], job["max_steps"], job["seed"],
+            control_obs=job.get("control_obs", False),
         )
+        result.pop("per_level", None)
         return {"id": job["id"], "result": result}
     except Exception:
         return {"id": job["id"], "error": traceback.format_exc(limit=1)}
@@ -336,11 +370,18 @@ class Run:
             base_dir = self.dir / "gen_00" / bid
             base_dir.mkdir(parents=True, exist_ok=True)
             shutil.copy(path, base_dir / "model.pt")
+            opt = Path(path).with_name("optimizer.pt")
+            if Path(path).name == "best.pt" and Path(path).with_name("best_optimizer.pt").exists():
+                opt = Path(path).with_name("best_optimizer.pt")
+            if opt.exists():
+                shutil.copy(opt, base_dir / "optimizer.pt")
+            genome, source = inherit_genome(Path(path), Genome(timeout_penalty=self.args.timeout_penalty))
+            self.log(f"{bid}: genome from {source}; optimizer state {'copied' if opt.exists() else 'absent'}")
             bases.append({
                 "id": bid,
                 "lineage": [],
                 "model": str(base_dir / "model.pt"),
-                "genome": asdict(Genome(timeout_penalty=self.args.timeout_penalty)),
+                "genome": asdict(genome),
             })
         state = {"generation": 0, "base": bases[0], "survivors": bases, "history": []}
         self.save_state(state)
@@ -367,6 +408,9 @@ class Run:
                 c["model"] = str(gen_dir / c["id"] / "model.pt")
                 c["generation"] = gen
                 c["timeout_penalty"] = a.timeout_penalty
+                for flag in ("control_obs", "bootstrap_truncation", "no_score_reward",
+                             "kill_bonus", "max_episode_frames"):
+                    c[flag] = getattr(a, flag)
                 if self.mlflow:
                     c["experiment"] = f"evolve-{a.name}"
             plan_path.write_text(json.dumps(children, indent=2))
@@ -391,7 +435,8 @@ class Run:
         to_score.setdefault(state["base"]["id"], state["base"])
         jobs = [
             {"id": m["id"], "model": m["model"], "episodes": a.eval_episodes,
-             "max_steps": a.eval_max_steps, "seed": a.seed * 1000 + gen}
+             "max_steps": a.eval_max_steps, "seed": a.seed * 1000 + gen,
+             "control_obs": a.control_obs}
             for m in to_score.values()
         ]
         self.log(f"generation {gen}: scoring {len(jobs)} models")
@@ -525,6 +570,11 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--base", nargs="+", default=["runs/ppo_state_all_50M/model.pt"],
                    help="one or more model.pt files to start from")
     p.add_argument("--timeout-penalty", type=float, default=0.0, help="fixed for all children")
+    p.add_argument("--control-obs", action="store_true", help="env flag for all children (must match the bases)")
+    p.add_argument("--bootstrap-truncation", action="store_true")
+    p.add_argument("--no-score-reward", action="store_true")
+    p.add_argument("--kill-bonus", type=float, default=0.0)
+    p.add_argument("--max-episode-frames", type=int, default=3600)
     p.add_argument("--name", required=True, help="run directory under runs/evolve/")
     p.add_argument("--generations", type=int, default=3)
     p.add_argument("--population", type=int, default=30)

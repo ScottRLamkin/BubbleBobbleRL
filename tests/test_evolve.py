@@ -104,3 +104,18 @@ def test_wide_mutation_changes_one_to_four_genes_within_ranges():
         for k, (lo, hi) in RANGES.items():
             assert lo <= getattr(child, k) <= hi
     assert min(counts) >= 1 and max(counts) <= 4 and max(counts) >= 3
+
+
+def test_inherit_genome_reads_the_trainer_config(tmp_path):
+    import json
+
+    from evolve import inherit_genome
+
+    (tmp_path / "config.json").write_text(json.dumps({"lr": 5.2e-05, "gamma": 0.985, "no_pop_reward": True,
+                                                       "num_envs": 32, "time_penalty": 0.004}))
+    g, source = inherit_genome(tmp_path / "model.pt", Genome())
+    assert g.lr == 5.2e-05 and g.gamma == 0.985 and g.reward_pops is False and g.num_envs == 32
+    assert g.time_penalty == 0.004 and g.clear_bonus == Genome().clear_bonus
+    assert source.endswith("config.json")
+    g2, source2 = inherit_genome(tmp_path / "nothing" / "model.pt", Genome())
+    assert g2 == Genome() and source2.startswith("DEFAULTS")

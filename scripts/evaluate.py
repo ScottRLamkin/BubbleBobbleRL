@@ -38,12 +38,16 @@ def evaluate(
     obs: str = "state",
     frame_skip: int = 4,
     nearest_first: bool = False,
+    control_obs: bool = False,
 ) -> dict:
     """The standard test: every level in `levels`, `episodes` times each, one
     life, `max_steps` agent steps (900 = one minute), sampled actions. One
-    env per level stepped in lockstep so the network runs batched."""
+    env per level stepped in lockstep so the network runs batched. The
+    episode cap inside the env equals the step cap, so a policy that sees
+    time left sees the same clock it trained with when the caps match."""
     envs = [
-        gym.make("BubbleBobble-v0", obs_type=obs, frame_skip=frame_skip, nearest_first=nearest_first)
+        gym.make("BubbleBobble-v0", obs_type=obs, frame_skip=frame_skip, nearest_first=nearest_first,
+                 control_obs=control_obs, max_episode_frames=max_steps * frame_skip)
         for _ in levels
     ]
     agent = Agent.load(model_path, envs[0].observation_space, envs[0].action_space.n)
@@ -52,7 +56,9 @@ def evaluate(
 
     cleared = died = timeout = 0
     score = 0
+    kills = 0
     per_level = {level: 0 for level in levels}
+    per_level_outcomes = {level: [] for level in levels}
     for ep in range(episodes):
         obs_batch = []
         for env, level in zip(envs, levels):
@@ -77,13 +83,17 @@ def evaluate(
         for i, level in enumerate(levels):
             info = last_info[i]
             score += info["score"]
+            kills += info.get("kills", 0)
             if info["enemies_alive"] == 0:
                 cleared += 1
                 per_level[level] += 1
+                per_level_outcomes[level].append("clear")
             elif envs[i].unwrapped.game.game_over:
                 died += 1
+                per_level_outcomes[level].append("death")
             else:
                 timeout += 1
+                per_level_outcomes[level].append("timeout")
     n = len(levels) * episodes
     return {
         "episodes": n,
@@ -92,6 +102,8 @@ def evaluate(
         "timeout": timeout,
         "levels_cleared": sum(1 for c in per_level.values() if c),
         "mean_score": score / n,
+        "kills_per_episode": kills / n,
+        "per_level": per_level_outcomes,
     }
 
 
@@ -105,13 +117,20 @@ def main() -> None:
     p.add_argument("--obs", choices=["state", "ego"], default="state")
     p.add_argument("--frame-skip", type=int, default=4, help="must match the model's training")
     p.add_argument("--nearest-first", action="store_true", help="must match the model's training")
+    p.add_argument("--control-obs", action="store_true", help="must match the model's training")
+    p.add_argument("--per-level-out", default=None, help="write per-level outcomes to this JSON file")
     args = p.parse_args()
     r = evaluate(args.model, parse_levels(args.levels), args.episodes, args.max_steps, args.seed,
-                 args.obs, args.frame_skip, args.nearest_first)
+                 args.obs, args.frame_skip, args.nearest_first, args.control_obs)
+    if args.per_level_out:
+        import json
+        from pathlib import Path
+
+        Path(args.per_level_out).write_text(json.dumps(r, indent=1))
     print(
         f"{args.model}: cleared {r['cleared']}/{r['episodes']} episodes "
         f"({r['levels_cleared']} levels), died {r['died']}, timed out {r['timeout']}, "
-        f"mean score {r['mean_score']:.0f}"
+        f"mean score {r['mean_score']:.0f}, kills/episode {r['kills_per_episode']:.2f}"
     )
 
 

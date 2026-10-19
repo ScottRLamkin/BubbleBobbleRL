@@ -217,3 +217,27 @@ def test_timeout_penalty_is_charged_once_at_truncation():
         _, r, term, trunc, _ = env.step(0)
         rewards.append(r)
     assert trunc and rewards[-1] == pytest.approx(-4.0) and all(r == pytest.approx(0.0) for r in rewards[:-1])
+
+
+def test_control_obs_distinguishes_held_from_fresh_shoot():
+    """The review's reproduction: identical pictures, different button history."""
+    import copy
+
+    env = BubbleBobbleEnv(obs_type="state", control_obs=True)
+    env.reset(seed=1)
+    env.game.player.shoot_cooldown = 0
+    env.game.prev_shoot = False
+    twin = copy.deepcopy(env)
+    twin.game.prev_shoot = True
+    assert not np.array_equal(env._obs(), twin._obs())
+    assert env.observation_space.shape[0] == twin.observation_space.shape[0] == 660
+    plain = BubbleBobbleEnv(obs_type="state")
+    assert plain.observation_space.shape[0] == 656  # older checkpoints unaffected
+
+
+def test_reward_components_are_reported_and_sum_to_the_reward():
+    env = BubbleBobbleEnv(time_penalty=0.01, kill_bonus=2.0, score_reward=False)
+    env.reset(seed=0)
+    _, r, _, _, info = env.step(0)
+    parts = [v for k, v in info.items() if k.startswith("r_")]
+    assert len(parts) == 9 and sum(parts) == pytest.approx(r) and info["r_time"] == pytest.approx(-0.01)

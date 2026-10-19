@@ -62,6 +62,13 @@ class BubbleBobbleEnv(gym.Env):
     "the closest one". By default slots follow spawn order, which differs
     from level to level and leaves a flat network to learn each slot's
     meaning per level.
+    control_obs=True appends four numbers the policy otherwise cannot see:
+    whether jump and shoot were held on the previous step (both buttons act
+    on a fresh press, so the same picture can lead to a shot or to nothing),
+    the full jump counter (remaining rise), and the fraction of the episode's
+    time left. Appended last so older checkpoints still load.
+    kill_bonus pays per enemy killed; score_reward=False drops the in-game
+    score from the reward entirely (an explicit kill/clear objective).
     timeout_penalty is charged once when the episode runs out of time
     (max_episode_frames) without a clear, so running out the clock is
     treated nearly like dying rather than as a free outcome.
@@ -106,6 +113,9 @@ class BubbleBobbleEnv(gym.Env):
         nearest_first: bool = False,
         grace_frames: int = 0,
         timeout_penalty: float = 0.0,
+        control_obs: bool = False,
+        kill_bonus: float = 0.0,
+        score_reward: bool = True,
         reward_pops: bool = True,
         random_start: bool = False,
         render_mode: str | None = None,
@@ -127,6 +137,9 @@ class BubbleBobbleEnv(gym.Env):
         self.nearest_first = nearest_first
         self.grace_frames = grace_frames
         self.timeout_penalty = timeout_penalty
+        self.control_obs = control_obs
+        self.kill_bonus = kill_bonus
+        self.score_reward = score_reward
         self.reward_pops = reward_pops
         self.random_start = random_start
         self.level_pool = list(levels) if levels else None
@@ -151,6 +164,7 @@ class BubbleBobbleEnv(gym.Env):
                 + MAX_LOOT * 4
                 + MAX_PREBUBBLES * 4
                 + MAX_PROJECTILES * 5
+                + (4 if control_obs else 0)
             )
             self.observation_space = spaces.Box(
                 -1.0, 1.0, shape=(n,), dtype=np.float32
@@ -228,17 +242,23 @@ class BubbleBobbleEnv(gym.Env):
                 pr.dx * (2 if pr.kind == "fire" else 1) / 2.0,  # x speed / 2
                 1.0 if pr.kind == "laser" else 0.0,  # falls
             )
-        return np.concatenate(
-            [
-                np.array(player, dtype=np.float32),
-                grid,
-                enemies.ravel(),
-                bubbles.ravel(),
-                loot.ravel(),
-                prebubbles.ravel(),
-                shots.ravel(),
-            ]
-        )
+        parts = [
+            np.array(player, dtype=np.float32),
+            grid,
+            enemies.ravel(),
+            bubbles.ravel(),
+            loot.ravel(),
+            prebubbles.ravel(),
+            shots.ravel(),
+        ]
+        if self.control_obs:
+            parts.append(np.array([
+                1.0 if g.prev_jump else 0.0,
+                1.0 if g.prev_shoot else 0.0,
+                min(p.jump, 80) / 80.0,
+                max(0.0, 1.0 - getattr(self, "_frames", 0) / self.max_episode_frames),
+            ], dtype=np.float32))
+        return np.concatenate(parts)
 
     def _local_window(self, p) -> np.ndarray:
         """Tiles around the player: rows wrap like the playfield, columns
@@ -268,6 +288,7 @@ class BubbleBobbleEnv(gym.Env):
         self._frames = 0
         self._xs: list[int] = []
         self._visited: set[int] = {self.game.player.x // 8}
+        self._kills = 0
         return self._obs(), self._info()
 
     def _randomize_start(self) -> None:
@@ -287,18 +308,24 @@ class BubbleBobbleEnv(gym.Env):
     def step(self, action: int):
 
         buttons = ACTIONS[int(action)]
-        reward = -self.time_penalty
+        parts = {k: 0.0 for k in ("score", "capture", "kill", "death", "clear", "time",
+                                  "stationary", "timeout", "explore")}
+        parts["time"] = -self.time_penalty
         terminated = False
+        killed = 0
         for _ in range(self.frame_skip):
             ev = self.game.step(buttons)
             self._frames += 1
-            score = ev.score_delta if self.reward_pops else ev.score_delta - ev.pop_score
-            reward += score / 100.0
-            reward += ev.captured * self.capture_bonus
+            if self.score_reward:
+                score = ev.score_delta if self.reward_pops else ev.score_delta - ev.pop_score
+                parts["score"] += score / 100.0
+            parts["capture"] += ev.captured * self.capture_bonus
+            parts["kill"] += ev.killed * self.kill_bonus
+            killed += ev.killed
             if ev.died:
-                reward -= self.death_penalty
+                parts["death"] -= self.death_penalty
             if ev.level_complete:
-                reward += self.clear_bonus
+                parts["clear"] += self.clear_bonus
                 if not self.game.auto_advance:
                     terminated = True
             if self.game.game_over:
@@ -309,17 +336,21 @@ class BubbleBobbleEnv(gym.Env):
             band = self.game.player.x // 8
             if band not in self._visited:
                 self._visited.add(band)
-                reward += self.explore_bonus
+                parts["explore"] += self.explore_bonus
         if self.stationary_penalty:
             self._xs.append(self.game.player.x)
             if len(self._xs) > self.stationary_window:
                 del self._xs[0]
                 if max(self._xs) - min(self._xs) < self.stationary_band:
-                    reward -= self.stationary_penalty
+                    parts["stationary"] -= self.stationary_penalty
         truncated = self._frames >= self.max_episode_frames and not terminated
         if truncated:
-            reward -= self.timeout_penalty
-        return self._obs(), reward, terminated, truncated, self._info()
+            parts["timeout"] -= self.timeout_penalty
+        self._kills += killed
+        info = self._info()
+        info.update({f"r_{k}": v for k, v in parts.items()})
+        info["kills"] = self._kills
+        return self._obs(), sum(parts.values()), terminated, truncated, info
 
     def _info(self) -> dict[str, Any]:
         g = self.game
