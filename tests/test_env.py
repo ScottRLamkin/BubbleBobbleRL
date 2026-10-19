@@ -241,3 +241,30 @@ def test_reward_components_are_reported_and_sum_to_the_reward():
     _, r, _, _, info = env.step(0)
     parts = [v for k, v in info.items() if k.startswith("r_")]
     assert len(parts) == 9 and sum(parts) == pytest.approx(r) and info["r_time"] == pytest.approx(-0.01)
+
+
+def test_evaluate_preserves_caller_rng_and_is_reproducible(tmp_path):
+    """The trainer calls evaluate() mid-run: it must leave torch/numpy RNG
+    streams untouched, and the same checkpoint + seed must give the same result."""
+    import sys
+    from pathlib import Path
+
+    import torch
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from evaluate import evaluate
+    from train_ppo import Agent
+
+    env = BubbleBobbleEnv(obs_type="state")
+    torch.manual_seed(0)
+    agent = Agent(env.observation_space, env.action_space.n)
+    ckpt = tmp_path / "model.pt"
+    torch.save(agent.state_dict(), ckpt)
+    torch.manual_seed(123)
+    np.random.seed(123)
+    before_t, before_n = torch.get_rng_state().clone(), np.random.get_state()[1].copy()
+    r1 = evaluate(str(ckpt), [1, 2], episodes=1, max_steps=30, seed=1001)
+    assert torch.equal(torch.get_rng_state(), before_t)
+    assert np.array_equal(np.random.get_state()[1], before_n)
+    r2 = evaluate(str(ckpt), [1, 2], episodes=1, max_steps=30, seed=1001)
+    assert r1["per_level"] == r2["per_level"] and r1["mean_score"] == r2["mean_score"]

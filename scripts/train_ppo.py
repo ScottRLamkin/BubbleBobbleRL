@@ -257,7 +257,14 @@ class Agent(nn.Module):
 
     @classmethod
     def load(cls, path: str, obs_space, n_actions: int, pad_to: int | None = None) -> "Agent":
-        """Build the right architecture for a saved model.pt and load it."""
+        """Build the right architecture for a saved model.pt and load it.
+        Leaves the caller's global torch RNG untouched (construction would
+        otherwise draw random initial weights before they are overwritten)."""
+        with torch.random.fork_rng(devices=[]):
+            return cls._load(path, obs_space, n_actions, pad_to)
+
+    @classmethod
+    def _load(cls, path: str, obs_space, n_actions: int, pad_to: int | None = None) -> "Agent":
         state = torch.load(path, map_location="cpu")
         arch = "conv" if any(k.startswith("encoder.grid.") for k in state) else "mlp"
         hidden, layers, act = 256, 2, "tanh"

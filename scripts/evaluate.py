@@ -50,6 +50,19 @@ def evaluate(
                  control_obs=control_obs, max_episode_frames=max_steps * frame_skip)
         for _ in levels
     ]
+    # Invariant: evaluation must not disturb the caller's RNG streams (the
+    # trainer calls this mid-run). Model construction and action sampling use
+    # their own generator / forked state; env seeding is explicit per episode.
+    torch_state = torch.get_rng_state()
+    np_state = np.random.get_state()
+    try:
+        return _evaluate(envs, model_path, levels, episodes, max_steps, seed)
+    finally:
+        torch.set_rng_state(torch_state)
+        np.random.set_state(np_state)
+
+
+def _evaluate(envs, model_path, levels, episodes, max_steps, seed) -> dict:
     agent = Agent.load(model_path, envs[0].observation_space, envs[0].action_space.n)
     # Own generator, so results do not depend on the caller's torch RNG state.
     gen = torch.Generator().manual_seed(seed)
