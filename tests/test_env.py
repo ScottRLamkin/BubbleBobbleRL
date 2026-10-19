@@ -883,3 +883,28 @@ def test_banebou_lands_mid_hop_and_falls_in_the_frame_a_hop_ends():
     e.x, e.y, e.state, e.counter = 40, 52, 1, 12
     g._banebou_ai(e)
     assert (e.state, e.counter, e.x, e.y) == (2, 0, 41, 52)
+
+
+def test_hullaballoon_turns_at_its_own_probe_points():
+    """Regression (2026-10-19): Z80 HullaMoveForward probes x+6 (right) and x+1
+    (left); the port used the Buster/Beluga points x+8 and x-1, so a
+    Hullaballoon turned 2 px early on both sides."""
+    from bubblebobblerl.game import HULLABALLOON, Enemy
+    from bubblebobblerl.levels import TILE_UP, TILE_WALL
+
+    def step(x, facing):
+        g = _bubble_game()
+        g.grid = g.grid.copy()
+        g.grid[:, :] = TILE_UP
+        g.grid[:, 9] = TILE_WALL  # x 36-39
+        g.grid[:, 12] = TILE_WALL  # x 48-51
+        e = Enemy(kind=HULLABALLOON, x=x, y=20, facing=facing, spawn_delay=0)
+        e.falling_in = False
+        g.timer = 1  # not a 4th frame: only the move inside HullaUp
+        g._hulla_ai(e)
+        return e.x, e.facing
+
+    assert step(41, 1) == (42, 1)  # x+6 = 47 is air (x+8 = 49 would be wall)
+    assert step(42, 1) == (42, -1)  # x+6 = 48 is wall: turn
+    assert step(40, -1) == (39, -1)  # x+1 = 41 is air (x-1 = 39 would be wall)
+    assert step(38, -1) == (38, 1)  # x+1 = 39 is wall: turn

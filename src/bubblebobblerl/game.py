@@ -574,8 +574,10 @@ class Game:
         else:
             e.facing = -1
 
-    def _enemy_forward(self, e: Enemy) -> None:
-        probe_x = e.x + 8 if e.facing > 0 else e.x - 1
+    def _enemy_forward(self, e: Enemy, ahead: int = 8, behind: int = -1) -> None:
+        """BustMoveForward / BeluMoveForward: probe x+8 (right) or x-1 (left);
+        HullaMoveForward probes x+6 / x+1 (pass ahead=6, behind=1)."""
+        probe_x = e.x + ahead if e.facing > 0 else e.x + behind
         if e.floater:
             blocked = self.solid(probe_x, e.y + 7) or self.solid(probe_x, e.y)
         else:
@@ -706,7 +708,7 @@ class Game:
     def _hulla_ai(self, e: Enemy) -> None:
         if self.solid(e.x + 3, e.y + 7) and self.solid(e.x + 3, e.y):
             e.y -= 1
-        self._enemy_forward(e)
+        self._enemy_forward(e, 6, 1)  # HullaMoveForward
         if e.state == 0:
             if self.solid(e.x + 2, e.y - 1) or self.solid(e.x + 5, e.y - 1):
                 e.state = 1
@@ -718,7 +720,7 @@ class Game:
             else:
                 e.y += 1
         if self.timer % 4 == 0:
-            self._enemy_forward(e)
+            self._enemy_forward(e, 6, 1)  # HullaMoveForward
 
     # ------------------------------------------------------- projectiles
 
