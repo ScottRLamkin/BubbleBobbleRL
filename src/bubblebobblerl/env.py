@@ -54,9 +54,13 @@ class BubbleBobbleEnv(gym.Env):
     levels: optional pool of level numbers; each reset() draws one at random
     (an explicit ``options={"level": n}`` still wins).
 
+    Enemy slots also carry Baron von Blubba once he appears (the game's
+    hurry-up timer releases him on every level): his row has state -1 and
+    kind -1, which no enemy uses, after the enemies' rows.
+
     Reward is the in-game score delta (display points / 100 to keep
     magnitudes sane), with small optional shaping terms. time_penalty is
-    subtracted once per step; it stands in for the unimplemented hurry-up.
+    subtracted once per step.
     nearest_first=True fills every slot group (enemies, bubbles, loot,
     projectiles) in order of distance from the player, so slot 0 is always
     "the closest one". By default slots follow spawn order, which differs
@@ -210,6 +214,11 @@ class BubbleBobbleEnv(gym.Env):
                 1.0 if e.angry else (0.5 if e.falling_in else 0.0),
                 e.kind / 7.0,
             )
+        # Baron von Blubba: invulnerable chaser, after the enemies (state -1, kind -1).
+        for j, b in enumerate(g.barons):
+            i = min(len(g.enemies), MAX_ENEMIES) + j
+            if i < MAX_ENEMIES:
+                enemies[i] = (1.0, rx(b.x), ry(b.y), 1.0 if p.x > b.x else -1.0, -1.0, -1.0)
         bubbles = np.zeros((MAX_BUBBLES, 5), dtype=np.float32)
         for i, bub in enumerate(order(g.bubbles)[:MAX_BUBBLES]):
             bubbles[i] = (
@@ -314,8 +323,10 @@ class BubbleBobbleEnv(gym.Env):
         terminated = False
         killed = 0
         completed = False
+        hurried = False
         for _ in range(self.frame_skip):
             ev = self.game.step(buttons)
+            hurried = hurried or ev.hurry
             self._frames += 1
             if self.score_reward:
                 score = ev.score_delta if self.reward_pops else ev.score_delta - ev.pop_score
@@ -357,6 +368,8 @@ class BubbleBobbleEnv(gym.Env):
         # killing every enemy is not the same thing: the player can still die
         # or run out of time during the countdown.
         info["level_complete"] = completed
+        info["hurry"] = hurried  # the hurry-up fired during this step
+        info["baron_out"] = bool(self.game.barons)
         info["all_enemies_dead"] = self.game.alive_enemies == 0
         return self._obs(), sum(parts.values()), terminated, truncated, info
 

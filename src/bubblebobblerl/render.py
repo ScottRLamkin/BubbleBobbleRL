@@ -43,6 +43,16 @@ _ENEMY = [
     "X.X..X.X",
     "........",
 ]
+_BARON = [
+    ".XXXXXX.",
+    "X.X..X.X",
+    "XXXXXXXX",
+    "X..XX..X",
+    "XXXXXXXX",
+    ".X.XX.X.",
+    "X.X..X.X",
+    ".X....X.",
+]
 _BUBBLE = [
     "..XXXX..",
     ".X....X.",
@@ -143,7 +153,7 @@ GLYPHS = {name: _glyph(g) for name, g in {
     "player": _PLAYER, "enemy": _ENEMY, "bubble": _BUBBLE,
     "captured": _CAPTURED, "prebubble": _PREBUBBLE, "fruit": _FRUIT,
     "dead": _DEAD, "pickup": _FRUIT,
-    "stone": _STONE, "fire": _FIRE, "laser": _LASER, "beer": _BEER,
+    "stone": _STONE, "fire": _FIRE, "laser": _LASER, "beer": _BEER, "baron": _BARON,
 }.items()}
 
 # 4x4 wall texture (light brick on the dark background, like the LCD).
@@ -190,6 +200,8 @@ def draw_screen(game: Game) -> np.ndarray:
         _blit(screen, GLYPHS[pr.kind], pr.x, pr.y)
     for de in game.dead_enemies:
         _blit(screen, GLYPHS["dead"], de.x, de.y)
+    for b in game.barons:
+        _blit(screen, GLYPHS["baron"], b.x, b.y)
 
     p = game.player
     if p.dead_ticks >= 0:

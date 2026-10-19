@@ -8,10 +8,11 @@ Implemented: player movement/jumping, bubble shooting, floating bubbles with
 per-tile air currents, capture/pop/explode chains, dead-enemy fruit, all
 eight enemy kinds with their projectiles (Buster, Beluga, Stoner + rocks,
 Drunk + boomerang beer, Hullaballoon, Banebou, Hidegonsu + fireballs,
-Invader + lasers), falling-in spawns, anger states, lives and level-clear.
+Invader + lasers), falling-in spawns, anger states, the hurry-up and Baron
+von Blubba (HurryBaron, HandleSkel), lives and level-clear.
 
 Not implemented (yet): special bubbles (water/fire/thunder), items and
-potions, the hurry-up baron, pit bubbles, linkplay, and level 100's boss.
+potions, pit bubbles, linkplay, and level 100's boss.
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ RESPAWN_INVINCIBLE = 72  # frames (approximation: original units unclear)
 # Bubble flag bits (asm ix+7), set during a frame, acted on by DoBubbleFlags.
 BUB_RIGHT, BUB_LEFT, BUB_DOWN, BUB_UP = 1 << 1, 1 << 2, 1 << 3, 1 << 4
 BUB_POP, BUB_BREAK = 1 << 5, 1 << 7  # break alone explodes (kills a captive); with POP the captive escapes
+HURRY_TICK = 48  # HurryBaron runs every 48 frames; a level's hurry/baron bytes count these ticks
 CLEAR_DELAY = 256  # frames between last kill and level advance
 CHAIN_WINDOW = 16  # frames in which consecutive kills chain (popcount)
 
@@ -149,6 +151,15 @@ class BubbleSprite:
 
 
 @dataclass
+class Baron:
+    """Baron von Blubba (HandleSkel): invulnerable, chases Bub through walls."""
+    x: int = 8  # MakeBaron creates it at (8, 8)
+    y: int = 8
+    delay: int = 0  # asm ix+4: frames left in the current phase
+    seq: int = 0  # asm ix+5: phase = seq & 3 (0 vertical move, 2 horizontal move, odd: pause)
+
+
+@dataclass
 class DeadEnemy:
     x: int
     y: int
@@ -180,6 +191,8 @@ class StepEvents:
     killed: int = 0
     popped: int = 0
     level_complete: bool = False
+    hurry: bool = False  # "Hurry Up!": every enemy turned angry this frame
+    baron: bool = False  # Baron von Blubba appeared this frame
 
 
 class Game:
@@ -239,6 +252,7 @@ class Game:
         self.pickups = [Pickup(*self.level.fruit), Pickup(*self.level.item)]
         self.alive_enemies = len(self.enemies)
         self.clear_countdown = -1
+        self.barons: list[Baron] = []
         self.chain = 0
         self.chain_timer = 0
         self.bounces = 0  # jumps off the top of a bubble (statistics only)
@@ -306,6 +320,7 @@ class Game:
         self._step_prebubbles()
         self._step_enemies(ev)
         self._step_projectiles()
+        self._step_barons()
         self._step_bubbles(ev)
         self._step_dead_enemies(ev)
         self._step_fruits(ev)
@@ -325,7 +340,57 @@ class Game:
                     self._load_level(self.level_num)
                 else:
                     self.game_over = True
+        if not self.game_over:
+            self._hurry_baron(ev)
         return ev
+
+    # --------------------------------------------- hurry-up and the baron
+
+    def _hurry_baron(self, ev) -> None:
+        """HurryBaron (BackgroundCode, after the sprites): every 48 frames while
+        enemies remain, compare the elapsed 48-frame count with the level's
+        hurry byte (all enemies turn angry) and baron byte (the baron appears).
+        A level whose baron byte is 0 has neither."""
+        lv = self.level
+        if self.alive_enemies <= 0 or lv.baron == 0 or self.timer % HURRY_TICK:
+            return
+        q = (self.timer // HURRY_TICK) & 0xFF
+        if q == lv.hurry:
+            self._make_enemies_angry()
+            ev.hurry = True
+        elif q == lv.baron:
+            self.barons.append(Baron())
+            ev.baron = True
+
+    def _make_enemies_angry(self) -> None:
+        """MakeEnemiesAngry: sprites of the walking/floating enemy types only, so
+        enemies still falling in (type FallingEnemy) stay calm."""
+        for e in self.enemies:
+            if not e.falling_in:
+                e.angry = True
+
+    def _step_barons(self) -> None:
+        """HandleSkel, every frame. Gone when no enemies remain, after touching
+        Bub (who dies), or once Bub is no longer alive. Otherwise it alternates a
+        vertical move phase toward Bub, a 24-frame pause, a horizontal move
+        phase and a pause, at 1 px per frame through walls; move phases last
+        40 - 4*(seq // 4) frames (floored at 0)."""
+        p = self.player
+        for b in list(self.barons):
+            if self.alive_enemies <= 0 or self._touch_player(b.x, b.y) or p.dead_ticks >= 0:
+                self.barons.remove(b)
+                continue
+            a = b.delay
+            b.delay = (b.delay - 1) & 0xFF
+            if a == 0:  # SkelNextSequence
+                b.seq = (b.seq + 1) & 0xFF
+                b.delay = 24 if b.seq & 1 else max(0, 40 - (b.seq & 0xFC))
+            phase = b.seq & 3
+            if phase == 0:
+                b.y += 1 if b.y < p.y else -1
+            elif phase == 2:
+                b.x += 1 if b.x < p.x else -1
+            b.y = self.wrap_y(b.y)
 
     # ------------------------------------------------------------ player
 
@@ -419,9 +484,12 @@ class Game:
             self.game_over = True
             return
         self.player = Player(invincible=RESPAWN_INVINCIBLE)
-        if self.alive_enemies > 1:  # UnPissOffEnemies
-            for e in self.enemies:
+        # UnPissOffEnemies (every respawn): calm the enemies and reset the
+        # timer's high byte, which also delays the hurry-up and the baron.
+        for e in self.enemies:
+            if not e.falling_in:
                 e.angry = False
+        self.timer &= 0xFF
 
     # -------------------------------------------------------- prebubbles
 
@@ -901,8 +969,7 @@ class Game:
     def _enemy_died(self) -> None:
         self.alive_enemies -= 1
         if self.alive_enemies == 1:  # MakeEnemiesAngry
-            for e in self.enemies:
-                e.angry = True
+            self._make_enemies_angry()
         if self.alive_enemies <= 0:
             for bub in self.bubbles:  # NoMoreEnemies pops leftovers
                 if bub.breaking is None:

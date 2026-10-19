@@ -945,3 +945,102 @@ def test_beer_moves_into_the_wall_on_its_bounce_frame():
     assert (beer.x, beer.dx, beer.bounced) == (41, -1, True)
     g._step_projectiles()
     assert beer.x == 40
+
+
+def _level1_game(lives=1, invincible=True):
+    from bubblebobblerl.game import Game
+    from bubblebobblerl.levels import load_levels
+
+    g = Game(level=1, levels=load_levels(), lives=lives, seed=1)
+    if invincible:
+        g.player.invincible = 10**6  # contact is ignored, so the clock can run
+    return g
+
+
+def test_hurry_up_angers_the_enemies_at_the_levels_time():
+    """HurryBaron: level 1's hurry byte is 30, so at frame 30 * 48 = 1440 every
+    landed enemy turns angry, and not before."""
+    from bubblebobblerl.game import Buttons
+
+    g = _level1_game()
+    assert g.level.hurry * 48 == 1440
+    for _ in range(1439):
+        ev = g.step(Buttons())
+        assert not ev.hurry
+    assert not any(e.angry for e in g.enemies)
+    ev = g.step(Buttons())
+    assert ev.hurry and g.enemies and all(e.angry for e in g.enemies if not e.falling_in)
+
+
+def test_baron_appears_pauses_then_chases_through_walls():
+    """MakeBaron at frame 40 * 48 = 1920 creates him at (8, 8). HandleSkel: the
+    first sequence step is a 24-frame pause; then a 40-frame horizontal phase
+    toward Bub at 1 px per frame, ignoring walls."""
+    from bubblebobblerl.game import Buttons
+
+    g = _level1_game()
+    for _ in range(1919):
+        assert not g.step(Buttons()).baron
+    assert g.step(Buttons()).baron and len(g.barons) == 1
+    b = g.barons[0]
+    g.player.x, g.player.y = 70, 52
+    from bubblebobblerl.levels import TILE_WALL
+
+    g.grid = g.grid.copy()
+    g.grid[:, 6:8] = TILE_WALL  # a full-height wall at x 24-31 across his path
+    for _ in range(25):  # first handled next frame: seq 1, delay 24 -> 25 still frames
+        g.step(Buttons())
+        assert (b.x, b.y) == (8, 8)
+    g.step(Buttons())  # seq 2: horizontal phase toward Bub
+    assert (b.x, b.y) == (9, 8)
+    for _ in range(39):
+        g.step(Buttons())
+    assert b.x == 48  # 40 px in 40 frames, straight through the wall at x 24-31
+
+
+def test_baron_kills_on_contact_then_vanishes_and_leaves_with_the_last_enemy():
+    from bubblebobblerl.game import Baron, Buttons
+
+    g = _level1_game(invincible=False)
+    g.grace_left = 10**9  # keep the enemies from reaching Bub
+    g.barons = [Baron(x=g.player.x + 3, y=g.player.y)]
+    g.step(Buttons())
+    assert not g.barons and g.player.kill_pending
+    g = _level1_game()
+    g.barons = [Baron()]
+    g.alive_enemies = 0
+    g.step(Buttons())
+    assert not g.barons
+
+
+def test_baron_is_visible_in_the_enemy_slots():
+    from bubblebobblerl.env import MAX_ENEMIES
+    from bubblebobblerl.game import Baron
+
+    env = BubbleBobbleEnv(obs_type="state", level=1)
+    env.reset(seed=1, options={"level": 1})
+    env.game.barons = [Baron()]
+    o, *_ = env.step(0)
+    n = len(env.game.enemies)
+    start = 8 + 16 * 24  # player features, then the 16 x 24 tile grid (state observation)
+    enemies = o[start:start + MAX_ENEMIES * 6].reshape(MAX_ENEMIES, 6)
+    assert tuple(enemies[n, [0, 4, 5]]) == (1.0, -1.0, -1.0)
+    assert all(enemies[i, 4] != -1.0 for i in range(n))
+
+
+def test_respawn_calms_enemies_and_resets_the_timer_high_byte():
+    """UnPissOffEnemies runs on every respawn: enemies calm down and the
+    timer's high byte resets, which also postpones the hurry-up."""
+    from bubblebobblerl.game import Buttons
+
+    g = _level1_game(lives=3, invincible=False)
+    g.timer = 1500
+    for e in g.enemies:
+        e.angry = True
+    g.player.kill_pending = True
+    for _ in range(80):
+        g.step(Buttons())
+        if g.player.dead_ticks < 0 and g.lives == 2:
+            break
+    assert g.lives == 2 and not any(e.angry for e in g.enemies if not e.falling_in)
+    assert g.timer < 256 + 80
