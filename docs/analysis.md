@@ -1000,7 +1000,9 @@ kept separately in `runs/analysis/diag-1019/compute.txt`.
 | Is "cleared" the event the reward pays for? | No: a death or timeout during the 256-frame countdown after the last kill counted as a clear. | Clear = the game's completion event, in the evaluator, the trainer's outcome rates and best-checkpoint selection, and the navigation recorder; old count kept as `all_killed`; regression tests for both cases. Impact on three checkpoints: 0-3 episodes of 990. |
 | Does Gymnasium autoreset the way the trainer's masking assumes? | Yes (1.3.0, `NEXT_STEP`): the step after a terminal step is a fake transition with reward 0. | Assumption pinned by a test; GAE and masking extracted into `gae_with_autoreset` (same math) with a hand-computed test. |
 | Are observations in their declared range? | Yes for all groups, 99 levels, state and ego. | None needed. |
-| Are some levels unclearable because of a game defect? | 20 levels were never cleared in 2,090 episodes each, but every spawn is on-screen, every enemy activates and none stays inside a wall. | None found; enemy reachability by the player was not checked. |
+| Are some levels unclearable because of a game defect? | 20 levels were never cleared in 2,090 episodes each. In one simulated minute per level with an idle player, every spawn is on-screen, every enemy activates and none stays inside a wall. | None found of those three kinds in that window. Intermittent or policy-triggered failures and enemy reachability by the player were not checked. |
+| Can a checkpoint run on a different observation than it was trained on? | Yes, silently: an ego checkpoint evaluated on state observations scored 0/20 instead of 10/20 on levels 1-2, because a longer observation was trimmed to the network's input size. | `Agent.load` checks the observation recorded with the checkpoint and raises on a mismatch; arch.json records the network actually built and its observation; evolution children inherit the parent's observation. No recorded result used a mismatched observation. |
+| Does the engagement probe count shots correctly? (found by Codex) | No: it counted net growth of the bubble list per step, which misses a shot blown in the step an older bubble expires, and credited a turn-and-shoot to the new facing, though the game (like the Z80 original) blows before it turns. | Shots recorded where the game creates them, with launch position and facing; regression tests for both cases. Shot totals differed from the correct count in 28-98% of each learned policy's probes. |
 
 ### Why final checkpoints score below selected ones
 
@@ -1008,42 +1010,68 @@ kept separately in `runs/analysis/diag-1019/compute.txt`.
   re-scored on four fresh seed sets each, best and final on identical seeds:
   T7 best minus final +44 to +68 (mean +54), R3 +31 to +36 (mean +34). A fixed
   policy's standard test varies with a standard deviation of 6-11 clears.
-- **Snapshots of one lineage** (exploratory; truncated at 12M steps, one
-  training seed per arm): continuing T7's selected checkpoint at its own
-  learning rate (2.5e-4), held-out clears (three fresh seeds per snapshot)
-  went 108, 98, 98, 79, 93, 78, 80, 50, 74, 84, 93, 98: changes between 1M-step
-  snapshots of about 12 against a within-snapshot seed spread of about 4, a dip
-  and a recovery rather than a steady decline. At 2.5e-5 the same checkpoint
-  went 118 to 140 and stayed above the parent's range (about 106). The
-  pre-registered rules (decline of more than 20; volatility ratio below 0.6)
-  were not met on the truncated window.
-- **Best current account**: at the learning rate these runs used, the policy
-  changes between checkpoints by more than the evaluation noise, and the
-  selected checkpoint is one of the high points; the drift is not visible as
-  spikes in KL, clip fraction or entropy. A lower learning rate behaved better
-  on one lineage; that is not yet evidence for other runs.
+- **Snapshots of one lineage** (exploratory; one training seed per arm,
+  truncated at 12M of the planned 15M steps; clears counted as all enemies
+  killed, three fresh seeds per snapshot). Continuing T7's selected checkpoint
+  at its own learning rate (2.5e-4) gave 108, 98, 98, 79, 93, 78, 80, 50, 74,
+  84, 93, 98: a dip to 50 at 8M and a recovery. At 2.5e-5 the same checkpoint
+  went from 118 to 140, and the lower rate was higher at every saved snapshot
+  (means 131 against 86). Twelve snapshots of one run are correlated, not
+  twelve replicates, and neither pre-registered rule was met. The parent was
+  not scored on these seeds, so change relative to the parent is not
+  established by this comparison.
+- **Best current account**: in this one controlled continuation, checkpoints
+  differed by more than the evaluation noise and the higher learning rate
+  produced a large dip and recovery. That makes instability at the learning
+  rate the runs used a plausible hypothesis for T7's best/final gap; it does
+  not identify the mechanism behind the historical gaps, and it is not
+  evidence that the lower rate is better in general. Logged KL, clip fraction
+  and entropy show no spikes, but they are per-window averages and could hide
+  individual damaging updates.
 
 ### Do the policies go after enemies?
 
-Measured with a validated probe (`scripts/diag_fixture.py`): one frozen,
-live-looking enemy 36 px away on level 1's floor, left or right, against the
-same situation with the spot empty, matched randomness; scripted policies
-(walk-to-target, stand-off-and-shoot, always-left, always-right, idle,
-random) behave as designed on it.
+Measured with an engagement probe (`scripts/diag_fixture.py`, 2026-10-19
+revision): one frozen enemy 36 px left or right of the player on level 1's
+floor, against the same situation with the spot empty, matched randomness,
+150 steps, 30 matched pairs per side. Shots are recorded where the game
+creates them. A shot "would capture" when its flight path passes within the
+game's capture margin of the enemy; "ranged" means it was blown more than that
+margin away, so the bubble had to travel. A scripted stand-off-and-shoot policy
+scores 37 ranged captures per probe; idle, walk-only and walk-to-target
+policies score none. The probes and sign tests are exploratory observations of
+these checkpoints in this one situation, not general navigation results.
 
-- An earlier version of the probe scored "arrival within 8 px". Policies that
-  have learned that contact kills do not walk into enemies, so that measured
-  the wrong thing; the conclusions drawn from it (and from an aggregate
-  "approach rate") are withdrawn.
+- **Enemy presence changes how much the newer policies shoot.** G, T2 and S7
+  blow 21-32 bubbles per probe with an enemy present against 0-1.4 without
+  one, on both sides (30 of 30 pairs each). The old camper shoots about 36 per
+  probe either way.
+- **Almost none of those shots would reach the enemy from a distance.** The
+  most for any learned policy is 2.3 ranged captures per probe (X6, which
+  scores the same with the spot empty); T2 and T4 reach 1.2 on one side each.
+  The scripted policy scores 37. Shots launched facing the enemy's side are
+  more frequent with an enemy present for G, T2 and S7, mostly because they
+  shoot more at all: as a descriptive ratio, 5-57% of their shots face the
+  enemy, against 44% for random actions.
+- **Horizontal approach is partial.** T2 closes from 36 to about 17 px on
+  right-side enemies, but its closest approach while on the floor (within the
+  capture band) averages about 33 px. T4 closes to about 10 px on left-side enemies and
+  stops at about 17 px from right-side ones rather than running to the wall.
+  X6 walks into right-side enemies and stands inside them, which would kill it
+  in the real game (the probe's enemy is harmless).
+- **Left-side probes are confounded.** The left-side enemy sits at the spawn
+  wall, where the left-biased policies (camper, G, T2, S7) stand whether or not
+  an enemy is there, so for them the left side cannot separate going to the
+  enemy from going to the wall.
 - **Initial direction is not chosen by where the enemy is.** The fixed-spawn
   policies start leftward (camper, G, T2, S7) or rightward (T4) in nearly every
   probe, with or without an enemy.
-- **Orientation and shooting are.** G, T2 and S7 blow more bubbles facing the
-  enemy than facing the empty spot, on both sides (22 to 30 of 30 matched
-  pairs). T2 also closes from 36 to about 17 px on right-side enemies (29 of 30
-  pairs); T4 approaches and shoots at left-side enemies and stops at about 17 px
-  from right-side ones instead of running on to the wall. The old camper shows
-  no dependence on the enemy at all.
+- **Withdrawn**: the earlier summary that G, T2 and S7 "blow more bubbles
+  facing the enemy" as evidence of aiming, and that T4 "shoots at left-side
+  enemies". Under correct counting T4 blows fewer left-facing bubbles with an
+  enemy on the left (0 of 30 pairs more). Earlier still, an "arrival within
+  8 px" score and an aggregate "approach rate" were withdrawn because policies
+  that have learned contact kills do not walk into enemies.
 - **Not shown**: travelling across platforms to reach enemies elsewhere on a
   level. The never-cleared levels include several where the enemies stay in
   the top row, which is where that would matter.

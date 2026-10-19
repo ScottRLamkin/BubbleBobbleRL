@@ -426,3 +426,67 @@ def test_continuation_records_the_parents_architecture_and_observation(tmp_path)
     with pytest.raises(ValueError, match="trained with observation"):
         train(parse_args(common + ["--control-obs", "--init-model", str(parent / "model.pt"),
                                    "--run-dir", str(tmp_path / "bad")]))
+
+
+def _fixture_game(facing):
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import diag_fixture
+
+    env = BubbleBobbleEnv(obs_type="state", control_obs=True, max_episode_frames=3600, level=1)
+    env.reset(seed=1, options={"level": 1})
+    g = env.game
+    g.player.x, g.player.y, g.player.facing = 44, diag_fixture.FLOOR_Y, facing
+    g.enemies, g.alive_enemies, g.grace_left = [], 1, 10**9
+    return env, g, diag_fixture
+
+
+def test_fixture_counts_a_shot_blown_while_an_old_bubble_expires():
+    """Regression (2026-10-19): the engagement probe counted shots as net growth
+    of the prebubble list per agent step. A bubble lives 27 frames and the
+    cooldown is 14, so SHOOT, 5 x NOOP, SHOOT blows the second bubble in the
+    step in which the first expires: two bubbles, zero net growth."""
+    env, g, fx = _fixture_game(+1)
+    events = fx.instrument_shots(g)
+    net = 0
+    for a in (6, 0, 0, 0, 0, 0, 6, 0):
+        n = len(g.prebubbles)
+        env.step(a)
+        net += len(g.prebubbles) > n
+    assert net == 1 and len(events) == 2
+
+
+def test_fixture_records_launch_facing_before_a_turn():
+    """LEFT+SHOOT while facing right blows the bubble rightward (Game blows
+    before it turns the player); the post-step facing is left."""
+    env, g, fx = _fixture_game(+1)
+    events = fx.instrument_shots(g)
+    env.step(7)
+    assert g.player.facing == -1 and [e["facing"] for e in events] == [+1]
+
+
+def test_fixture_would_capture_needs_the_targets_band_and_range():
+    _, g, fx = _fixture_game(+1)
+    y = fx.FLOOR_Y
+    assert fx.would_capture(g, 44, y, +1, 44 + 24, y)  # standoff distance, facing it
+    assert not fx.would_capture(g, 44, y, -1, 44 + 24, y)  # facing away
+    assert not fx.would_capture(g, 44, y - 8, +1, 44 + 24, y)  # one band too high
+    assert fx.would_capture(g, 44, y - 7, +1, 44 + 24, y)  # edge of the capture margin
+    assert not fx.would_capture(g, 44, y, +1, 44 + 34, y)  # 26 px of flight + 7 margin falls short
+    assert fx.would_capture(g, 44, y, +1, 44 + 33, y)
+
+
+def test_fixture_probes_on_one_env_do_not_share_shot_records():
+    """Regression (2026-10-19): the env reuses its Game across resets, and the
+    first creation-time instrumentation wrapped the instance attribute, so
+    each probe stacked a wrapper and earlier probes' event lists kept growing."""
+    import numpy as np
+
+    env, g, fx = _fixture_game(+1)
+    sit = next(fx.situations(g))
+    recs = [fx.run_one(env, None, "standoff", None, np.random.default_rng(0), sit, 60, 8, +1, True, "live", False)
+            for _ in range(3)]
+    assert all(r["shots"] > 0 and len(r["shot_events"]) == r["shots"] for r in recs)
+    assert recs[0]["shot_events"] == recs[2]["shot_events"]
