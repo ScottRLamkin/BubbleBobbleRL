@@ -38,7 +38,7 @@ def describe(folder: Path) -> dict:
         "result": (f"{m.group(2)} of {m.group(3)} levels cleared {html.unescape(m.group(4)).strip()}".strip()
                    if m else "?"),
         "clips": gifs,
-        "sort": ident["created"] if ident else dt.datetime.fromtimestamp(folder.stat().st_mtime).isoformat(),
+        "sort": dt.datetime.fromtimestamp(folder.stat().st_mtime).isoformat(),
     }
     return row
 
