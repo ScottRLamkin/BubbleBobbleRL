@@ -821,8 +821,41 @@ Each arm is one training seed (seed-to-seed spread of a fixed recipe was
 
 The one-hour competence target, defined as "from scratch, one core, sixty
 minutes, more held-out clears than the previous best model", is met by arm G.
-"Useful movement" is not yet met. A replication round (second and third
-training seeds for A, B and G; G continued with its optimizer resumed; G with
-nearest-first slots, width 512 and hard-level sampling) is running as this
-is written; its results go in the shared log `docs/fable-codex-progress.md`
-and here.
+"Useful movement" is not yet met.
+
+### Replication (round 2) and a continuation
+
+Same budget, new training seeds. Held-out (seeds 777 / 92731), best.pt:
+
+| Arm | Seed 101 (round 1) | Seed 102 | Seed 103 |
+|---|---|---|---|
+| A control | 55 / 63 | 75 / 71 | |
+| B + control state | 114 / 129 | 116 / 126 | |
+| G | 164 / 159 | 160 / 153 | 161 / 165 |
+
+The effects replicate with the same sign and size: B over A is +62 (seed
+101) and +48 (seed 102); G over A is +102 and +84. The three G seeds land
+within a few clears of each other (156-163). Three single-change variants of
+G (nearest-first slots, width 512, hard-level sampling) came in at 145, 145
+and 107, each on a different seed, so none is a gain.
+
+**Continuing G for a second hour** from its best checkpoint, with the optimizer
+state resumed and lr 1e-4, reached **234 / 227 held-out, 43-45 levels cleared
+at least once, 2.8 kills per episode**, after two hours of one core in total.
+(Provenance note: this first continuation paired the selected weights with
+the final step's Adam state, a bug since fixed; it is labelled exploratory
+and is being replicated.) Its behaviour: 41% of steps still, 22 px of
+horizontal range, 20 of 297 episodes crossing the screen, deaths now mostly
+to the projectile enemies (stoner, hidegonsu, invader kill 11-15% of their
+kind in play against 3-6% for the walkers). Gallery:
+`exports/fixes1018_R5_G_continued/index.html`, 30 of 99 levels.
+
+For scale: every agent before the review fixes topped out at 155-181 on these
+tests after hundreds of millions of steps; two hours of one core now gives
+about 230.
+
+A third round is running: the continuation replicated on two more lineages
+with paired optimizer states, a compute-matched two-hour from-scratch control,
+a third paired seed for A and B, and two seed-matched movement probes on the
+strongest agent. Final confirmation will use a reserved seed bank (31337,
+2718) never touched during selection.
