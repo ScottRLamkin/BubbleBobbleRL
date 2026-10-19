@@ -89,6 +89,7 @@ def run_episode(agent, env, level, seed, gen, max_steps, ablation="none", grid_w
     first_capture = first_kill = None
     xs, ys = [], []
     killer = None
+    completed = False
     for step in range(max_steps):
         obs = mask_obs(o, ablation)
         if grid_wall_only:
@@ -98,6 +99,7 @@ def run_episode(agent, env, level, seed, gen, max_steps, ablation="none", grid_w
         actions[a] += 1
         before_dead = g.player.dead_ticks >= 0
         o, r, term, trunc, info = env.step(a)
+        completed = completed or bool(info.get("level_complete", False))
         xs.append(g.player.x)
         ys.append(g.player.y)
         # Events are summed inside env.step; recover them from the score and
@@ -121,7 +123,8 @@ def run_episode(agent, env, level, seed, gen, max_steps, ablation="none", grid_w
                 killer = {"kind": MONSTER_NAMES[e.kind], "angry": e.angry}
         if term or trunc:
             break
-    outcome = "cleared" if info["enemies_alive"] == 0 else ("died" if g.game_over else "timeout")
+    # Cleared = the game's completion event (2026-10-19; previously "all enemies dead at the end").
+    outcome = "cleared" if completed else ("died" if g.game_over else "timeout")
     return {
         "level": level,
         "outcome": outcome,

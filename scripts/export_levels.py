@@ -33,15 +33,17 @@ def play_episode(env, agent, level: int, seed: int, max_steps: int, scale: int, 
     o, _ = env.reset(seed=seed, options={"level": level})
     game = env.unwrapped.game
     frames, total = [draw_rgb(game, scale=scale)], 0.0
+    completed = False
     for _ in range(max_steps):
         with torch.no_grad():
             a, *_ = agent.action_value(torch.as_tensor(agent.obs_in(o)[None]), greedy=greedy)
         o, r, term, trunc, info = env.step(int(a))
+        completed = completed or bool(info.get("level_complete", False))
         total += r
         frames.append(draw_rgb(game, scale=scale))
         if term or trunc:
             break
-    cleared = info["enemies_alive"] == 0
+    cleared = completed  # the game's completion event (2026-10-19; previously "all enemies dead")
     if cleared:
         outcome = "cleared"
     elif game.game_over:
