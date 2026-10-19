@@ -901,6 +901,56 @@ reward shaping or search breadth. Navigation competence, in the sense of
 traversing a level, is still not established: even S7 stands still 30% of
 the time and crosses the screen in one episode in six.
 
-Compute for the three rounds: 25 allocated single-thread core-hours of
-training (including the periodic selection tests), plus about an hour of
-validation, profiles and galleries.
+### Round 4: the two questions the gate asked
+
+Six arms, 60 minutes each, pre-registered criteria (manifest in
+`runs/analysis/fixes-1018/round4_manifest.md`):
+
+**Does the egocentric view itself cause G's advantage?** Recipe D (G without
+the ego view) was trained on the same seeds as the existing G runs.
+G minus D, best checkpoints, mean of both validation seeds: **+51.5** (seed
+102), **+53.0** (seed 103), and +47 from the round-1 pair (seed 101). All
+above the preset 30 with the same sign: the ego observation is the component.
+D over three seeds: 105-115 of 990; G: 156-163.
+
+**Does the stationary penalty help on independent lineages?** Each of the two
+second-hour lineages was continued for a third hour with and without a
+stationary penalty of 0.02, seed-matched:
+
+| Lineage | Plain third hour | With stationary 0.02 | Difference |
+|---|---|---|---|
+| S2 line: clears (777 / 92731) | 231 / 247 | **258 / 252** | +16 |
+| S2 line: kills, x range, still, crossing | 2.9, 21 px, 49%, 14/297 | 3.1, 34 px, 39%, 52/297 | more movement |
+| S3 line: clears | 242 / 255 | 241 / 241 | -7.5 |
+| S3 line: kills, x range, still, crossing | 2.8, 37 px, 49%, 97/297 | 2.9, 44 px, 29%, 116/297 | more movement |
+
+Movement and kills improve on both lineages; clears go +16 on one and -7.5
+on the other (inside the ~10-clear noise of a fixed policy, but negative).
+So the penalty reliably buys movement at no reliable cost or gain in clears;
+it is not the clean "both lineages gain" result the criterion asked for. The
+third hour itself added +22 and +41 over the second-hour parents, so these
+lineages have not saturated at three core-hours.
+
+The best policies on the validation seeds are now T2 (258 / 252, 48 levels,
+3.1 kills) and S7 (259 / 256, 51 levels, 3.1 kills). The most mobile, T4,
+crosses the screen in 116 of 297 episodes and is still 29% of the time.
+
+### Where this leaves the project (morning of 2026-10-19)
+
+- **Established, in order of evidence**: (1) pre-registered confirmation on
+  untouched seeds that one hour of one core with the fixed recipe beats the
+  old recipe by +96.5 of 990 on every paired seed; (2) the control-state
+  observation (+48 to +62 over A, three seeds) and the egocentric view (+47 to
+  +53 over D, three seeds) are the two ingredients; (3) paired-optimizer
+  continuation keeps paying through the third hour on independent lineages;
+  (4) a stationary penalty of 0.02 turns a competent fighter into a more
+  mobile one without costing kills.
+- **Not established**: level traversal as a habit; why checkpoints wander
+  under a constant learning rate (a decay contrast with equal endpoints is
+  the deferred next experiment).
+- **Compute**: 31 allocated single-thread core-hours of training across the
+  four rounds (each run one core, 60-120 minutes, periodic standard tests
+  included), plus about 1.5 hours of validation, profiles and galleries.
+  Against the earlier 1.5 billion steps of reward shaping and search, the
+  whole night was about 1.2 billion steps and found the two things that
+  mattered, because the review pointed at the right defects.
