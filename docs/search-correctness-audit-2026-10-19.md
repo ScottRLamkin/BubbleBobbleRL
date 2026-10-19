@@ -83,6 +83,20 @@ corrected game with fresh seeds). That is new training and is not authorized;
 it is a question for the user after this campaign. The final report must name
 snapshot `42ed83d` and this known mechanic defect prominently.
 
+## Playing the two game versions side by side
+
+Two read-only copies of the game source are extracted under `runs/play/`, so
+playing either one never touches the working tree or the campaign snapshot.
+Run from the repo root:
+
+| Revision | What it is | Command |
+|---|---|---|
+| `42ed83d` | The campaign's game: falling fix (row 2) only | `PYTHONPATH=runs/play/42ed83d/src PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m bubblebobblerl.play --level 1` |
+| `2ee51f7` | Adds contact rule and recoil (row 3), bubble flag byte with separation, probe row and deferred pop (rows 27-29), and 26 px shots (row 31) | `PYTHONPATH=runs/play/2ee51f7/src PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m bubblebobblerl.play --level 1` |
+
+`uv run bubblebobblerl-play` plays whatever the working tree holds, which
+changes as fixes land.
+
 ## Failure response for the live runner
 
 This is supervision, not prevention: the runner itself does not stop on a
