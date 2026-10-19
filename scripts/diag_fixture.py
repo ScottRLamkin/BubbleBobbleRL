@@ -33,14 +33,15 @@ except ImportError:
 from train_ppo import Agent
 
 FLOOR_Y = 52  # level 1 bottom floor, the normal spawn row
-START_XS = (16, 32, 48)  # player start columns; targets at +-40 px stay on the floor (8..88)
+START_XS = (40, 44, 48)  # player start columns, mid-floor so +-OFFSET stays on the floor both ways
+OFFSET = 36  # px to the target; balanced: three targets left, three right
 
 
-def situations():
+def situations(game=None):
     for sx in START_XS:
         for side in (+1, -1):
-            tx = sx + 40 * side
-            if 0 <= tx <= 88:
+            tx = sx + OFFSET * side
+            if 0 <= tx <= 88 and (game is None or (game.standing(sx, FLOOR_Y) and game.standing(tx, FLOOR_Y))):
                 yield {"player_x": sx, "target_x": tx, "side": side}
 
 
@@ -97,8 +98,11 @@ def main():
     agent = Agent.load(args.model, env.observation_space, env.action_space.n) if args.policy == "model" else None
     gen = torch.Generator().manual_seed(args.seed)
     rng = np.random.default_rng(args.seed)
+    env.reset(seed=1, options={"level": 1})
+    sits = list(situations(env.game))
+    assert len(sits) == 6 and sum(s["side"] for s in sits) == 0, sits  # three each side, all on the floor
     records = []
-    for sit in situations():
+    for sit in sits:
         for ep in range(args.episodes):
             records.append(run_one(env, agent, args.policy, gen, rng, sit, args.max_steps, args.reach))
     n = len(records)
@@ -109,7 +113,7 @@ def main():
         by_side[side] = sum(r["arrived_step"] is not None for r in rs) / len(rs)
     toward = [r["first_move_toward_target"] for r in records if r["first_move_toward_target"] is not None]
     summary = {
-        "situations": len(list(situations())), "episodes": n,
+        "situations": len(sits), "episodes": n,
         "arrival_rate": len(arrived) / n,
         "arrival_rate_target_right": by_side[+1], "arrival_rate_target_left": by_side[-1],
         "median_steps_to_arrive": float(np.median([r["arrived_step"] for r in arrived])) if arrived else None,
