@@ -8,6 +8,7 @@
 # instead of 90. The snapshots were trained with the pre-RNG-fix code
 # (revision cbb1b09); scoring runs post-fix.
 set -e
+setopt pipefail  # an evaluator failure must fail its pipeline, not be masked by sed
 cd "$(dirname "$0")/../.."
 export OMP_NUM_THREADS=1
 OUT=runs/analysis/diag-1019/d23_snapshots.txt; : > $OUT
@@ -25,5 +26,12 @@ for arm in L_high L_low; do
     for p in $PIDS; do wait $p || fail=$((fail+1)); done
   done
 done
-echo "D2.3 scoring done: $(date); evaluator failures: $fail; rows: $(wc -l < $OUT)"
-[[ $fail -eq 0 ]] || exit 1
+# Expected-artifact manifest: every (arm, snapshot, seed) exactly once, each
+# JSON valid (99 levels x 10 outcomes).
+missing=0
+for arm in L_high L_low; do for ck in runs/D23_$arm/ckpt_*.pt; do for seed in 1009 1010 1011; do
+  f=runs/analysis/diag-1019/d23/${arm}_$(basename $ck .pt)_seed$seed.json
+  [[ -s $f ]] && uv run python scripts/check_eval_artifact.py $f || { echo "MISSING/INVALID: $f"; missing=$((missing+1)); }
+done; done; done
+echo "D2.3 scoring done: $(date); evaluator failures: $fail; missing/invalid artifacts: $missing; rows: $(wc -l < $OUT)"
+[[ $fail -eq 0 && $missing -eq 0 ]] || exit 1
