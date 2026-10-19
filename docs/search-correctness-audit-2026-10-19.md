@@ -26,6 +26,14 @@ campaign's 18 core-hour cap. Spent so far: see the ledger at the end.
 | 11 | Evaluation seed provenance | `evaluate.py` output | A result should name its seed and model | The JSON records neither; provenance rests on the runner's file name `eval_<seed>.json` | Limitation | In snapshot | Recorded; not fixable without changing frozen code |
 | 12 | A systemic failure stops the campaign | runner `execute` | Manifest: fail closed on systemic errors | Every exception becomes one failed job; selection proceeds from the survivors | Gap | In snapshot | Manual procedure below |
 | 13 | Restart never duplicates a job | runner restart | One process per job | Dry run: lock and live-child refusal work. Codex: the validator's child PID is not published, so one transition is unguarded | Gap in one transition | In snapshot | Do not restart; procedure below |
+| 14 | Rollout storage is aligned: done flags mark fake autoreset steps, rewards and observations line up | `train_ppo.train` rollout loop, `gae_with_autoreset` | Episode structure under NEXT_STEP autoreset (40-frame clock: 10 real steps, then one fake step) | `test_trainer_rollout_storage_is_aligned_end_to_end` captures what `train()` stores. A mutant that flags the terminal step itself fails it | Clean | In snapshot (trainer, evaluator and env files byte-identical) | — |
+| 15 | Fake transitions are masked out of every loss and statistic | `train_ppo` update | Only real steps carry signal | Read: policy, value and entropy losses, advantage normalization, KL and clip fraction use real indices. Explained variance used every step | Logging defect only | Logging only; campaign logs nothing | Fixed in the live repo `50660c7` with a hand-computed test; not deployed |
+| 16 | A truncation bootstrap uses the episode's final observation | `train_ppo` (`--bootstrap-truncation`) | Gymnasium 1.x NEXT_STEP returns the final observation at truncation | Read: `V(final obs)` is added to that step's reward, and the step is then terminal | Clean by reading; not tested | Not used by the campaign | — |
+| 17 | The ratio uses the log-probability of the action actually taken | `Agent.action_value`, update | PPO definition | Read: action and log-probability come from one call and are stored together; flattening order is shared | Clean by reading | In snapshot | — |
+| 18 | The manifest's reward and control settings reach every training env | `train_ppo.make_env` (23 positional arguments) | Manifest `fixed_parameters` | `test_manifest_reward_switches_reach_every_training_env` intercepts the 16 envs `train()` builds | Clean | In snapshot | — |
+| 19 | Reward components have their intended size | `env.step` | Manifest values | `test_manifest_reward_components_have_their_intended_size`: time plus timeout on a one-step clock, death on contact, no score reward. Kill, capture and clear sizes not exercised by a scripted transition | Clean for the cases tested | In snapshot | — |
+| 20 | Training and evaluation share control and horizon conventions | `train_ppo`, `evaluate.evaluate` | One task definition | `test_training_and_evaluation_envs_share_control_and_horizon` | Clean | In snapshot | — |
+| 21 | Hidden state that changes what an action does is observable | `env._obs` | Training review: expose hidden button and jump state | The 14-frame shot cooldown (about 3.5 steps) is not in the observation; the policy can infer it only from its own bubbles | Observability gap, as in the original game's interface | In snapshot | Candidate observation change for later; not a defect |
 
 ## Failure response for the live runner
 
@@ -59,5 +67,5 @@ if runner PID 33901 exits.
 | Real preflight | 5.4 | Measured |
 | Pre-launch dry run, including interrupted attempts | about 508 | Measured, interrupted attempts from their loop times plus startup |
 | Validator and runner overhead | about 2 per training job (77 in the dry run) | Measured on the dry run; to be replaced by the real figure |
-| This audit's test execution | about 15 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8 |
-| Total | about 64,234 of 64,800 | |
+| This audit's test execution | about 26 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
+| Total | about 64,245 of 64,800 | |
