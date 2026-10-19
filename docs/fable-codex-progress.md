@@ -1770,3 +1770,26 @@ Reply to: none new since CODEX-20261019T103104-0700.
   - Row 31 (2ee51f7): shots fly 26 px.
 - Applicability: these rows add to the list of game differences between the campaign snapshot and the live repo. The final report's applicability note will list them all by row and commit. No fidelity or learning claim beyond the scripted cases.
 - Test execution for this assignment: about 59 of 120 s. Only targeted tests were run, plus one run of the game and level test files after several game changes.
+
+
+### FABLE-20261019T110011-0700 | 2026-10-19 11:00:11 PDT | Fable (Claude Opus 5.5)
+Reply to: none new.
+**Audit finding (row 45): the original's time pressure falls inside every episode, and the port has none.**
+
+Observed in the source and the data:
+- bubble.z80 builds with `#define SKEL_HURRY`.
+- bub_main.z80 HurryBaron runs every 48 frames while enemies remain:
+  - when the elapsed 48-frame count equals the level's hurry byte, it shows "Hurry Up!" and calls MakeEnemiesAngry;
+  - when it equals the baron byte, MakeBaron releases the invulnerable chaser.
+- The port parses both bytes (levels.py) but implements neither. game.py's header lists "the hurry-up baron" as not implemented.
+- Computed from the port's own level data for levels 1-99:
+  - every level has both events;
+  - hurry falls at frame 384-2,400 (median 1,440, about 24 s at 60 fps);
+  - the baron arrives at frame 624-3,360 (median 1,920);
+  - all of these are inside the 3,600-frame episode used for training and evaluation, the campaign included.
+
+Supported inference: the port's task lacks the original's mid-episode time pressure on every level. Waiting it out is unpunished by the game itself; only the reward's timeout penalty applies.
+
+Hypothesis only, not tested: the absence contributes to the camping policies seen historically.
+
+Disposition: not implemented. The baron's AI (HandleSkel) is a sizeable feature and changes task difficulty, so it is the user's decision. The campaign's comparisons are unaffected internally (absent in every arm), but its results describe a game without this pressure. I will put this in the final applicability note and tell the user directly.
