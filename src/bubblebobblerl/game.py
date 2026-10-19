@@ -347,9 +347,13 @@ class Game:
 
         self._blow_bubbles(p, b.shoot, shoot_pressed)
 
+        # PlayerMoveCounter: while falling (jump mode 1) Bub reads the pad, and
+        # so turns and walks, on odd frames only: half horizontal speed in the
+        # air on the way down. Rising (mode 2) and grounded move every frame.
+        may_move = (p.jump & 3) != 1 or self.timer % 2 == 1
         # Walking: both directions held cancel out (GetDir).
         direction = (-1 if b.left else 0) + (1 if b.right else 0)
-        if direction:
+        if direction and may_move:
             p.facing = direction  # facing updates even when blocked
             self._try_walk(p, direction)
         p.y = self.wrap_y(p.y)

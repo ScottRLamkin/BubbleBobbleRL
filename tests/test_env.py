@@ -490,3 +490,31 @@ def test_fixture_probes_on_one_env_do_not_share_shot_records():
             for _ in range(3)]
     assert all(r["shots"] > 0 and len(r["shot_events"]) == r["shots"] for r in recs)
     assert recs[0]["shot_events"] == recs[2]["shot_events"]
+
+
+def test_falling_player_walks_on_odd_frames_only():
+    """Regression (2026-10-19): Z80 HandlePlayer2 calls PlayerMoveCounter, which
+    ends the player's turn before GetDir on even frames while the jump counter's
+    mode is 1 (falling). The port walked and turned every frame in the air, so
+    falls drifted sideways at twice the original's speed."""
+    from bubblebobblerl.game import Buttons
+
+    env = BubbleBobbleEnv(obs_type="state", level=1)
+    env.reset(seed=1, options={"level": 1})
+    g = env.game
+    g.enemies, g.alive_enemies, g.grace_left = [], 1, 10**9
+    p = g.player
+    p.x, p.y, p.jump, p.facing = 44, 10, 1, -1  # mid-air on level 1, falling, facing left
+    turned_at = None
+    for f in range(8):
+        g.step(Buttons(right=True))
+        assert p.jump & 3 == 1
+        if turned_at is None and p.facing == 1:
+            turned_at = g.timer
+    assert (p.x, p.y) == (48, 18)  # 4 px across for 8 px down
+    assert turned_at % 2 == 1  # the turn also waits for an odd frame
+    # Grounded walking is unaffected: one pixel per frame.
+    p.x, p.y, p.jump = 40, 52, 0
+    for _ in range(8):
+        g.step(Buttons(right=True))
+    assert p.x == 48
