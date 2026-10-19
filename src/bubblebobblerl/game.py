@@ -624,20 +624,27 @@ class Game:
     # frame, twice per frame when angry, and drops lasers on a timer.
 
     def _invader_step(self, e: Enemy, ev) -> None:
+        # HandleInvader: an angry invader runs its body (InvaderPissed) once
+        # before the capture and contact checks and once after; a calm one
+        # only after.
+        if e.angry:
+            self._invader_body(e)
         if self._enemy_hazards(e, ev):
             return
         self._touch_player(e.x, e.y)
-        for _ in range(2 if e.angry else 1):
-            e.reload -= 1
-            if e.reload == 0:
-                self.projectiles.append(Projectile("laser", e.x, e.y))
-            if e.reload <= 0:
-                e.reload = INVADER_RELOAD + self.rng.getrandbits(2)
-            if self.standing(e.x, e.y):
-                self._enemy_forward(e)
-            else:
-                e.y += 1
+        self._invader_body(e)
         e.y = self.wrap_y(e.y)
+
+    def _invader_body(self, e: Enemy) -> None:
+        e.reload -= 1
+        if e.reload == 0:
+            self.projectiles.append(Projectile("laser", e.x, e.y))
+        if e.reload <= 0:
+            e.reload = INVADER_RELOAD + self.rng.getrandbits(2)
+        if self.standing(e.x, e.y):
+            self._enemy_forward(e)
+        else:
+            e.y += 1
 
     # ---- Banebou: HandleBanebou.  Falls, short hop, falls, long hop, repeat.
 

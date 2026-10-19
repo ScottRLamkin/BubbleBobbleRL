@@ -843,3 +843,19 @@ def test_shooter_alignment_band_is_16_above_to_15_below():
         g.player.y = e.y + p_dy
         g._shooter_aim(e)
         assert (e.walk_counter == 1) is aligned, p_dy
+
+
+def test_angry_invader_moves_before_the_capture_check():
+    """Regression (2026-10-19): Z80 HandleInvader runs an angry invader's body
+    before MonsterHitHazard and again after it, so a prebubble that is 8 px
+    ahead after its own move is 7 px away at the check and captures it this
+    frame; the port checked first (8 px, no capture) and moved twice after."""
+    from bubblebobblerl.game import INVADER, Buttons, Enemy, Prebubble
+
+    g = _bubble_game()
+    e = Enemy(kind=INVADER, x=40, y=52, facing=1, spawn_delay=0)
+    e.falling_in, e.angry, e.reload = False, True, 30
+    g.enemies = [e]
+    g.prebubbles = [Prebubble(x=47, y=52, facing=1, age=5)]  # moves to 48 first; the invader to 41: 7 px
+    captured = g.step(Buttons()).captured
+    assert captured == 1 and not g.enemies
