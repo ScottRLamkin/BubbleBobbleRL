@@ -1,0 +1,158 @@
+;============================================================================
+;
+; Venus Routine: vnReceiveByte (by Tijl Coosemans, tijlc@hotmail.com)
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;================================== version 1.2 == 06/21/2001 (MM/DD/YYYY) ==
+;
+;  description:	Receives a byte using TI bit protocol
+;  input:	nothing
+;  output:	a = c = byte received
+;		zero flag is set (and hl = 0) when error occured during
+;		link communication
+; (registers used: af, bc, d, hl)
+;
+;  example (tasm source code file)
+;  -------
+;	.nolist				; in this example of a Venus
+;	_dispHL		=4709h		; program the vnReceiveByte routine
+;	vnReceiveByte	=$FE6F		; pointer will be located at $FE6F
+;	vnGetKey	=$FE72		; on startup
+;	.list				;
+;					;
+;	.org 932Ch			;
+;					;
+;		.db	$E7,"9_[?"	;
+;		.db	0,1,1		;
+;		.db	3		;
+;		.db	5,"~REC",$ff	;
+;		.db	5,"~GETK",$ff	;
+;					;
+;		call	vnGetKey	; wait for a key press
+;		cp	57		; or link port activity
+;		ret	nz		;
+;		call	vnReceiveByte	;
+;		ret	z		; return on error
+;		ld	h,0		; display the byte received
+;		ld	l,a		;
+;		jp	_dispHL		;
+;
+;	.end
+;
+;============================================================================
+
+#ifdef TI86
+link1 = $1
+link2 = $2
+link3 = $3
+linkD4 = $D4
+linkE8 = $E8
+linkC0 = $C0
+link_port = 7
+#endif
+#ifdef TI85
+link1 = $1
+link2 = $2
+link3 = $3
+linkD4 = $D4
+linkE8 = $E8
+linkC0 = $C0
+link_port = 7
+#endif
+#ifdef TI82
+link1 = $1
+link2 = $2
+link3 = $3
+linkD4 = $D4
+linkE8 = $E8
+linkC0 = $C0
+link_port = 0
+#endif
+#ifdef TI83
+link1 = $4
+link2 = $8
+link3 = $C
+linkD4 = $D1
+linkE8 = $D2
+linkC0 = $D0
+link_port = 0
+#endif
+#ifdef TI83P
+link1 = $1
+link2 = $2
+link3 = $3
+linkD4 = $1
+linkE8 = $2
+linkC0 = $0
+link_port = 0
+#endif
+#ifdef TI73
+link1 = $1
+link2 = $2
+link3 = $3
+linkD4 = $1
+linkE8 = $2
+linkC0 = $0
+link_port = 0
+#endif
+
+LinkActivity:  ;returns Z if link is inactive
+        in      a,(link_port)           ; check for link activity
+        and     link3
+        sub     link3
+        ret
+GetByte:
+
+;#IFDEF TI83P
+;  AppOnErr(GetByteError)
+;  bcall(_recabyteio)
+;  ld (op4),a
+;  AppOffErr
+;  ld a,(op4)
+;  or a
+;  ret
+;GetByteError:
+;	xor a
+;;	scf
+;	ret
+;#else
+receiveByte:
+	ld	b,8
+receiveByteLoop:
+	ld	hl,0
+receiveBitLoop1:
+	dec	hl
+	ld	a,h
+	or	l
+	ret	z
+	in	a,(link_port)
+	and	link3
+	cp	link3
+	jr	z,receiveBitLoop1
+	ld	d,link2
+	cp	d
+receiveBit1:
+	ld	a,linkD4
+	jr	nz,receiveBit
+receiveBit0:
+	ld	a,linkE8
+	ld  d,link1
+receiveBit:
+	rr	c
+	out	(link_port),a
+	ld	hl,0
+receiveBitLoop2:
+	dec	hl
+	ld	a,h
+	or	l
+	jr	z,receiveQuit
+	in	a,(link_port)
+	and	d
+	jr	z,receiveBitLoop2
+receiveQuit:
+	ld	a,linkc0
+	out	(link_port),a
+	ret	z
+	djnz	receiveByteLoop
+	ld	a,c
+	ret
+;#endif

@@ -1,0 +1,4154 @@
+;=======================
+;    HandleEnemies  
+;=======================
+;Checks if enemy is 0, otherwise calls HandleEnemy
+HandleEnemies:
+	;Increment Internal Timer
+	ld hl,(timer)
+	inc hl
+	ld (timer),hl
+	;Start at entry -1
+	ld ix,spritetable-8
+	;Set up sprite counters
+	ld b,SpriteTotal+1
+HandleEnemiesLoop:
+	;Count down, quit when done
+	dec b
+	ret z
+	;Next Sprite
+	ld de,8
+	add ix,de
+	;Get Sprite
+	ld a,(ix+3)
+	or a
+	;If 0 (nothing) then ignore
+	jp z,HandleEnemiesLoop
+	;Otherwise save regs and call HandleEnemy
+	push bc
+	push ix
+	call HandleEnemy
+	pop ix
+	pop bc
+	;Loop
+	jp HandleEnemiesLoop
+
+
+FixYCoordinate2:
+;Input: IX = sprite
+;output: (ix+1) = new y coordinate
+;destroys: none
+	push af
+	ld a,(ix+1)
+	call FixYCoordinate
+	ld (ix+1),a
+	pop af
+	ret
+
+FixYCoordinate:
+;Input: A = y coordinate
+;Output: A = new y coordinate
+;Destroys: none
+	; -16 to -1: negative zone
+	; 0 to 75: playfield zone
+	; 76 to 127: wrap back to negative zone or playfield zone
+	; -128 to -16: wrap back to playfield zone
+	cp BottomRow
+	ret c
+	cp 128
+	jr c,ToNegativeZone
+	cp Toprow & 255
+	ret nc ;replaces next 2 lines
+;	jr c,ToPlayFieldZone
+;	ret
+ToPlayFieldZone:
+	add a,PlayHeight
+	jr FixYCoordinate
+	
+ToNegativeZone:
+	sub PlayHeight
+	ret
+	
+	
+	
+
+
+;======================
+;     HandleEnemy
+;======================
+;Fixes Y coordinate then jumps to the correct code
+HandleEnemy:
+	;First Vertical wrapping, Falling enemies are excluded here
+	cp FallingEnemy
+	call nz,FixYCoordinate2
+
+	;A bunch of checks and jumps...
+	cp Bubble
+	jp z,HandleBubble
+	cp Break
+	jp z,HandleBreak
+	cp Explode
+	jp z,HandleBreak
+	cp Prebubble
+	jp z,HandlePrebubble
+	cp Fireball
+	jp z,HandleFireball
+	cp Thunder
+	jp z,HandleThunder
+	cp FallingFruit
+	jp z,HandleFallingFruit
+	cp Item1
+	jp z,HandleItem1
+	cp Item2
+	jp z,HandleItem2
+	cp FallingEnemy
+	jp z,HandleFallingEnemy
+	cp DeadEnemy
+	jp z,HandleDeadEnemy
+
+	cp Bub
+	jp z,HandlePlayer
+
+	cp BubbleBuster
+	jp z,HandleBubbleBuster
+	cp Stoner
+	jp z,HandleStoner
+	cp Stone
+	jp z,HandleStone
+	cp GenericPop
+	jp z,HandleGenericPop
+	cp Beluga
+	jp z,HandleBeluga
+
+	cp Drunk
+	jp z,HandleDrunk
+	cp Beer
+	jp z,HandleBeer
+	cp Hullaballoon
+	jp z,HandleHullaballoon
+	cp Banebou
+	jp z,HandleBanebou
+	cp Hidegonsu
+	jp z,HandleHidegonsu
+	cp HostileFire
+	jp z,HandleHostileFire
+	cp Invader
+	jp z,HandleInvader
+	cp Laser
+	jp z,HandleLaser
+
+	cp DeadPlayer
+	jp z,HandleDeadPlayer
+	
+	cp Water
+	jp z,HandleWater
+	cp Fire
+	jp z,HandleFire
+	
+	cp ExtendBubble
+	jp z,HandleExtend
+	cp ExtendBubble+1
+	jp z,HandleExtend
+	cp ExtendBubble+2
+	jp z,HandleExtend
+	cp ExtendBubble+3
+	jp z,HandleExtend
+	cp ExtendBubble+4
+	jp z,HandleExtend
+	cp ExtendBubble+5
+	jp z,HandleExtend
+	
+	cp SDBeer
+	jp z,HandleSDBeer
+	cp SuperDrunk
+	jp z,HandleSuperDrunk
+	cp ThunderPotion
+	jp z,HandleThunderPotion
+	
+	cp HugeItem
+	jp z,HandleHugeItem
+	
+	cp Rainbow
+	jp z,HandleRainbow
+#IFDEF SKEL_HURRY
+	cp Skel
+	jp z,HandleSkel
+#ENDIF
+	
+	ret
+
+;=======================
+;     CreateSprite
+;=======================
+;Creates a new sprite A at (C,B), ix = new offset  Carry set on failure
+CreateSprite:
+	;Save regs
+	push bc
+	or a
+	push af
+	push de
+	;Get spritetable entry 1
+	ld ix,SpriteTable+8
+	;Set up Incs and Count
+	ld de,8
+	ld b,SpriteTotal-1
+SeekLoop:
+	;Check if sprite is free
+	ld a,(ix+3)
+	or a
+	;If so, then create it.
+	jp z,CreateSprite2
+	;If not, try next and loop
+	add ix,de
+	djnz SeekLoop
+	;If no sprites found, Restore regs, set carry flag and quit.
+	pop de
+	pop af
+	pop bc
+	scf
+	ret
+CreateSprite2:
+	;Now make the sprite: Get parameters
+	pop de
+	pop af
+	pop bc
+	;And store them.
+	ld (ix+0),c
+	ld (ix+1),b
+	ld (ix+2),a
+	ld (ix+3),a
+	;Done
+	ret
+
+;==================
+;     Suicide
+;==================
+;Kills internal sprite values
+Suicide:
+	push ix
+	pop hl
+	ld b,8
+SuicideLoop:
+	ld (hl),0
+	inc hl
+	djnz SuicideLoop
+	ret
+
+;==========================
+;    HandlePits
+;==========================
+HandlePits:
+;Only make bubbles from pits every 64 frames
+	ld a,(timer)
+	and %01111111
+	ret nz
+;Only if enemies still alive
+	ld a,(enemycount)
+	or a
+	ret z
+
+	ld hl,holes
+;Hole 1: Top Left
+	ld c,30
+	ld b,-8
+	bit 1,(hl)
+	call nz,MakePitBubble
+;Hole 2: Top Right
+	ld c,62
+	ld b,-8
+	bit 3,(hl)
+	call nz,MakePitBubble
+;Hole 3: Bottom Left
+	ld c,30
+	ld b,59
+	bit 4,(hl)
+	call nz,MakePitBubble
+;Hole 4: Bottom Right
+	ld c,62
+	ld b,59
+	bit 6,(hl)
+	call nz,MakePitBubble
+	ret
+;Now make the bubble!
+MakePitBubble:
+	;Extend letters?
+	ld a,(extend)
+	or a
+	jr nz,MakeExtendBubble
+	;Save Coordinates because we'll be messing with them
+	push bc
+	;Choose bubble type to compare to
+	call bubRandom
+	and 3
+	;Shift it to a mask
+	ld b,a
+	ld a,1
+	jr z,MakePitBubbleDontShiftLeft
+MakePitBubbleShiftLeftLoop:
+	add a,a
+	djnz MakePitBubbleShiftLeftLoop
+MakePitBubbleDontShiftLeft:
+	;Test if creating that type of bubble
+	ld b,a
+	ld a,(ammo)
+	and b
+	pop bc
+	;Return if not
+	ret z
+	cp 1
+	jr z,MakeWaterBubble
+	cp 2
+	jr z,MakeThunderBubble
+	cp 4
+	jr z,MakeFireBubble
+	
+;MakeClearBubble:
+	ld a,bubble
+	jp CreateSprite
+
+MakeExtendBubble:
+	dec a
+	ld (extend),a
+	ld e,ExtendBubble
+	push bc
+	ld b,6
+	call bubrandom2
+
+;Give a second chance if getting an extend bubble you already have
+	or a
+	ld c,a
+	ld b,a
+	ld a,1
+	jr z,MEBNoExpLoop
+MEBExpLoop:
+	add a,a
+	djnz MEBExpLoop
+MEBNoExpLoop:
+	push hl
+	ld hl,extendflags
+	and (hl)
+	pop hl
+	ld a,c
+	jr z,MEBDontGiveASecondChance
+	ld b,6
+	call bubrandom2
+MEBDontGiveASecondChance:
+
+	pop bc
+	add a,e
+	ld e,a
+	ld d,a
+	jr MakeThePitBubble
+
+MakeThunderBubble:
+	ld d,Thunder
+	ld e,ThunderBubble
+MakeThePitBubble:
+	ld a,Bubble
+	call CreateSprite
+	ret c
+	ld (ix+2),e
+	ld (ix+5),0
+	ld (ix+6),d
+	ret
+
+MakeWaterBubble:
+	ld d,Water
+	ld e,WaterBubble
+	jr MakeThePitBubble
+
+MakeFireBubble:
+	ld d,Fire
+	ld e,FireBubble
+	jr MakeThePitBubble
+
+CheckHitPlayer:
+#ifdef LINK
+	call CheckHitPlayer_2
+	ret c
+	ld a,(Linkgame)
+	or a
+	ret z
+	ld a,(SpriteTable+3+8)
+	cp Bub
+	ret nz
+	ld bc,(SpriteTable+8)
+	call CheckHitTarget
+	ret
+CheckHitPlayer_2:
+	ld a,(SpriteTable+3)
+	cp Bub
+	ret nz
+	ld bc,(SpriteTable)
+	jp CheckHitTarget
+#Endif
+
+CheckHitBub:
+#IFDEF LINK
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	inc hl
+	ld d,h
+	ld e,l
+	inc hl
+	ld a,(hl)
+	cp Bub
+	ret nz
+	call CheckHitTarget
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	ret
+#ELSE
+	ld a,(SpriteTable+3)
+	cp Bub
+	ret nz
+	ld bc,(SpriteTable)
+	call CheckHitTarget
+	ld hl,SpriteTable+7
+	ret
+#ENDIF
+
+CheckHitBub4:
+#IFDEF LINK
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	inc hl
+	ld d,h
+	ld e,l
+	inc hl
+	ld a,(hl)
+	cp Bub
+	ret nz
+	call CheckHitTarget4
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	ret
+#ELSE
+	ld a,(SpriteTable+3)
+	cp Bub
+	ret nz
+	ld bc,(SpriteTable)
+	call CheckHitTarget4
+	ld hl,SpriteTable+7
+	ret
+#ENDIF
+	
+	
+
+;===========================
+;    PlayerMoveCounter
+;===========================
+;Checks if player can move, always, or every other frame when falling
+;DAMMIT this code is so damn redundant, *I* actually wrote this?
+PlayerMoveCounter:
+	ld a,(ix+4)
+	and 3
+	xor 1
+	ret nz
+	ld a,(timer)
+	and 1
+	ret
+
+;   ==============
+;====================
+;    HandlePlayer
+;====================
+;   ==============
+
+;Player handling code!
+;Player's ix offsets:
+;0=x, 1=y, 2=fra, 3=1
+;4=y+Jump Counter, 5=BubbleBlow Counter
+;6=Invinciblity Counter ,7=Flags
+
+HandlePlayer:
+;If linkplay and Player 2, then 
+#ifdef LINK
+	push ix
+	pop hl
+	ld de,spritetable
+	sbc hl,de
+	call nz, Swapkeys
+	
+#endif	
+	xor a
+	ld (op4),a
+	;Is player wet?  (water cancels shoes)
+	bit 4,(ix+7)
+	jr nz,NoShoes
+	
+#IFDEF SLOWSHOES
+	;slow down the shoes!
+	ld a,(timer)
+	and 1
+	jr nz,NoShoes
+#ENDIF
+
+	;Does player have shoes?
+	ld a,(bonusflags)
+	and 1 << B_SHOES
+	;then player takes 2 turns :)
+	call nz,HandlePlayer2
+	ld a,1
+	ld (op4),a
+	
+NoShoes:
+	call HandlePlayer2
+	res 4,(ix+7)
+	ret
+	
+HandlePlayer2:
+	;Y position Stuff
+	call PlayerGravity
+	;Push the player around
+	call PlayerFlags
+	;BlowBubblez
+	call BlowBubbles
+	;Check if allowed to move
+	call PlayerMoveCounter
+	;If can't then end turn
+	ret z
+	;Read Keyboard
+GetDir:
+	xor a
+	ld c,a
+	ld hl,jLeft
+	or (hl)
+	inc hl
+	jr nz,GDNotLeft
+	inc c
+GDNotLeft:
+	ld a,(hl)
+	or a
+	jr nz,GDNotRight
+	dec c
+GDNotRight:
+	ld a,c
+	ret z
+	
+	;Do Alternate frame animations
+	push af
+	ld a,(op4)
+	or a
+	jr z,SkipPlayerAnimation
+	
+	ld a,(timer)
+	and 7
+	jr nz,SkipPlayerAnimation
+	ld a,(ix+2)
+	dec a
+	and 2
+	jr nz,SkipPlayerAnimation
+	call animate
+	xor 1
+SkipPlayerAnimation:
+	pop af
+	;Go in direction
+	cp 255
+	jp z,MoveLeft
+MoveRight:
+	;Face Right
+	call Animate
+	and %11111011
+	;Check if legal
+_MoveRight:
+	ld a,(ix+1)
+	add a,7
+	ld c,a
+	ld a,(ix+0)
+	add a,8
+	call Getxy
+	ret z
+	;Move
+	inc (ix+0)
+	ret
+MoveLeft:
+	;Face left
+	call Animate
+	or 4
+	;Check if legal
+_MoveLeft:
+	ld a,(ix+1)
+	add a,7
+	ld c,a
+	ld a,(ix+0)
+	dec a
+	call Getxy
+	ret z
+	;Move
+	dec (ix+0)
+	ret
+
+;Animate - Zeros frame, performs next code operation, then restore it.
+;Input: Next 2 bytes of code
+
+
+
+#IFNDEF APP
+Animate:
+#ENDIF
+AppAnimate:
+	ex (sp),hl
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	inc hl
+	ld (Animate+16),bc
+	ex (sp),hl
+	ld a,(ix+2)
+	sub (ix+3)
+AnimateOp:
+	nop  ;This code gets self modified!  Leet!
+	nop
+	add a,(ix+3)
+	ld (ix+2),a
+	ret
+
+;====================
+;  ParallelUniverse
+;====================
+;Run code to detect both players in 2 player games
+#IFNDEF APP \ParallelUniverse:\#ENDIF
+AppParallelUniverse:
+	ld hl,SpriteTable
+ParallelModify1:
+	ret    ;self modify, change to NOP during linkgames
+	ex (sp),hl
+	ld (ParallelUniverse+ParallelModify2-AppParallelUniverse+1),hl
+	ex (sp),hl
+ParallelModify2:
+	call $0000 ;self modify
+	ld hl,SpriteTable+8
+	ret
+
+CheckBelow2:
+	ld e,(ix+0)
+	ld d,(ix+1)
+;CheckBelow: (e,d) = sprite position
+;  DESTROYS: A,BC,HL
+;  Output=carry flag on if standing on something, carry off if in air
+CheckBelow:
+	;Check (e,d+7)
+	ld a,d
+	add a,7
+	ld c,a
+	ld a,e
+	call GetXY
+	ret z
+
+	;Check (e+7,d+7)
+	ld a,d
+	add a,7
+	ld c,a
+	ld a,e
+	add a,7
+	call GetXY
+	ret z
+
+	;Check (e+4,d+7)
+	ld a,d
+	add a,7
+	ld c,a
+	ld a,e
+	add a,4
+	call GetXY
+	ret z
+
+	;Check (e,d+8)
+	ld a,d
+	add a,8
+	ld c,a
+	ld a,e
+	call GetXY
+	scf
+	ret z
+
+	;Check (e+7,d+8)
+	ld a,d
+	add a,8
+	ld c,a
+	ld a,e
+	add a,7
+	call GetXY
+	scf
+	ret z
+
+	;Check (e+4,d+8)
+	ld a,d
+	add a,8
+	ld c,a
+	ld a,e
+	add a,4
+	call GetXY
+	ret nz
+	
+	;Carry flag set on success
+	scf
+	ret
+
+
+;=====================
+;    PlayerGravity
+;=====================
+;Calls the correct y position modifying code (jump or gravity)
+;DAMMIT I'M REWRITING THIS!!!
+PlayerGravity:
+	ld a,(ix+4)
+	and 3
+	jr z,NoGrav
+	cp 1
+	jr z,DownGrav
+
+;Going Up: Move up 1 pixel, until a counter is cleared.
+	dec (ix+1)
+	ld a,(ix+4)
+	sub 5
+	ld (ix+4),a
+	ret c
+	inc a
+	ld (ix+4),a
+	ret
+
+;Going Down: Move down 1 pixel until standing on solid ground
+DownGrav:
+	;Check if standing on ground (and not inside)
+	call CheckBelow2
+	jp nc,ProceedDown
+;Success:
+ProceedStop:
+	ld (ix+4),0
+	ret
+;Failure:
+ProceedDown:
+	inc (ix+1)
+	bit 0,(ix+7)
+	ret z
+;Bubble Jump:  If Holding jump and on a bubble, then jump
+	ld a,(jJump)
+	or a
+	call nz,Add1toscore
+JumpTest:
+	ld a,(jJump)
+	or a
+	ret z
+	ld a,18*4+2
+	ld (ix+4),a
+	ret
+
+;No Gravity, checks if on ground, jumping, or should fall
+NoGrav:
+	;Check if standing on ground (and not inside)
+	call CheckBelow2
+	;On success, don't fall
+	jr c,ProceedNG
+	;Failure: You fall
+	ld a,1
+	ld (ix+4),a
+	jr ProceedDown
+
+ProceedNG:
+	;If you didn't hold jump, do the jump test to see if you are pressing it.
+	ld a,(jJumpPress)
+	or a
+	jr nz,JumpTest
+	ret
+
+;==================
+;   PlayerFlags
+;==================
+;Checks the Ix+7 flags and acts accordingly
+;0 = on top of bubble
+;1 = move right
+;2 = move left
+;3 = unused
+;4 = wet
+;5 = unused
+;6 = unused
+;7 = dead
+
+PlayerFlags:
+	ld a,(timer)
+	bit 0,a
+	jp z,PlayerFlags2
+	bit 1,(ix+7)
+	call nz,_MoveRight
+	bit 2,(ix+7)
+	call nz,_MoveLeft
+PlayerFlags2:	
+	;Player Dies if death flag set
+	bit 7,(ix+7)
+	ld (ix+7),0
+	ret z
+	;If invincible, player can't die
+	ld a,(ix+6)
+	or a
+	ret nz
+
+	ld (ix+3),DeadPlayer
+	ld (ix+2),1
+	ld (ix+4),0
+	pop af
+	ret	
+
+;==================
+;   BlowBubbles
+;==================
+;Bub blows a bubble or fireball
+BlowBubbles:
+	;Tick Bubble Timer
+	ld a,(ix+5)
+	
+	cp 4
+	push af
+	call c,PlayerUnblow
+	pop af
+	
+	or a  ;;commented out
+	jr z,Blow_Proceed
+	dec (ix+5)
+	ret
+
+PlayerUnblow:
+	;If animation is one of blowing bubble, change it to normal frames
+	
+	ld a,(ix+2)  ;Get frame
+	dec a
+	ld b,a
+;	and 3
+;	cp 3				 ;Do nothing if Bub's not blowing a bubble
+; ret nz
+	and 2
+	ret z
+	ld a,b			 ;Otherwise set frame to standing in proper direction
+	and 4
+	inc a
+	ld (ix+2),a
+	ret
+	
+
+
+Blow_Proceed:
+	;See if pressing the Bubble Button
+	ld a,(jBubblePress)
+	or a
+	ret z
+	ld a,(jBubble)
+	or a
+	ret z
+	
+	;Load in the coordinates
+	ld b,(ix+1)
+	ld c,(ix+0)
+	;Load in the direction
+	ld a,(ix+2)
+	dec a
+	and %000000100
+	ld e,a
+
+	ld hl,BonusFlags
+	ld a,Prebubble
+	bit b_cross,(hl)
+	jr z,DontBlowAFireball
+	
+	ld a,Fireball
+DontBlowAFireball:
+	
+	push ix
+	call CreateSprite
+	jr c,NoMoreBubblesAllowed
+	ld (ix+5),e
+NoMoreBubblesAllowed:
+	pop ix
+	ld a,14
+	ld hl,BonusFlags
+	bit 0,(hl)
+	jr z,DontBlowARapidBubble
+	ld a,6
+DontBlowARapidBubble:
+	bit b_shoes,(hl)
+	jr z,NoIDontHaveShoes
+#IFDEF SLOWSHOES
+	ld b,a
+	rra
+	add a,b
+#ELSE
+	add a,a
+#ENDIF
+
+NoIDontHaveShoes:
+	ld (ix+5),a
+
+	call animate
+	or 3
+
+	ret
+	
+
+	
+;   ================
+;======================
+;     HandleBubble
+;======================
+;   ================
+
+;Bubble's ix offsets:
+;0=x, 1=y, 2=fra, 3=sprite ($0C)
+;4=Death Counter, 5=NextFra
+;6=NextSprite ,7=Flags
+
+
+HandleBubble:
+;Player Interaction
+	call BubbleHitPlayer
+
+;Slower Movement
+	ld a,(Timer)
+	and 3
+	ret nz
+
+;Do bubble stuff
+	call DoBubbleFlags
+
+;Gradual Selfdestruct
+	ld a,(ix+4)
+	dec a
+	ld (ix+4),a
+	jp nz,hbNopop1
+	set 5,(ix+7)
+	set 7,(ix+7)
+hbNopop1:
+	cp 48
+	jp nc,hbNoflicker
+	ld b,a
+	ld a,(ix+2)
+	xor $80
+	ld (ix+2),a
+	ld a,b
+hbNoFlicker:
+	call MoveBubble
+	jp BubbleHitBubble
+
+MoveBubble:	
+;Move the bubble
+	call GetAir
+	dec a
+	dec a
+	jr z,MoveLeft1
+	dec a
+	jr z,MoveRight1
+	dec a
+	jr z,MoveDown1
+_MoveUp1:
+;	ld a,(ix+1)
+;	cp 2
+;	ret z
+;	ld a,(ix+1)
+;	dec a
+;	ld c,a
+;	ld a,(ix+0)
+;	add a,4
+;	call Getxy
+;	ret z
+MoveUp1:
+	dec (ix+1)
+	ret
+
+_MoveDown1:
+;	ld a,(ix+1)
+;	cp 60
+;	ret z
+
+;	ld a,(ix+1)
+;	add a,8
+;	ld c,a
+;	ld a,(ix+0)
+;	add a,4
+;	call Getxy
+;	ret z
+MoveDown1:
+	inc (ix+1)
+	ret
+MoveLeft1:
+	dec (ix+0)
+	ret
+MoveRight1:
+	inc (ix+0)
+	ret
+
+
+;Gets block at center
+GetAir:
+	ld a,(ix+1)
+	add a,4
+	ld c,a
+	ld a,(ix+0)
+	add a,4
+;Gets block at (a,c)   Destroys: A,BC,HL
+;Output: HL= block offset, AF=(HL)
+GetXY:
+	;Code added...
+	push af
+	xor a
+	ld b,a
+	ld h,a
+	ld a,c
+	cp 64
+	jp c,StartGetXY
+	xor a
+StartGetXY:
+	and %00111100
+	ld c,a
+	ld l,c
+	add hl,hl ;Times
+	add hl,bc ;      3
+	add hl,hl ;Times 8
+	pop af
+	rra
+	rra
+	and $3F
+	ld c,a
+	add hl,bc
+	ld bc,level
+	add hl,bc
+	ld a,(hl)
+	or a
+	ret
+
+BubbleHitPlayer:
+#IFDEF LINK
+	call ParallelUniverse
+	call CheckHitBub
+	ret nc
+#ELSE
+	call CheckHitBub
+	ret nc
+	ld de,spritetable+2
+#ENDIF
+	
+	;Bottom Bound
+	call CollisionFix
+	push af
+	ld a,b
+	add a,32+4
+	ld b,a
+	pop af
+	add a,32
+	cp b
+	
+	
+;	;get it centered on the y middle
+;	inc b
+;	inc b
+;	inc b
+;	inc b
+;
+;	ld a,(ix+1)
+;
+;	cp b
+	jp c,BP_1
+	set 0,(hl)
+	ret
+BP_1:
+	;Left/Right Bound
+	ld a,(de)
+	dec a
+	and %00000100
+	jp z,BP_L
+	;Right Bound saves
+	ld a,(ix+0)
+	add a,3
+	cp c
+	jp nc,BP2
+	set 1,(hl)
+	set 2,(ix+7)
+	ret	
+BP_L:
+	;Left Bound saves
+	ld a,(ix+0)
+	add a,-4
+	cp c
+	jp c,BP2
+	set 2,(hl)
+	set 1,(ix+7)
+	ret	
+BP2:
+	;Any non-save kills
+	set 7,(ix+7)
+	ret
+
+
+
+CollisionFix:
+;Input: b = y coordinate    ix = sprite
+;output: a = adjusted (ix+1)
+	;a < 0, b < 0: no adjustment
+	;a >= 64, b < 0: a=a-playheight
+	;a < 0, b >= 56: a=a+playheight
+	;a >= 56, b >= 64: no adjustment
+	
+	ld a,b
+	or a
+	jp m,cf_b_less_than_0
+	cp bottomrow-16
+	ld a,(ix+1)
+	ret c
+	;right now b>=64, a=(ix+1)
+	or a
+	ret p
+	add a,playheight
+	ret
+cf_b_less_than_0:
+	ld a,(ix+1)
+	or a
+	ret m
+	cp bottomrow-16
+	ret c
+	sub playheight
+	ret
+
+	;IF b>56
+		;load a
+		;IF a<0
+			;a=a+playheight
+	;IF b<0
+		;load a
+		;if a>56 && a>0
+			;a=a-playheight
+	
+CheckHitTarget:
+	;b = y, c = x
+	ld a,(ix+0)
+	sub c
+	add a,7
+	cp 15
+	ret nc
+
+;	ld a,(ix+1)
+	call CollisionFix
+	sub b
+	add a,7
+	cp 15
+;	ret nc
+;	scf
+	ret
+
+CheckHitTarget4:
+	ld a,(ix+0)
+	sub c
+	add a,5
+	cp 11
+	ret nc
+
+	call CollisionFix
+	;ld a,(ix+1)
+	sub b
+	add a,5
+	cp 11
+;	ret nc
+;	scf
+	ret
+
+PlayerHitWater:
+#IFDEF LINK
+	call Paralleluniverse
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	inc hl
+	inc hl
+	ld a,(hl)
+	cp Bub
+	ret nz
+	inc hl
+	ld a,(hl)
+	and 3
+	cp 2
+	ret z
+	call checkhittarget4
+	ret nc
+	inc hl
+	inc hl
+	inc hl
+	set 4,(hl)
+	ret
+#ELSE
+	ld bc,(spritetable)
+	ld a,(spritetable+3)
+	cp Bub
+	ret nz
+	ld a,(spritetable+4)
+	and 3
+	cp 2
+	ret z
+	call checkhittarget4
+	ret nc
+	ld hl,spritetable+7
+	set 4,(hl)
+	ret
+#ENDIF
+
+BubbleHitBubble:
+	ld hl,SpriteTable+3
+	ld de,8
+	ld b,spritetotal-2
+BubbleHitBubbleLoop1:
+	push bc
+	push de
+	add hl,de
+	ld a,(hl)
+	push hl
+	cp bubble
+	call z,DidBubbleHitBubble
+	pop hl
+	pop de
+	pop bc
+	djnz bubbleHitBubbleLoop1
+	ret
+DidBubbleHitBubble:
+;This code stuffs the other bubble's coordinates into bc
+	dec hl
+	dec hl
+	ld b,(hl)
+	dec hl
+	ld c,(hl)
+;This code stuffs this bubble's coordinates into de
+	push ix
+	pop hl
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+
+	
+	;Adjust X and Y positions for negative fix
+	ld hl,$0808
+	add hl,bc
+
+	;Check within range for:
+	;L/R edges
+	ld a,e
+	cp l
+	ret nc
+	add a,7+8
+	cp l
+	ret c
+	
+	;D/U edges
+	ld a,d
+	cp h
+	ret nc
+	add a,7+8
+	cp h
+	ret c
+	
+NowDoChecks:
+	;Get y and x differences
+	ld a,d
+	sub b
+	add a,7
+	ld h,a
+	ld a,e
+	sub c
+	add a,7
+	ld l,a
+	
+	;Left Side
+	cp 4
+	jp nc,bhbNotLeft
+	set 2,(ix+7)
+bhbNotLeft:
+	;Right Side
+	cp 15-4
+	jp c,bhbNotRight
+	set 1,(ix+7)
+bhbNotRight:
+	;Up Side	
+	ld a,h
+	cp 4
+	jp nc,bhbNotUp
+	set 4,(ix+7)
+bhbNotUp:
+	;Down Side
+	cp 15-4
+;	jp c,bhbNotDown
+	ret c
+	set 3,(ix+7)
+bhbNotDown:
+	ret
+
+
+DoBubbleFlags:
+	ld a,(ix+4)
+	or a
+	jp z,DoBubbleFlags2
+;	ld a,(timer)
+;	and 15
+;	jr z,DoBubbleFlags2
+	
+	bit 1,(ix+7)
+	call nz,_MoveRight
+	bit 2,(ix+7)
+	call nz,_MoveLeft
+	bit 3,(ix+7)
+	call nz,_MoveDown1
+	bit 4,(ix+7)
+	call nz,_MoveUp1  
+DoBubbleFlags2:	
+	ld a,(ix+7)
+	bit 7,a
+	ld (ix+7),0
+	ret z
+;Bubble Breaks:
+	bit 5,a
+	jp nz,Popbubble
+	pop af
+ExplodeBubble:
+	ld (ix+2),break
+	ld (ix+3),Explode
+	ld (ix+4),0
+	set 6,(ix+7)
+	ld a,(spritetable+2)
+	dec a
+	and 4
+	res 5,(ix+7)
+	jp z,ExplodeNotLeft
+	set 5,(ix+7)
+ExplodeNotLeft:
+SeekABubble:
+	ld hl,spritetable
+	push ix
+SeekABubbleLoop:
+	;next sprite
+	ld bc,8
+	add hl,bc
+	;Save HL
+	push hl
+	;done?
+	ld bc,spritetable+(spritetotal*8)+1
+	sbc hl,bc
+	;Restore HL
+	pop hl
+	;Jump ahead if done
+	jp nc,SeekABubbleDone
+	;ix=hl
+	push hl
+	pop ix
+	;Bubble?
+	ld a,(ix+3)
+	cp Bubble
+	;Loop back if not
+	jp nz,SeekABubbleLoop
+	;bc = coordinates of the exploding bubble
+	pop hl
+	push hl
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	;CheckHitBubble
+	call CheckExplosionHitBubble
+	;HL=IX
+	push ix
+	pop hl
+	;Loop!
+	jp SeekABubbleLoop
+
+SeekABubbleDone:
+	pop ix
+	ret
+	
+CheckExplosionHitBubble:
+	ld e,(ix+0)
+	ld d,(ix+1)
+;dx=(x2-x1)
+;dx=dx+10
+;if dx<0 then ret
+;if dx>20 then ret
+	ld a,e
+	sub c
+	add a,10
+	cp 20
+	ret nc
+;dy=(y2-y1)
+;dy=dy+10
+;if dy<0 then ret
+;if dy>20 then ret
+	ld a,d
+	sub b
+	add a,10
+	cp 20
+	ret nc
+	jp ExplodeBubble
+	
+	
+	
+PopBubble:
+	pop af
+	ld a,break
+	ld (ix+2),a
+	ld (ix+3),a
+	ld (ix+4),0
+	set 6,(ix+7)
+;Save direction of player into flag 5
+	ld a,(spritetable+2)
+	inc a
+	and 4
+	ret z
+	set 5,(ix+7)
+	ret
+
+;================
+;  HandleBreak
+;================
+;	Broken bubbles:
+; IX offsets:
+; 3=Sprite, 4=SuicideCounter
+; 5=NextFra, 6=NextSprite
+HandleBreak:
+	ld a,(ix+4)
+	inc a
+	ld (ix+4),a
+	cp 16
+	jp nc,HB_Burst
+	ret
+HB_Burst:
+	ld c,(ix+5)
+	ld (ix+2),c
+;;changed 0.991
+	ld a,(ix+6)
+	or a
+	jr z,HB_nothinginside ;fixes popping bubbles gives you nothing bug introduced in 991
+	ld a,(ix+3)
+	
+	cp explode
+	jp nz,HB_Burst2
+	ld c,(ix+6)
+HB_Burst2:
+	ld (ix+3),c
+	xor a
+	ld (ix+4),a
+	ld (ix+5),a
+	ld (ix+6),a
+	jp add1toscore
+HB_nothinginside: ;
+	call add1toscore
+	jp suicide
+
+;   =================
+;=======================
+;    HandlePrebubble
+;=======================
+;   =================
+; IX offsets:
+; 4 = completion counter, 5 = direction
+
+HandlePrebubble:
+	call PrebubbleCounter
+	ld (ix+4),a
+	or a
+FastPrebubble:
+	ld hl,BonusFlags
+	bit 0,(hl)
+	call nz,FastPreBubble2
+FastPrebubble2:	
+	ld a,(ix+5)
+	or a
+	jp z,_MoveRight
+	jp _MoveLeft
+PrebubbleCounter:
+	ld a,(ix+4)
+	inc a
+	cp 9
+	ret nz
+	ld a,(ix+2)
+	inc a
+	ld (ix+2),a
+	cp Bubble
+	ld a,0
+	ret nz
+	ld (ix+3),Bubble
+	ld hl,bonusflags
+	bit b_thunderpotion,(hl)
+	jr z,NoMakeTBubble
+	ld (ix+2),ThunderBubble
+	ld a,Thunder
+	ld (ix+4),0
+	jr ProceedMakeBubble
+NoMakeTBubble:
+	xor a
+	ld (ix+4),a
+ProceedMakeBubble:
+	ld (ix+5),a
+	ld (ix+6),a
+	pop af
+	ret
+
+;   ================
+;=======================
+;    HandleFireball
+;=======================
+;   ================
+;IX offsets:
+;4 = completion counter, 5 = direction, 6 = No longer active after hitting end boss
+HandleThunder:
+	;Thunder Chooses player's direction on its first frame of existence
+	bit 0,(ix+7)
+	jr nz,HandleProjectile
+	set 0,(ix+7)
+
+	ld (ix+4),0
+	;Set Direction
+	
+	ld a,(ix+7)
+	cpl
+	and %00100000
+	ld (ix+5),a
+	ld (ix+2),thunder
+	
+	jr HandleProjectile
+HandleFireball:
+	;Decrease number of remaining fireballs on first frame
+	bit 0,(ix+7)
+	jr nz,HandleProjectile
+	set 0,(ix+7)
+	
+	ld (ix+4),0
+
+	ld hl,bonuscounter
+	ld a,(hl)
+	dec a
+	ld (hl),a
+	
+	jr nz,HandleProjectile
+	
+	ld hl,BonusFlags
+	res B_Cross,(hl)
+
+HandleProjectile:
+	;Check Direction and face that direction
+	ld a,(ix+5)
+	or a
+	jr z,DontAnimateFireball
+	call nz,animate
+	or 1
+DontAnimateFireball:
+
+	;If byte 4, then pause and dec until it's 0.  (lightning hits monster pause)
+	ld a,(ix+4)
+	or a
+	jr z,FireballDontStop
+	dec (ix+4)
+	ret
+FireBallDontStop:
+
+	;Check direction then go in that direction
+	ld a,(ix+5)
+	or a
+	push ix
+	pop hl
+	jr z,MoveFireballRight
+	
+	;Move Left
+	dec (hl)
+	dec (hl)
+	ld a,(hl)
+	cp -8
+	jp nc,suicide
+	ret
+MoveFireballRight:
+
+	;Move Right
+	inc (hl)
+	inc (hl)
+	ld a,(hl)
+	cp 96
+	jp nc,suicide
+	ret
+
+;   =================
+;=======================
+;    HandleDeadEnemy
+;=======================
+;   =================
+; IX Offsets:
+; 4=Counter, 5=Direction
+; 6=Fruit, 7=Init flags
+HandleDeadEnemy:
+;Animation First!!!
+	;Only every 4 frames
+	ld a,(timer)
+	and 3
+	jp nz,HDESkipAnimation
+	;Get current frame, dec frame, save it
+	ld a,(ix+2)
+	dec a
+	ld b,a
+	;Check if on final Frame, skip otherwise
+	and 3
+	jp nz,HDEAnimProceed
+	;Set fourth frame (first frame)
+	ld a,b
+	add a,4
+	ld b,a
+HDEAnimProceed:
+	;Save the new frame
+	ld (ix+2),b
+HDESkipAnimation:	
+	ld a,(ix+4)
+	or a
+;Check if first cycle, Initialize if so
+	jr nz,HDEInitSkip
+;Initialize DeadEnemy
+	ld a,(ix+1)
+	ld (ix+7),a
+	ld a,(SpriteTable+2)
+	dec a
+	and 4
+	ld (ix+5),a
+	call iFruit
+	;Insert iFruit code here, (ix+6)
+	
+HDEInitSkip:
+;Increment Counter
+	cp 80
+	jp nc,HDEFall
+	ld a,(ix+4)
+	inc a
+	ld (ix+4),a
+	cp 8
+	jp c,HDEUp
+	cp 24
+	jp c,HDEUpForward
+	cp 48
+	jp c,HDEForward
+	cp 72
+	jp c,HDEDownForward
+HDEDown:
+	inc (ix+1)	
+	ret
+HDEUp:
+	dec (ix+1)
+	ret
+HDEUpForward:
+	call HDEForward
+	dec (ix+1)
+	ret
+HDEForward:
+	ld a,(ix+5)
+	or a
+	jp z,HDELeft
+	ld a,(ix+0)
+	inc a
+	cp 84	
+	jp nc,HDETurnAround
+	ld (ix+0),a
+	ret
+HDETurnAround:
+	ld a,(ix+5)
+	xor 4
+	ld (ix+5),a
+	ret
+HDELeft:
+	ld a,(ix+0)
+	dec a
+	cp 4
+	jp c,HDETurnAround
+	ld (ix+0),a
+	ret
+HDEDownForward:
+	call HDEForward
+	inc (ix+1)
+	ret
+HDEFall:
+	ld a,(ix+1)
+	inc (ix+1)
+	inc a
+	ld d,a
+	ld e,(ix+0)
+	call CheckBelow
+	ret nc
+	;Insert code here
+	ld (ix+3),FallingFruit
+	ld a,(ix+6)
+	ld (ix+5),a
+	sub 8
+	jr nc,NotADiamond
+	ld a,Diamond-cherry
+NotADiamond:
+	add a,cherry
+	ld (ix+2),a
+	ld (ix+4),0
+	
+	ret
+
+;  ====================
+;========================
+;   HandleBubbleBuster
+;========================
+;  ====================
+; IX Offsets:
+; 4=Counter, 5=Unused!, 6=Sequence, 7=Flags
+HandleBubbleBuster:
+	call StandardEnemy
+;AI begins here:
+	ld a,(ix+6)
+	or a  ;0
+	jp z,BustFall
+	dec a ;1
+	jp z,BustWalk
+	dec a ;2
+	jp z,BustJumpUpForward
+	dec a ;3
+	jp z,BustJumpForward
+	dec a ;4
+	jp z,BustJumpDownForward
+	dec a ;5
+	jp z,BustJumpUp
+	ret
+
+StandardEnemy:
+;Normal Operation
+	pop hl
+	ld (backuphl),hl
+	bit 6,(ix+7)
+	jr nz,Pissed
+	ld a,(timer)
+	and 1
+	ret nz
+Pissed:
+	call MonsterHitHazard
+	call MonsterHitPlayer
+	
+	ld hl,(backuphl)
+	push hl
+	
+	;Animate it:
+	ld a,(timer)
+	and 7
+	ret nz
+	ld a,(ix+2)
+	xor 1
+	ld (ix+2),a
+	ret
+
+BustFall:
+	call CheckBelow2
+	jp c,BustHitGround
+	inc d
+	ld (ix+1),d
+	ret
+BustHitGround:
+	ld (ix+6),1
+	call bubrandom
+	and 3
+	ret nz
+	jp BustLookAround
+BustMoveForward:
+	;Check which direction Facing
+	ld a,(ix+2)
+	and 2
+	jp nz,BustMoveLeft
+	;Check if air at target point (x+8,y+7)
+	ld a,(ix+1)
+	add a,7
+	ld c,a
+	ld a,(ix+0)
+	add a,8
+	call Getxy
+	jp z,BustBounce
+	;Move
+	inc (ix+0)
+	ret
+BustBounce:
+	ld a,(ix+2)
+	xor 2
+	ld (ix+2),a
+	ret
+BustMoveLeft:
+	;Check if air at target point (x-8,y+7)
+	ld a,(ix+1)
+	add a,7
+	ld c,a
+	ld a,(ix+0)
+	dec a
+	call Getxy
+	jp z,BustBounce
+	;Move
+	dec (ix+0)
+	ret
+BustWalk:
+	call DumbWalk
+	jp StandardJumpCode
+
+SmartWalk:	
+;Go Forward
+	call BustMoveForward
+	
+;Check position of Player
+	ld a,(timer)
+	and 15
+	call z,BustLookAround
+	jr BustDontLookAround
+DumbWalk:	
+;Go Forward
+	call BustMoveForward
+	
+;Check position of Player
+	ld a,(timer)
+	and 3
+	jr z,BustDontLookAround
+	call bubrandom
+	and 15
+	call z,BustLookAround
+BustDontLookAround:
+;Check for Hole
+	bit 4,(ix+7)
+	jp nz,BustWalkSkip3
+	ld a,(ix+1)
+	add a,8
+	ld c,a
+	;Check Direction
+	ld a,(ix+2)
+	and 2
+	ld a,(ix+0)
+	jp nz,BustWalkSkip1
+	;Moving Right, check for hole
+	add a,8
+	jp BustWalkSkip2
+BustWalkSkip1:
+	;Moving Left, check for hole
+	dec a
+BustWalkSkip2:
+	call GetXY
+	jp z,BustWalkSkip3
+	ld (ix+6),2
+BustWalkSkip3:
+
+;Check if on air
+	call CheckBelow2
+	jp nc,BustWalkFall
+
+	ret
+
+StandardJumpCode:
+;Check if necessary to jump up, then test if possible
+	;Check if should search first
+	bit 3,(ix+7)
+	ret z
+	;Check if aligned at a fourth pixel
+	ld a,(ix+0)
+	ld e,a
+	and 4
+	ret nz
+LuckyJump:
+	;Don't bother unless lucky
+	call bubrandom
+	and 7
+	ret nz
+LuckyJump2:
+
+	;Do it!
+	ld d,(ix+1)
+BustSearchLoop:
+	ld a,d
+	sub 4
+	ret c
+	ld d,a
+	call CheckBelow
+	jp c,BustWalkJumpUp
+	ld a,(ix+1)
+	sub 20
+	cp d
+	ret z
+	jp BustSearchLoop
+BustWalkJumpUp:
+	ld (ix+6),5
+	ret
+#IFDEF HUNT
+HuntAPlayer:
+	ld hl,(SpriteTable)
+	ld a,(LinkGame)
+	or a
+	ret z
+	ld b,(ix+1)
+	ld c,(ix+0)
+	
+	ld a,c
+	sub l
+	jp P,HAP_Noabs1
+	neg
+HAP_Noabs1:
+	rra
+	ld e,a
+	ld a,b
+	sub h
+	jp P,HAP_Noabs2
+	neg
+HAP_Noabs2:
+	rra
+	add a,e
+	ld e,a
+	
+	ld hl,(spritetable+8)
+	ld a,c
+	sub l
+	jp P,HAP_Noabs3
+	neg
+HAP_Noabs3:
+	rra
+	ld d,a
+	ld a,h
+	sub b
+	jp P,HAP_Noabs4
+	neg
+HAP_Noabs4:
+	rra
+	add a,d
+	;if delta2 <= delta1
+	sub e
+	ret nc
+	ld hl,(spritetable)
+	ret
+#ENDIF
+
+BustLookAround:
+	;Reset Flags
+	ld a,(ix+7)
+	and %11000000
+	ld (ix+7),a
+	;Get player's coordinates
+#IFDEF HUNT
+	call HuntAPlayer
+#ELSE
+	ld hl,(spritetable)
+#ENDIF
+	ld bc,$0808
+	add hl,bc
+	
+	ld a,(ix+1)
+	
+	;if a-9>b  (player is above)
+	sub 1
+	cp h
+	jp c,BLASkip1
+	set 3,(ix+7)
+	ret
+BLASkip1:	
+	;if a+9<=b  (player is below)
+	add a,19
+	cp h
+	jp nc,BLASkip2
+	set 4,(ix+7)
+	ret
+BLASkip2:
+	ld a,(ix+0)
+	add a,12
+	cp l
+	jp nc,BLALeft
+	call animate
+	and %11111101
+	ret
+BLALeft:
+	call animate
+	or 2
+	ret
+
+BustWalkFall:
+	ld (ix+6),0
+	ret
+
+BustJumpUpForward:
+	dec (ix+1)
+	call BustMoveForward
+	ld a,(ix+4)
+	inc a
+	ld (ix+4),a
+	cp 6
+	ret nz
+	inc (ix+6)
+	ret
+BustJumpForward:
+	call BustMoveForward
+	ld a,(ix+4)
+	inc a
+	ld (ix+4),a
+	cp 6+8
+	ret nz
+	inc (ix+6)
+	ret
+BustJumpDownForward:
+	inc (ix+1)
+	call BustMoveForward
+	ld a,(ix+4)
+	inc a
+	ld (ix+4),a
+	cp 6+8+6
+	ret nz
+	xor a
+	ld (ix+6),a
+	ld (ix+4),a
+	
+	call bubRandom
+	and 3
+	call z,BustLookAround
+	
+	ret
+BustJumpUp:
+	ld a,(ix+4)
+	inc a
+	cp 18
+	jp nc,BustJumpUpProceed
+	ld (ix+4),a
+	ret
+BustJumpUpProceed:
+	ld d,(ix+1)
+	dec d
+	ld (ix+1),d
+	ld e,(ix+0)
+	call CheckBelow
+	ret nc
+	xor a
+	ld (ix+6),a
+	ld (ix+4),a
+	ret
+	
+	
+MonsterHitPlayer:
+	;Check if the monster is in collision with Bub
+#IFDEF LINK
+	call ParallelUniverse
+	call CheckHitBub4
+	ret nc
+#ELSE
+	call CheckHitBub4
+	ret nc
+	ld hl,SpriteTable+7
+#ENDIF	
+	;Kill Player
+	set 7,(hl)
+	ret
+MonsterHitHazard:
+	ld hl,SpriteTable+3
+	ld de,8
+	ld b,spritetotal-2
+MonsterHitHazardLoop:
+	push bc
+	push de
+	add hl,de
+	ld a,(hl)
+	push hl
+	cp Prebubble
+	call z,MonsterHitPrebubble
+	cp Fire
+	call z,MonsterHitFire
+	cp Water
+	call z,MonsterHitFire
+	cp Fireball
+	call z,MonsterHitFire
+	cp Thunder
+	call z,MonsterHitThunder
+	pop hl
+	pop de
+	pop bc
+	djnz MonsterHitHazardLoop
+	ret
+MonsterHitPrebubble:
+	dec hl
+	dec hl
+	ld b,(hl)
+	dec hl
+	ld c,(hl)
+	call CheckHitTarget
+	ret nc
+	xor a
+	ld b,8
+;Kill the Prebubble
+ErasePrebubbleLoop:
+	ld (hl),a
+	inc hl
+	djnz ErasePrebubbleLoop
+	
+	ld a,(ix+3)
+	ld b,a
+	sub 4
+	ld (ix+2),a
+	ld (ix+3),Bubble
+;PopTime = $+3
+	ld a,(poptime)
+	ld (ix+4),a
+;	ld (ix+4),0
+	ld (ix+5),b
+	ld (ix+6),DeadEnemy
+	ld (ix+7),0
+	pop af
+	pop hl
+	pop bc
+	pop de
+	pop af
+	ret
+MonsterHitThunder:
+	ld e,2
+	dec hl
+	dec hl
+	ld b,(hl)
+	dec hl
+	ld c,(hl)
+	call CheckHitTarget
+	ret nc
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	ld (hl),12
+	
+	jp EnemyDeath
+MonsterHitFire:
+	ld e,1
+CheckKill:
+	dec hl
+	dec hl
+	ld b,(hl)
+	dec hl
+	ld c,(hl)
+	call CheckHitTarget
+	ret nc
+EnemyDeath:
+	ld a,(ix+3)
+	ld (ix+2),a
+	ld (ix+3),DeadEnemy
+	xor a
+	ld (ix+4),a
+	ld (ix+5),a
+	ld (ix+6),e
+	ld (ix+7),a
+	pop af
+	pop hl
+	pop bc
+	pop de
+	pop af
+	ret
+
+
+HandleRainbow:
+	ld (ix+5),10
+	call PlayerEatFruit
+	ld a,(Timer)
+	cp $80
+	ret c
+	ld a,(ix+2)
+	xor $80
+	ld (ix+2),a
+	ret
+
+
+
+
+;   ====================
+;==========================
+;    HandleFallingFruit
+;==========================
+;   ====================
+;IX Offsets:
+;4 = Death Counter, 5 = Score
+;6 = ?   7 = Flags
+
+HandleFallingFruit:
+	call PlayerEatFruit
+	ld a,(ix+4)
+	dec a
+	ld (ix+4),a
+	jp z,Suicide
+	call CheckBelow2
+	ret c
+	inc (ix+1)
+	ret
+
+PlayerEatFruit:
+
+	call CheckHitPlayer
+	ret nc
+	ld hl,ScoreTable
+	ld a,(ix+5)
+PlayerEatFruit2:
+	call PointA2HLInd
+;	ld l,(ix+5)
+;	sla l
+;	ld h,0
+;	ld de,ScoreTable
+;	add hl,de
+;	ld a,(hl)
+;	inc hl
+;	ld h,(hl)
+;	ld l,a
+	ld a,h
+	or l
+	jp z,Suicide
+	call PopUpHlScore
+	jp suicide
+
+HandleItem1:
+	bit 0,(ix+7)
+	jr z,Item1Wakeup
+	jp PlayerEatFruit
+Item1WakeUp:
+;Only try to wake up every $10 frames
+	ld a,(timer)
+	and $F
+	ret nz
+;1 in 4 chance of waking up
+	call bubRandom
+	and 1
+	ret nz
+	set 0,(ix+7)
+;Make the bonus fruit
+	ld a,(CurBonusFruit)
+	or a
+	jp z,Suicide
+	add a,15
+	ld (ix+5),a
+	add a,Item1-16
+	ld (ix+2),a
+	xor a
+	ld (curbonusfruit),a
+	ret
+
+
+;====================
+;  Handle Item2!
+;====================
+HandleItem2:
+	;Items die if all enemies dead
+	ld a,(enemycount)
+	or a
+	jp z,Suicide
+	
+	bit 0,(ix+7)
+	jr z,Item2Wakeup
+	call CheckHitPlayer
+	ret nc
+	ld a,(ix+4)
+	push af
+	call HandleItem2_Items
+	pop af
+	push af
+	ld hl,bonusflags
+	call SetAHL
+	pop af
+	ld hl,SpecialItemScoreTable
+	jr PlayerEatFruit2
+;	
+;	jp Suicide
+
+Item2WakeUp:
+;Only try to wake up every $20 frames
+	ld a,(timer)
+	and $1F
+	ret nz
+;1 in 8 chance of waking up
+	call bubRandom
+	and 7
+;	cp 3
+	ret nz
+	set 0,(ix+7)
+
+;DELETEME: make a potion every time
+;	ld b,b_Potion
+;	jr NormalItem2
+
+;Make a common item
+	call bubRandom
+	and 3
+	ld b,a
+;1 in 8 chance of being rare
+	call bubRandom
+	and 7
+	call z,Item2Rare
+;Doors after beating 20 levels without continuing
+	ld hl,(onlevel)
+	ld h,0
+	inc l
+	icall(_divhlby10)
+	or a
+	jr nz,NormalItem2
+
+	ld c,l
+		
+	ld hl,(ContinueLevel)
+	ld h,0
+	inc l
+	icall(_divhlby10)
+	ld a,c
+	inc l
+	inc l
+	cp l
+	jr c,NormalItem2
+	ld b,6
+;	call nc,Item2Door
+	
+;	cp 19
+;	call z,Item2Door
+;	cp 39
+;	call z,Item2Door
+;	cp 49
+;	call z,Item2Door
+NormalItem2:
+	ld a,b
+	ld (ix+4),a
+	add a,item2
+	ld (ix+2),a
+	ret
+;Item2Door:
+;	ld b,6
+;	ret
+Item2Rare:
+	call BubRandom
+	and 1
+	add a,4
+	ld b,a
+	ret
+
+HandleItem2_Items:
+	cp b_cross
+	jr z,handleCross
+	cp b_umbrella
+	jr z,HandleUmbrella
+	cp b_potion
+	jr z,HandlePotion
+	cp b_door
+	jp z,HandleBonusDoor
+	ret
+HandleCross:
+	call BubRandom
+	and 1
+	jr z,Thundercross
+	ld a,15
+	ld (Bonuscounter),a
+	ret
+Thundercross:
+	pop hl
+	pop af
+	ld a,7
+	push af
+	push hl
+	ret
+	
+HandleUmbrella:
+	call NextLevel
+	ld a,(onlevel)
+	cp 99
+	ret nc
+	jp NextLevel
+
+HandleBonusDoor:
+	ld a,%00000011
+	ld (bonusflags),a
+	
+HandlePotion:
+	ld hl,spritetable+16
+	ld bc,(SpriteTotal*8)-17
+	ld de,spritetable+17
+	ld (hl),0
+	ldir
+
+#ifdef LINK
+	ld a,(LinkGame)
+	or a
+	jr nz,HPDontKillPlayer2
+#endif
+	ld a,255
+	ld (SpriteTable+3+8),a
+	ld (spriteTable+2+8),a
+HPDontKillPlayer2:
+	push ix
+	ld a,255
+	call createsprite
+	call createsprite
+		
+	ld a,0
+	ld (enemycount),a
+
+	ld bc,$0C08
+	call bubRandom
+	and 3
+	add a,Flower
+	ld l,a
+	ld h,Rainbow
+CreateFlowers1:
+	ld a,h
+	call CreateSprite
+	ld (ix+2),l
+	push bc
+	push hl
+	
+	push bc
+	pop de
+	
+	ld a,e
+	ld c,d
+	call GetFBlock
+	
+	ld a,e
+	add a,4
+	ld c,d
+	call GetFBlock
+
+	ld a,d
+	add a,4
+	ld c,a
+	ld a,e
+	call GetFBlock
+	
+	ld a,d
+	add a,4
+	ld c,a
+	ld a,e
+	add a,4
+	call GetFBlock
+	
+	jr DontDestroyFlower
+GetFBlock:
+	call GetXY
+	ret nz
+DestroyFlower:
+	call Suicide
+	pop hl
+DontDestroyFlower:
+	pop hl
+	pop bc
+	ld a,c
+	add a,8
+	ld c,a
+	cp 88
+	jp c,CreateFlowers1
+	ld c,8
+	ld a,b
+	add a,8
+	ld b,a
+	cp 52
+	jp c,CreateFlowers1
+
+	pop ix
+	
+	ld hl,-8  
+	ld (Timer),hl
+	
+	ret
+
+
+HandleFallingEnemy:
+	;First time?
+	ld a,(ix+7)
+	or a
+	jr z,InitFallingEnemy
+	;Every other cycle?
+	ld hl,Timer
+	bit 0,(hl)
+	ret nz
+	;Move Down
+	inc (ix+1)
+	;Every 4th cycle
+	bit 1,(hl)
+	ret nz
+	sub 1
+	ld (ix+7),a
+	ret nz
+	ld a,(ix+2)
+	and $FC
+	ld (ix+3),a
+	ld (ix+7),0
+	ret
+InitFallingEnemy:
+	ld a,(ix+1)
+	neg
+	;add a,a
+	ld (ix+7),a
+	ret
+
+;========================
+;      Handle Stoner
+;========================
+; IX Offsets:
+; 4=Counter, 5=WalkCounter, 6=Sequence, 7=Flags
+HandleStoner:
+	call StandardEnemy
+;AI begins here:
+HandleStoner2:
+	ld a,(ix+6)
+	or a  ;0
+	jp z,BustFall
+	dec a ;1
+	jp z,StonerWalk
+	dec a ;2
+	jp z,BustJumpUpForward
+	dec a ;3
+	jp z,BustJumpForward
+	dec a ;4
+	jp z,BustJumpDownForward
+	dec a ;5
+	jp z,BustJumpUp
+	dec a ;6
+	jp z,StonerShoot
+	ret
+
+TestHAligned:
+	ld bc,(spritetable)
+	ld a,(ix+1)
+	sub b
+	add a,15
+	cp 32
+	ret nc
+	scf
+	ret
+	
+	
+;if py<ey+8 then miss
+;if py>ey-8 then miss
+	
+	
+	
+	
+
+
+
+StonerWalk:	
+	call SmartWalk
+StonerShoot1:
+  call TestHAligned
+	jp nc,StandardJumpCode
+	inc (ix+5)
+	ld a,(ix+5)
+	cp 11
+	jp c,StandardJumpCode
+	call bubrandom
+	and 3
+	ret nz
+	
+	ld (ix+5),0
+	ld (ix+6),6
+	ret
+;Shoot!!! For real!
+StonerShoot:
+	ld a,(ix+5)
+	inc a
+	ld (ix+5),a
+	cp 16
+	jp c,StonerNotDone
+	ld (ix+5),0
+	ld (ix+6),1
+	jp BustLookAround
+StonerNotDone:
+	cp 8
+	ret nz
+;Now create the rock...
+	push ix
+	ld a,(ix+2)
+	and %00000010
+	ld e,a
+	ld a,Stone
+	ld b,(ix+1)
+	ld c,(ix+0)
+	call CreateSprite
+	jr c,NoRocky
+	ld (ix+5),e
+NoRocky:	
+	pop ix
+	ret
+
+;======================
+;  HandleStone!
+;======================
+HandleStone:
+	call CheckStoneHitPlayer
+	ld a,(ix+1)
+	add a,4
+	ld c,a
+	ld a,(ix+0)
+	bit 1,(ix+5)
+	jr z,MoveStoneRight
+MoveStoneLeft:
+	dec a
+	ld (ix+0),a
+MoveStoneRecycle:
+	call GetXY
+	jr z,StoneSuicide
+	ret
+MoveStoneRight:
+	inc a
+	ld (ix+0),a
+	add a,7
+	jr MoveStoneRecycle
+	
+CheckStoneHitPlayer:
+	call MonsterHitPlayer
+	ret nc
+	pop af
+StoneSuicide:
+	ld (ix+3),genericpop
+	ld (ix+2),break
+	xor a
+	ld (ix+4),a
+	ret
+;====================
+;  HandleGenericPop
+;====================
+;	Broken bubbles:
+; IX offsets:
+; 3=Sprite, 4=SuicideCounter
+HandleGenericPop:
+	ld a,(ix+4)
+	inc a
+	ld (ix+4),a
+	cp 16
+	jp nc,suicide
+	ret
+
+
+;========================
+;      HandleBeluga
+;========================
+; IX Offsets:
+; 4=Counter, 5=WalkCounter, 6=Sequence, 7=Flags
+HandleBeluga:
+	call StandardEnemy
+HandleBeluga2:
+;AI begins here:
+	ld a,(ix+6)
+	or a  ;0
+	jp z,BeluUp
+	dec a ;1
+	jp z,BeluDown
+	ret
+BeluMoveForward:
+	call CheckInsideWall
+	
+	;Check which direction Facing
+	ld a,(ix+2)
+	and 2
+	jp nz,BeluMoveLeft
+	;Check if air at target points (x+8,y+7) and (x+8,y)
+	ld a,(ix+1)
+	add a,7
+	ld c,a
+	ld a,(ix+0)
+	add a,8
+	call Getxy
+	jp z,BustBounce
+	ld c,(ix+1)
+	ld a,(ix+0)
+	add a,8
+	call Getxy
+	jp z,BustBounce
+	;Move
+	inc (ix+0)
+	ret
+BeluMoveLeft:
+	;Check if air at target points (x-1,y+7) and (x-1,y)
+	ld a,(ix+1)
+	add a,7
+	ld c,a
+	ld a,(ix+0)
+	dec a
+	call Getxy
+	jp z,BustBounce
+	ld c,(ix+1)
+	ld a,(ix+0)
+	dec a
+	call Getxy
+	jp z,BustBounce
+	;Move
+	dec (ix+0)
+	ret
+CheckInsideWall:
+	;;Check if inside wall
+	ld a,(ix+1)
+	add a,7
+	ld c,a
+	ld a,(ix+0)
+	add a,3
+	call Getxy
+	ret nz
+	ld c,(ix+1)
+	ld a,(ix+0)
+	add a,3
+	call Getxy
+	ret nz
+	dec (ix+1)
+	ret
+	
+
+
+
+BeluUp:
+	call BeluMoveForward
+	;Check if air at target points (x+0,y-1) and (x+7,y-1)
+	ld c,(ix+1)
+	dec c
+	ld a,(ix+0)
+	call Getxy
+	jp z,BeluVBounce
+	ld c,(ix+1)
+	dec c
+	ld a,(ix+0)
+	add a,7
+	call Getxy
+	jp z,BeluVBounce
+	;Move
+	dec (ix+1)
+	ret
+BeluVBounce:
+	ld a,(ix+6)
+	xor 1
+	ld (ix+6),a
+	ret
+BeluDown:
+	call BeluMoveForward
+	;Check if air at target points (x+0,y+8) and (x+7,y+8)
+	ld a,(ix+1)
+	add a,8
+	ld c,a
+	ld a,(ix+0)
+	call Getxy
+	jp z,BeluVBounce
+	ld a,(ix+1)
+	add a,8
+	ld c,a
+	ld a,(ix+0)
+	add a,7
+	call Getxy
+	jp z,BeluVBounce
+	;Move
+	inc (ix+1)
+	ret   
+
+;========================
+;   HandleHullaBalloon
+;========================
+; IX Offsets:
+; 4=Counter, 5=WalkCounter, 6=Sequence, 7=Flags
+HandleHullaballoon:
+	call StandardEnemy
+	call HandleHulla2
+	ld a,(timer)
+	and 3
+	ret nz
+	jp HullaMoveForward
+HandleHulla2:
+	call CheckInsideWall
+;AI begins here:
+	ld a,(ix+6)
+	or a  ;0
+	jp z,HullaUp
+	dec a ;1
+	jp z,HullaDown
+	ret
+HullaMoveForward:
+	;Check which direction Facing
+	ld a,(ix+2)
+	and 2
+	jp nz,HullaMoveLeft
+	;Check if air at target points (x+6,y+7) and (x+6,y)
+	ld a,(ix+1)
+	add a,7
+	ld c,a
+	ld a,(ix+0)
+	add a,6
+	call Getxy
+	jp z,BustBounce
+	ld c,(ix+1)
+	ld a,(ix+0)
+	add a,6
+	call Getxy
+	jp z,BustBounce
+	;Move
+	inc (ix+0)
+	ret
+HullaMoveLeft:
+	;Check if air at target points (x+1,y+7) and (x+1,y)
+	ld a,(ix+1)
+	add a,7
+	ld c,a
+	ld a,(ix+0)
+	inc a
+	call Getxy
+	jp z,BustBounce
+	ld c,(ix+1)
+	ld a,(ix+0)
+	inc a
+	call Getxy
+	jp z,BustBounce
+	;Move
+	dec (ix+0)
+	ret
+
+HullaUp:
+	call HullaMoveForward
+	;Check if air at target points (x+2,y-1) and (x+5,y-1)
+	ld c,(ix+1)
+	dec c
+	ld a,(ix+0)
+	add a,2
+	call Getxy
+	jp z,HullaVBounce
+	ld c,(ix+1)
+	dec c
+	ld a,(ix+0)
+	add a,5
+	call Getxy
+	jp z,HullaVBounce
+	;Move
+	dec (ix+1)
+	ret
+HullaVBounce:
+	ld a,(ix+6)
+	xor 1
+	ld (ix+6),a
+	ret
+HullaDown:
+	call HullaMoveForward
+	;Check if air at target points (x+2,y+8) and (x+5,y+8)
+	ld a,(ix+1)
+	add a,8
+	ld c,a
+	ld a,(ix+0)
+	add a,2
+	call Getxy
+	jp z,HullaVBounce
+	ld a,(ix+1)
+	add a,8
+	ld c,a
+	ld a,(ix+0)
+	add a,5
+	call Getxy
+	jp z,HullaVBounce
+	;Move
+	inc (ix+1)
+	ret   
+
+HandleBanebou:
+; 4=Counter, 5=Subsequence, 6=Sequence, 7=Flags
+	call StandardEnemy
+	;long jump, short jump...
+	ld a,(ix+6)
+	or a  ;0 - Fall
+	jp z,BanebouFall
+	dec a ;1 - Short Jump
+	jp z,BanebouJump1
+	dec a ;2 - Fall2
+	jp z,BanebouFall
+	dec a ;3 - Long Jump
+	jp z,BanebouJump2
+;	cp 69-3
+;	jp z,BustJumpUp
+	jp BanebouFall3
+	
+BanebouFall:
+	call CheckBelow2       ;Hit Ground?
+	jp c,BanebouHitGround  ;Jump there
+	inc d                  ;otherwise y=y+1
+	ld (ix+1),d
+	ret                    ;return
+BanebouHitGround:
+	ld (ix+4),0 ;Reset counter
+	ld a,(ix+6) ;Save current sequence into A
+	inc (ix+6)  ;Next Sequence
+	or a        ;If sequence was 0 then randomly look around
+	ret nz      ;Return otherwise
+	call bubRandom
+	and 7
+	ret nz
+	jp BustLookAround
+;	jp CheckBanebouJumpup
+
+
+BanebouFall3:
+;Reset counters
+	ld (ix+6),0
+	ld (ix+4),0
+	jp BanebouFall
+
+;CheckBanebouJumpUp:
+;;Is player above?
+;	bit 7,(ix+7)
+;;If not then just fall
+;	ret z
+;;1 in 4 chance of success:
+;	call bubRandom
+;	and 3
+;	ld e,(ix+0)
+;;Check if it's possible to jump up
+;	call z,LuckyJump2
+;;If it is, then set a new sequence
+;	ld a,(ix+6)
+;	or a
+;;Otherwise quit
+;	ret z
+;;Set new sequence 69
+;	ld (ix+6),69
+;	ret
+	
+BanebouJump1:  ;short jump
+	ld a,(ix+4)
+	inc (ix+4)
+	cp 4
+	jr c,BanebouU
+	cp 8
+	jr c,BanebouUF
+	cp 12
+	jr c,BanebouF
+	cp 16
+	jr c,BanebouDf
+BanebouJumpDone:
+	inc (ix+6)
+	jr BanebouFall
+BanebouUF:
+	call BustMoveForward
+BanebouU:
+	dec (ix+1)
+	ret
+BanebouF:
+	jp BustMoveForward
+BanebouDF:
+	call BustMoveForward
+	jr BanebouFall
+BanebouJump2:  ;short jump
+	ld a,(ix+4)
+	inc (ix+4)
+	cp 4
+	jr c,BanebouU
+	cp 10
+	jr c,BanebouUF
+	cp 16
+	jr c,BanebouF
+	cp 22
+	jr c,BanebouDf
+	jr BanebouJumpDone
+	
+	
+;========================
+;    Handle Hidegonsu
+;========================
+; IX Offsets:
+; 4=Counter, 5=WalkCounter, 6=Sequence, 7=Flags
+HandleHidegonsu:
+	call StandardEnemy
+;AI begins here:
+	ld a,(ix+6)
+	or a  ;0
+	jp z,BustFall
+	dec a ;1
+	jp z,HidegonsuWalk
+	dec a ;2
+	jp z,BustJumpUpForward
+	dec a ;3
+	jp z,BustJumpForward
+	dec a ;4
+	jp z,BustJumpDownForward
+	dec a ;5
+	jp z,BustJumpUp
+	dec a ;6
+	jp z,HidegonsuShoot
+	ret
+
+HidegonsuWalk:	
+	call DumbWalk
+HidegonsuShoot1:
+  call TestHAligned
+	jp nc,StandardJumpCode
+	inc (ix+5)
+	ld a,(ix+5)
+	cp 17
+	jp c,StandardJumpCode
+	call bubrandom
+	and 3
+	ret nz
+	
+	ld (ix+5),0
+	ld (ix+6),6
+	ret
+;Shoot!!! For real!
+HidegonsuShoot:
+	ld a,(ix+5)
+	inc a
+	ld (ix+5),a
+	cp 8
+	jp c,HidegonsuNotDone
+	ld (ix+5),0
+	ld (ix+6),1
+	jp BustLookAround
+HidegonsuNotDone:
+	cp 4
+	ret nz
+;Now create the Fireball...
+	push ix
+	ld a,(ix+2)
+	and %00000010
+	ld e,a
+	ld a,HostileFire
+	ld b,(ix+1)
+	ld c,(ix+0)
+	call CreateSprite
+	jr c,NoFirey
+	ld (ix+5),e
+	ld a,e
+	rra
+	add a,Fireball
+	ld (ix+2),a
+NoFirey:	
+	pop ix
+	ret
+;=======================
+;   HandleHostileFire
+;=======================
+HandleHostileFire:
+	call CheckHFireHitPlayer
+	ld a,(ix+0)
+	bit 1,(ix+5)
+	jr z,MoveHFireRight
+MoveHFireLeft:
+	dec a
+	dec a
+	ld (ix+0),a
+	add a,15
+	sub 8
+	jp c,suicide
+	ret
+MoveHFireRight:
+	inc a
+	inc a
+	ld (ix+0),a
+	cp 96
+	jp nc,suicide
+	ret
+	
+CheckHFireHitPlayer = MonsterHitPlayer
+;	ld bc,(spritetable)
+;	call CheckHitTarget
+;	ld hl,spritetable+7
+;	set 7,(hl)
+;	ret
+
+;=======================
+;    Handle Invader
+;=======================
+; IX Offsets:
+; 4=Counter, 5=WalkCounter, 6=Sequence, 7=Flags
+HandleInvader:
+	bit 6,(ix+7)
+	call nz,InvaderPissed
+	call MonsterHitHazard
+	call MonsterHitPlayer
+InvaderPissed:
+	;Animate it:
+	ld a,(timer)
+	and 7
+	jr nz,DontAnimateInvader
+	ld a,(ix+2)
+	xor 1
+	ld (ix+2),a
+DontAnimateInvader:
+	ld a,(ix+5)
+	sub 1
+	ld (ix+5),a
+	call z,InvaderShoot
+	call c,InvaderReload
+	
+	;Get Coordinates
+	call CheckBelow2
+	jr nc,InvaderFall
+	call BustMoveForward
+	ret
+InvaderFall:
+	inc (ix+1)
+	ret
+InvaderShoot:
+	push ix
+	ld c,(ix+0)
+	ld b,(ix+1)
+	ld a,Laser
+	call createsprite
+;	jr c,InvaderCantShoot
+;InvaderCantShoot:	
+	pop ix
+InvaderReload:
+	call bubrandom
+	and 3
+	add a,43
+	ld (ix+5),a
+	ret
+HandleLaser:
+	ld a,(ix+1)
+	add a,1
+	ld (ix+1),a
+	cp 64
+	jp nc,Suicide
+	call MonsterHitPlayer
+	ret
+
+	
+	
+	
+	
+;========================
+;      Handle Drunk
+;========================
+; IX Offsets:
+; 4=Counter, 5=WalkCounter, 6=Sequence, 7=Flags
+HandleDrunk:
+	call StandardEnemy
+;Shooting? Jump there, otherwise behave exactly like stoner
+	ld a,(ix+6)
+	cp 6
+	jr z,DrunkShoot
+	jp HandleStoner2
+
+DrunkShoot:
+;IX+5: 0 if hasn't shot yet, 1 otherwise
+	ld a,(ix+5)
+	or a
+	jr z,DrunkDrinkBeer
+;Do nothing if it has shot
+	ret
+DrunkDrinkBeer:
+;Set 'do nothing' byte
+	inc (ix+5)
+;Get Y, HL=IX
+	ld b,(ix+1)
+	push ix
+	pop hl
+;Get Direction, sprite and 2 = 0 : Right, otherwise left
+	ld a,(ix+2)
+	and 2
+	jr z,MakeBeerRight
+MakeBeerLeft:
+;BeerX=DrunkX-8, BeerSpr=$39
+	ld a,(ix+0)
+	sub 8
+	ld e,$39
+	jr MakeBeer2
+MakeBeerRight:
+;BeerX=DrunkX+8, Beerspr=$3B
+	ld a,(ix+0)
+	add a,8
+	ld e,$3B
+MakeBeer2:
+;Create a beer
+	ld c,a
+	ld a,Beer
+	call CreateSprite
+;Full? Don't set any properties
+	jr c,UnmakeBeer
+;Set sprite, and copy drunk IX to beer
+	ld (ix+2),e
+  ld (ix+5),l
+  ld (ix+6),h
+UnmakeBeer:
+	push hl
+	pop ix
+	ret
+
+HandleBeer:
+;;	
+	;Make sure host drunk exists
+	ld l,(ix+5)
+	ld h,(ix+6)
+	inc hl
+	inc hl
+	inc hl
+	ld a,(hl)
+	cp Drunk
+	jp nz,Suicide
+;;	
+	ld a,(ix+4)
+	or a
+	jr z,BeerIdle
+	dec a  ;1
+	jr z,BeerLeft
+	dec a  ;2
+	jr z,BeerRight
+	add a,3 ;A+1
+;When clock reaches 16, finalizebeer
+	cp 16+16
+	jr z,FinalizeBeer
+	ld (ix+4),a
+	ret
+BeerIdle:
+	ld (ix+4),16
+	ret
+FinalizeBeer:
+	ld a,(ix+2)
+	cp $39
+	jr z,InitBeerLeft
+InitBeerRight:
+	ld (ix+4),2
+	ret
+InitBeerLeft:
+	ld (ix+4),1
+	ret
+BounceBeer:
+	bit 1,(ix+7)
+	ret nz
+	set 1,(ix+7)
+	ld a,(ix+4)
+	xor 3
+	ld (ix+4),a
+	ret
+
+BeerLeft:
+	Call StandardBeer
+	ld a,(ix+1)
+	add a,7
+	ld c,a
+	ld a,(ix+0)
+	dec a
+	call GetXY
+	call z,BounceBeer
+	dec (ix+0)
+	ret
+BeerRight:
+	Call StandardBeer
+	ld a,(ix+1)
+	add a,7
+	ld c,a
+	ld a,(ix+0)
+	add a,8
+	call GetXY
+	call z,BounceBeer
+	inc (ix+0)
+	ret
+AnimateBeer:
+	ld a,(Timer)
+	and 3
+	ret nz
+	;animate
+	ld a,(ix+2)
+	inc a
+	ld (ix+2),a
+	cp Beer+4
+	ret c
+	ld (ix+2),beer
+	ret
+
+StandardBeer:
+	;try to kill player
+	call MonsterHitPlayer
+	call AnimateBeer
+		
+	ld a,(ix+0)
+	ld l,(ix+5)
+	ld h,(ix+6)
+	cp (hl)
+	ret nz
+;BeerCaught:
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	ld (hl),0
+	pop hl
+	jp Suicide
+	
+
+;=======================
+;  HandleDeadPlayer
+;=======================
+;ix+4 = Death Timer
+HandleDeadPlayer:
+	;Only Work every 4 frames
+	ld a,(timer)
+	and 3
+	ret nz
+	;Animate
+	ld a,(ix+4)
+	or a
+	jr nz,HDPDontSetFrame1
+	ld (ix+2),1
+HDPDontSetFrame1:
+	inc a
+	ld (ix+4),a
+	cp 8
+	jr nc,HDPLastFrames
+	ld a,(ix+2)
+	add a,2
+	and 7
+	ld (ix+2),a
+	ret
+HDPLastFrames:
+	ld (ix+2),break
+	cp 14
+	ret c
+	push ix
+#ifdef LINK
+	pop hl
+	push hl
+	ld de,SpriteTable
+	sbc hl,de
+	pop de
+	ld hl,DefaultBobTable
+	jr nz,DontUseBubTable
+#ELSE
+	pop de
+#ENDIF
+	ld hl,DefaultBubTable
+DontUseBubTable:
+	ld bc,4
+	ldir
+	
+	ld h,d
+	ld l,e
+	inc de
+	ld (hl),0
+	ld bc,3
+	ldir
+
+	ld (ix+6),72
+	
+	ld hl,lives
+	ld a,(hl)
+	dec a
+	jp z,GameOver
+	ld (hl),a
+	
+	ld hl,bonusflags
+	ld a,(hl)
+	and b_deathmask
+	ld (hl),a
+	
+	ld a,1
+	ld (ScoreUpdateFlag),a
+	
+	call UnPissOffEnemies
+	
+	ret
+	
+;==================
+;  HandleWater
+;==================
+HandleWater:
+;Only active every other frame
+	ld a,(timer)
+	and 1
+	ret z
+;If bit off, this is a water spawner
+	bit 0,(ix+7)
+	jr nz,HandleWater2
+	ld a,(ix+4)
+	inc a
+	ld (ix+4),a
+	cp 1
+	ld d,0
+	jr nz,WaterNotFirstTime
+	;Water's First Frame: Set new aligned X and Y coordinates
+	ld a,(ix+0)
+	sub 2
+	and %11111100
+	add a,2
+	ld (ix+0),a
+	
+	ld a,(ix+1)
+	sub 2
+	and %11111100
+	add a,2
+	ld (ix+1),a
+	;Set A to something less than 8!
+	xor a
+	ld d,1
+WaterNotFirstTime:
+	cp 8
+	ld e,(ix+7)
+;When done making water
+	jr c,DontFinalizeWater
+	call FinalizeWater
+	jr HandleWater2
+DontFinalizeWater:
+;Make a new water, this time a nonspawner
+	ld b,(ix+1)
+	ld c,(ix+0)
+	ld a,water
+	call CreateSprite
+	ret c
+FinalizeWater:
+	ld a,e
+	and %00100000
+	or  %00000001
+	ld (ix+7),a
+	ld (ix+4),d
+	ld (ix+2),water
+	ret
+HandleWater2:
+	ld a,(ix+4)
+	dec a
+	call z,PlayerHitWater
+	call MoveWater
+WaterCarryPlayer:
+	ld a,(ix+4)
+	dec a
+	ret nz
+	call paralleluniverse
+	ld bc,7
+	push hl
+	add hl,bc
+	bit 4,(hl)
+	pop hl
+	ret z
+	
+	ld a,(ix+0)
+;Edge bounds
+	cp 84
+	jr c,WaterNotRightEdge
+	ld a,84
+WaterNotRightEdge:
+	cp 4
+	jr nc,WaterNotLeftEdge
+	ld a,4
+WaterNotLeftEdge:
+	ld (hl),a
+	inc hl
+;end of edge bounds
+	
+	ld a,(ix+1)
+	sub 2
+	ld (hl),a
+	ret
+	
+MoveWater:
+	;Inside a block?  Go down
+	ld a,(ix+1)
+	add a,4
+	ld c,a
+	ld a,(ix+0)
+	add a,4
+	call GetXY
+	jr z,WaterMoveDown
+	
+	;Nothing Below?  Go down
+	ld a,(ix+1)
+	add a,7
+	ld c,a
+	ld a,(ix+0)
+	add a,4
+	call GetXY
+	jr nz,WaterMoveDown
+	
+	;Now move left or right
+	ld a,(ix+1)
+	add a,4
+	ld c,a
+	ld a,(ix+0)
+	ld e,a
+	
+	bit 5,(ix+7)
+	jr nz,WaterMoveRight
+	call GetXY
+	jr z,BounceWater
+	ld a,e
+	sub 4
+	ld (ix+0),a
+	ret
+WaterMoveRight:
+	add a,6
+	call GetXY
+	jr z,BounceWater
+	ld a,e
+	add a,4
+	ld (ix+0),a
+	ret
+BounceWater:
+	ld a,(ix+7)
+	xor %00100000
+	ld (ix+7),a
+	ret
+WaterMoveDown:
+	ld a,(ix+1)
+	add a,4
+	ld (ix+1),a
+	add a,16
+	cp 80
+	jp nc,Suicide
+	ret
+
+
+;=================
+;  HandleFire
+;=================
+HandleFire:
+	ld (ix+2),Fire
+	ld a,(timer)
+	and 31
+	cp 16
+	jr c,DontAnimateFire
+	ld (ix+2),Fire+1
+DontAnimateFire:
+;Is this a falling fire, or still fire?
+	ld a,(ix+5)
+	or a
+	jp z,FallingFire
+	ld a,(timer)
+	and 7
+	ret nz
+	inc (ix+4)
+	ld a,(ix+4)
+	cp 25
+	jr c,DontBlinkFire
+	ld (ix+2),0
+DontBlinkFire:
+	cp 35
+	jp z,Suicide
+	ret
+FallingFire:
+	call CheckBelow2
+	jr nc,FireFall
+SpawnFiresLeft:
+	ld (ix+5),1
+	ld l,(ix+0)
+	ld h,(ix+1)
+SpawnFiresLeftLoop:
+	ld bc,-8
+	add hl,bc
+	ex de,hl
+	call CheckBelow
+	ex de,hl
+	jr nc,SpawnFiresRight
+	ld b,h
+	ld c,l
+	ld a,(ix+3)
+	push ix
+	call CreateSprite
+	jr c,PopIxRet
+	ld (ix+5),1
+	pop ix
+	jr SpawnFiresLeftLoop
+SpawnFiresRight
+	ld l,(ix+0)
+	ld h,(ix+1)
+SpawnFiresRightLoop:
+	ld bc,8
+	add hl,bc
+	ex de,hl
+	call CheckBelow
+	ex de,hl
+	ret nc
+	ld b,h
+	ld c,l
+	ld a,(ix+3)
+	push ix
+	call CreateSprite
+	jr c,PopIxRet
+	ld (ix+5),1
+	pop ix
+	jr SpawnFiresRightLoop
+PopIxRet:
+	pop ix
+	ret
+FireFall:
+	inc (ix+1)
+	ret
+
+;==================
+;  HandleExtend
+;==================
+HandleExtend:
+	ld a,(ix+3)
+	sub ExtendBubble
+	ld hl,ExpTable
+	ld e,a
+	ld d,0
+	add hl,de
+	ld a,(hl)
+	ld hl,extendflags
+	or (hl)
+	ld (hl),a
+	ld (scoreupdateflag),a
+	push hl
+	call Suicide
+	pop hl
+	cp %00111111
+	ret nz
+	ld (hl),0
+	ld hl,Lives
+	inc (hl)
+	
+	
+	
+	pop af
+	pop af
+	call NextLevel
+	jp GameLoop
+
+
+;========================
+;  HandleThunderPotion
+;========================
+HandleThunderPotion:
+#IFDEF LINK
+;LinkGame?
+	ld a,(LinkGame)
+	or a
+	jr z,TP_NOTLINKGAME
+	
+	bit 7,(ix+7)
+	jr z,DontReviveTPotion
+	ld a,%10000011
+	ld (bonusflags),a
+	ret
+	
+TP_NOTLINKGAME:
+#ENDIF
+
+
+;Player Dead?
+	ld a,(SpriteTable+3)
+	cp DeadPlayer
+	;Reset the potion
+	jr nz,DontReviveTpotion
+	ld (ix+2),Thunderpotion
+	res 7,(ix+7)
+DontReviveTpotion:
+;Potion Inactive?
+	bit 7,(ix+7)
+	ret nz
+;Hitting player?
+	call CheckHitPlayer
+	ret nc
+;Get bonuses
+	ld a,%10000011
+	ld (bonusflags),a
+;Deactiveate
+	set 7,(ix+7)
+	ld (ix+2),0
+	ret
+	
+
+
+
+;=======================
+;  HandleSuperDrunk
+;=======================
+HandleSuperDrunk:
+	call HandleSuperdrunk2
+
+
+FormatSuperDrunkGfx:
+	ld b,(ix+0)
+	ld c,(ix+1)
+	ld (Bigspritey),bc
+
+	ld de,BigSprite
+	ld hl,SuperDrunkGfx-32
+	ld bc,32
+	
+	ld a,(ix+4)
+	inc a
+;	cp 5
+;	jr nc,BubbledSuperdrunk
+
+SDBigSprMultLoop:
+	add hl,bc
+	dec a
+	jr nz,SDBigSprMultLoop
+	ldir
+	ret
+;BubbledSuperdrunk:
+;	ld hl,player+((drunk-4)*8)
+;	jp Stretch
+	
+HandleSuperDrunk2:
+	;Animate
+	ld a,(timer)
+	and 15
+	jr nz,DontAnimateSuperdrunk
+	ld a,(ix+4)
+	xor 1
+	ld (ix+4),a
+DontAnimateSuperdrunk:
+	;Choose Sequence
+	ld a,(ix+5)
+	or a
+	;0
+	jr z,SD_Fall
+	dec a
+	;1
+	jr z,SD_Wait
+	dec a
+	;2
+	jr z,SD_UpDown
+	dec a
+	;3
+	jr z,SD_UpDown
+	;4+
+	jr SD_Bubbled
+SD_Fall:
+	ld a,(timer)
+	and 1
+	ret nz
+	inc (ix+1)
+	ld a,(ix+1)
+	cp 24
+	ret nz
+SD_NextSeq:
+	inc (ix+5)
+	ret
+SD_Wait:
+	ld a,(timer)
+	cp 48+50+32
+	ret c
+;	inc (ix+6)
+;	ld a,(ix+6)
+;	cp 50
+;	ret c
+;	ld (ix+6),0
+	jr SD_NextSeq
+
+EndBossDead:
+	ld (ix+5),4
+SD_Bubbled:
+	ld (ix+4),4
+#IFDEF LINK
+	call SDHitBub
+#ELSE
+	ld bc,(spritetable)
+	call SD_CheckHitTarget
+#ENDIF
+	jr c,EndBossSuicide
+	ld a,(timer)
+	and 7
+	ret nz
+	ld a,(timer)
+	and 16
+	jr nz,VMoveEndBoss2
+	ld a,(ix+0)
+	cp 40
+	jr nc,MDBLeft
+	add a,4
+MDBLeft:
+	dec a
+	dec a
+	ld (ix+0),a
+	ret
+
+VMoveEndBoss2:
+	ld a,(ix+1)
+	cp 24
+	jr nc,MDBUp
+	add a,4
+MDBUp:
+	dec a
+	dec a
+	ld (ix+1),a
+	ret
+
+EndBossSuicide:
+	call iFruit
+	jp suicide
+
+	
+MoveDeadBossRight:
+	inc a
+	inc a
+	ret
+MoveDeadBossLeft:
+	dec a
+	dec a
+	ret
+
+SD_UpDown:
+SD_Standardenemy:
+#IFNDEF LINK
+  ld bc,(SpriteTable)
+	call SD_CheckHitTarget
+	jr nc,SDDontKillPlayer
+	ld hl,SpriteTable+7
+	set 7,(hl)
+#ELSE
+	call SDHitPlayer
+#ENDIF
+SDDontKillPlayer:
+	call SuperDrunkHitHazard
+	ld a,(ix+6)
+	or a
+	jr z,EndBossDead
+SDSlowDown:
+	ld a,(Timer)
+	and 3
+	ret z
+SDShoot:
+	ld hl,(Timer)
+	ld a,56
+	icall(_Divhlbya)
+	cp 1
+	call z,SDShootBeers
+
+
+;Begin Motion
+	ld a,(ix+4)
+	and 2
+	jr z,SD_MoveRight
+SD_MoveLeft:
+	dec (ix+0)
+	ld a,(ix+0)
+	cp 4
+	jr c,SD_Bounce
+	jr SD_MoveUpDown
+SD_MoveRight:
+	inc (ix+0)
+	ld a,(ix+0)
+	cp 77
+	jr nc,SD_Bounce
+	jr SD_MoveUpDown
+SD_Bounce:
+	ld a,(ix+4)
+	xor 2
+	ld (ix+4),a
+SD_MoveUpDown:
+	ld a,(ix+5)
+	and 1
+	jr nz,SD_MoveUp
+SD_MoveDown:
+	inc (ix+1)
+	ld a,(ix+1)
+	cp 45
+	jr nc,SD_VBounce
+	ret
+SD_MoveUp:
+	dec (ix+1)
+	ld a,(ix+1)
+	cp 4
+	ret nc
+SD_VBounce:
+	ld a,(ix+5)
+	xor 1
+	ld (ix+5),a
+	ret
+	
+SD_CheckHitTarget:
+	;x1=target
+	;x2-x1
+	;OK range: 
+	;-7>= to <=15
+	
+	ld a,(ix+0)
+	sub c
+	add a,7+8
+	cp 21
+	ret nc
+	
+;this one doesn't need the collisionfix,
+;big sprites don't go off the visible screen
+	ld a,(ix+1)
+	sub b
+	add a,7+8
+	cp 21
+	ret nc
+	
+	scf
+	ret
+	
+	
+SuperDrunkHitHazard:
+	ld hl,SpriteTable+3
+	ld de,8
+	ld b,spritetotal-2
+SDHitHazardLoop:
+	push bc
+	push de
+	add hl,de
+	ld a,(hl)
+	push hl
+	cp Thunder
+	call z,SDHitThunder
+	cp Fire
+	call z,SDHitThunder
+	cp Water
+	call z,SDHitThunder
+	pop hl
+	pop de
+	pop bc
+	djnz SDHitHazardLoop
+	ret
+SDHitThunder:
+	dec hl
+	dec hl
+	ld b,(hl)
+	dec hl
+	ld c,(hl)
+	call SD_CheckHitTarget
+	ret nc
+	ld a,(ix+6)
+	sub 1
+	adc a,0
+	ld (ix+6),a
+	push ix
+	push hl
+	pop ix
+	call StoneSuicide
+	pop ix
+	ret
+
+SDShootBeers:
+	push ix
+	call SDShootBeers2
+	pop ix
+	ret
+SDShootBeers2:
+	ld c,(ix+0)
+	ld b,(ix+1)
+;	dec b
+;	dec b
+	ld a,(ix+4)
+	and 2
+	jr nz,SDShootLeft
+	ld a,c
+	add a,12
+	ld c,a
+	ld h,2
+	jr SDBeginShoot
+SDShootLeft:
+	ld a,c
+	add a,-4
+	ld c,a
+	ld h,-2
+SDBeginShoot:
+	ld l,-1
+;	call CreateSDBeer
+;	ret c
+;	call CreateSDBeer
+;	ret c
+	call CreateSDBeer
+	ret c
+	call CreateSDBeer
+	ret c
+	call CreateSDBeer
+	ret
+	
+	
+CreateSDBeer:	
+	ld a,SDBeer
+	call CreateSprite
+	ret c
+	ld (ix+2),Beer
+	ld (ix+5),h
+	ld (ix+6),l
+	ld a,b
+	add a,3
+	ld b,a
+	inc l
+	ret
+
+HandleSDBeer:
+	;Animate
+	ld a,(timer)
+	and 7
+	jr nz,SDBAnimSkip
+	inc (ix+2)
+	ld a,(ix+2)
+	cp Beer+4
+	jr nz,SDBAnimskip
+	ld (ix+2),Beer	
+SDBAnimskip:
+	;HitPlayer?
+	call MonsterHitPlayer
+	
+	;Move	
+	ld hl,(timer)
+	ld a,3
+	icall(_divhlbya)
+	or a
+	ret z
+	
+	push ix
+	pop hl
+	ld a,(hl)
+	add a,(ix+5)
+	jp m,Suicide
+	ld (hl),a
+	inc hl
+	ld a,(hl)
+	add a,(ix+6)
+	jp m,Suicide
+	ld (hl),a
+	
+	
+	ret
+
+#IFDEF LINK
+SDHitPlayer:
+	call paralleluniverse
+  ld c,(hl)
+  inc hl
+  ld b,(hl)
+	call SD_CheckHitTarget
+	ret nc
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	set 7,(hl)
+	ret
+
+SDHitBub:
+	or a
+	call paralleluniverse
+  ret c
+  ld c,(hl)
+  inc hl
+  ld b,(hl)
+	jp SD_CheckHitTarget
+	
+
+#ENDIF
+
+
+
+MakeHugeItem:
+	push ix
+	push af
+	ld a,HugeItem
+	ld c,40
+	ld b,-15
+	call CreateSprite
+	pop af
+	push af
+	ld de,Player
+	ld l,a
+	ld h,0
+	add hl,hl
+	add hl,hl
+	add hl,hl
+	add hl,de
+	call Stretch
+	pop af
+	sub Fruit
+	srl a
+	srl a
+	ld (ix+4),a
+	pop ix
+	ret
+	
+HandleHugeItem:
+	call HandleHugeItem2
+FormatHugeItemGfx:
+	ld b,(ix+0)
+	ld c,(ix+1)
+	ld (Bigspritey),bc
+	ret
+	
+HandleHugeItem2:
+#IFDEF LINK
+	call SDHitBub
+#ELSE
+	ld bc,(spritetable)
+	call SD_CheckHitTarget
+#ENDIF
+	jr c,GetHugeItem
+	
+	ld a,(ix+1)
+	inc a
+	cp 44
+	ret z
+	ld (ix+1),a
+	ret
+	
+GetHugeItem:
+	ld hl,HugeItemScoreTable
+	ld a,(ix+4)
+	jp PlayerEatFruit2
+	
+	
+	ret
+
+#IFDEF SKEL_HURRY
+HandleSkel:
+	ld a,(enemycount)
+	or a
+	jp z,StoneSuicide
+	
+	call CheckStoneHitPlayer
+	;blink
+	push ix
+	pop hl
+	inc hl
+	inc hl
+	ex de,hl
+	ld a,(de)
+	xor 128
+	ld (de),a
+	ld hl,timer
+	ld a,(hl)
+	and 7
+	jr nz,DontAnimateSkel
+	ld a,(de)
+	xor 1
+	ld (de),a
+DontAnimateSkel:
+
+	ld hl,(spritetable)
+	ld a,(spritetable+3)
+#IFDEF LINK
+	bit 0,(ix+6)
+	jr z,SkelAfterPlayer2
+SkelPlayer2:
+	ld hl,(spritetable+8)
+	ld a,(spritetable+8+3)
+SkelAfterPlayer2:
+#ENDIF ;link
+	cp Bub
+	jp nz,StoneSuicide
+	
+	ld a,(ix+4)
+	dec (ix+4)
+	or a
+	ld b,(ix+5)
+	call z,SkelNextSequence
+	ld a,b
+	and %00000011
+	jr z,SkelMoveUD
+	cp 2
+	ret nz
+SkelMoveLR:
+	ld a,(ix+0)
+	cp l
+	ld a,(de)
+	jr c,SkelMoveRight
+SkelMoveLeft:
+	or 2
+	ld (de),a
+	jp MoveLeft1
+SkelMoveRight:
+	and %11111101
+	ld (de),a
+	jp MoveRight1
+SkelMoveUD:
+	ld a,(ix+1)
+	cp h
+	jp c,MoveDown1
+	jp MoveUp1
+
+SkelNextSequence:
+	inc (ix+5)
+	inc b
+	ld a,b
+	and %00000001
+	jr nz,SkelNewDelay
+	ld (ix+4),24
+	ret
+SkelNewDelay:
+	ld a,b
+	and %11111100
+	ld c,a
+	ld a,40
+	sub c
+	jr nc,SkelnoXora
+	xor a
+SkelnoXora:
+	ld (ix+4),a
+	ret
+
+	
+	
+#ENDIF ;skel

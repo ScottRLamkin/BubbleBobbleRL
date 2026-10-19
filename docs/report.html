@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BubbleBobbleRL report</title>
+<style>
+:root {
+  --bg: #fbfaf7; --fg: #1f2328; --muted: #5c6670; --line: #d9d4ca;
+  --accent: #2f6f4e; --code-bg: #efece5; --th-bg: #efece5;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161c; --fg: #d8dce3; --muted: #9aa3ad; --line: #2c313a;
+    --accent: #8fd3a7; --code-bg: #1e222b; --th-bg: #1e222b;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161c; --fg: #d8dce3; --muted: #9aa3ad; --line: #2c313a;
+  --accent: #8fd3a7; --code-bg: #1e222b; --th-bg: #1e222b;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 var(--sans); }
+.wrap { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 32px; max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+nav { position: sticky; top: 16px; align-self: start; font-size: 14px; max-height: calc(100vh - 32px); overflow: auto; }
+nav a { color: var(--muted); text-decoration: none; display: block; padding: 2px 0; }
+nav a.l2 { padding-left: 0; } nav a.l3 { padding-left: 14px; font-size: 13px; }
+nav a:hover { color: var(--accent); }
+nav .part { margin: 14px 0 4px; font-weight: 600; color: var(--fg); }
+main { min-width: 0; }
+h1 { font-size: 30px; margin: 0 0 6px; } h2 { font-size: 22px; margin: 40px 0 10px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+h3 { font-size: 17px; margin: 26px 0 8px; }
+.subtitle { color: var(--muted); margin: 0 0 20px; }
+section.part { margin-top: 56px; }
+section.part > h1 { font-size: 24px; color: var(--accent); }
+table { border-collapse: collapse; width: 100%; margin: 12px 0 18px; font-size: 14.5px; }
+th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+th { background: var(--th-bg); }
+code { font: 13.5px var(--mono); background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--code-bg); padding: 12px; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+pre.mermaid { background: none; text-align: center; }
+a { color: var(--accent); }
+ul, ol { padding-left: 22px; }
+li { margin: 3px 0; }
+p { margin: 10px 0; }
+@media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } nav { position: static; max-height: none; } }
+</style>
+<body>
+<div class="wrap">
+<nav><div class="part"><a href="#analysis">Behaviour analysis</a></div><a class="l2" href="#analysis-the-headline-the-agent-is-a-turret">The headline: the agent is a turret</a><a class="l2" href="#analysis-how-episodes-end">How episodes end</a><a class="l2" href="#analysis-what-the-agent-uses-from-its-observation">What the agent uses from its observation</a><a class="l2" href="#analysis-which-levels-get-cleared">Which levels get cleared</a><a class="l2" href="#analysis-what-the-evolutionary-search-learned">What the evolutionary search learned</a><a class="l2" href="#analysis-experiments-prompted-by-this">Experiments prompted by this</a><a class="l2" href="#analysis-summary-of-the-day-s-experiments">Summary of the day's experiments</a><a class="l2" href="#analysis-after-implementing-the-projectiles-2026-10-06-evening">After implementing the projectiles (2026-10-06 evening)</a><a class="l2" href="#analysis-where-this-leaves-things-2026-10-07">Where this leaves things (2026-10-07)</a><a class="l2" href="#analysis-punishing-time-and-standing-still-2026-10-08-09">Punishing time and standing still (2026-10-08/09)</a><a class="l2" href="#analysis-ten-generations-twelve-genes-tracked-in-mlflow-2026-10-10">Ten generations, twelve genes, tracked in MLflow (2026-10-10)</a><a class="l2" href="#analysis-tightening-the-loop-2026-10-11">Tightening the loop (2026-10-11)</a><a class="l2" href="#analysis-the-full-pipeline-at-full-length-in-the-current-game-2026-10-12">The full pipeline, at full length, in the current game (2026-10-12)</a><a class="l2" href="#analysis-round-2-of-the-full-pipeline-and-a-checkpoint-lottery-2026-10-13">Round 2 of the full pipeline, and a checkpoint lottery (2026-10-13)</a><a class="l2" href="#analysis-round-3-keep-the-best-checkpoint-2026-10-13">Round 3: keep the best checkpoint (2026-10-13)</a><a class="l2" href="#analysis-widening-the-search-2026-10-18">Widening the search (2026-10-18)</a><div class="part"><a href="#training-setup">Training setup and results</a></div><a class="l2" href="#training-setup-the-interaction-loop">The interaction loop</a><a class="l2" href="#training-setup-observation-the-656-number-state-vector">Observation: the 656-number state vector</a><a class="l2" href="#training-setup-actions">Actions</a><a class="l2" href="#training-setup-reward">Reward</a><a class="l2" href="#training-setup-episode-lifecycle">Episode lifecycle</a><a class="l2" href="#training-setup-training-run">Training run</a><a class="l2" href="#training-setup-results-on-level-1">Results on level 1</a><a class="l2" href="#training-setup-results-across-all-100-levels">Results across all 100 levels</a><a class="l2" href="#training-setup-evolutionary-fine-tuning-scripts-evolve-py">Evolutionary fine-tuning (<code>scripts/evolve.py</code>)</a><div class="part"><a href="#model-architecture">Model architecture</a></div><a class="l2" href="#model-architecture-current-model-state-observation">Current model (state observation)</a><a class="l2" href="#model-architecture-how-a-ppo-update-flows">How a PPO update flows</a><a class="l2" href="#model-architecture-pixel-variant-obs-screen-not-yet-working">Pixel variant (<code>--obs screen</code>, not yet working)</a><div class="part"><a href="#experiments">Running your own experiments</a></div><a class="l2" href="#experiments-setup-once">Setup, once</a><a class="l2" href="#experiments-1-train">1. Train</a><a class="l3" href="#experiments-curves-mlflow-and-tensorboard">Curves: MLflow (and TensorBoard)</a><a class="l3" href="#experiments-the-knobs">The knobs</a><a class="l2" href="#experiments-2-score-on-the-same-seeds-every-time">2. Score, on the same seeds every time</a><a class="l2" href="#experiments-3-see-what-it-actually-does">3. See what it actually does</a><a class="l2" href="#experiments-4-watch-it">4. Watch it</a><a class="l2" href="#experiments-running-a-round-of-several-at-once">Running a round of several at once</a><a class="l2" href="#experiments-letting-evolution-do-the-rounds">Letting evolution do the rounds</a><a class="l2" href="#experiments-ideas-that-have-not-been-tried">Ideas that have not been tried</a><a class="l2" href="#experiments-where-things-live">Where things live</a></nav>
+<main>
+<h1>BubbleBobbleRL: what the agents learned</h1>
+<p class="subtitle">Built from <code>docs/*.md</code> by <code>scripts/build_report.py</code>. Diagrams need an internet connection the first time they render.</p>
+<section class="part" id="analysis"><h1>Behaviour analysis</h1>
+<p>Produced with <code>scripts/analyze.py</code> (raw numbers in <code>runs/analysis/*.json</code>). Unless stated, figures are for the evolution champion <code>g3m05</code> over 100 levels x 5 episodes, 1 life, one-minute cap, sampled actions.</p>
+<h2 id="analysis-the-headline-the-agent-is-a-turret">The headline: the agent is a turret</h2>
+<p>The multi-level agents never move sideways. The player starts at the bottom-left (x = 8) and the agent stays within a few pixels of that spot for the whole episode, in cleared episodes too. It faces the left wall 97-99% of the time, so its bubbles form right where it stands and ride the air currents up the left edge. It jumps (the champion stays between y = 27 and 52) and shoots, and otherwise waits for enemies to come to it.</p>
+<table><thead><tr><th>Model</th><th>Mean x</th><th>Facing left</th><th>Horizontal movement</th></tr></thead><tbody>
+<tr><td>Baseline (all levels, 50M)</td><td>4.1</td><td>97%</td><td>none</td></tr>
+<tr><td>Champion <code>g3m05</code></td><td>4.1</td><td>99%</td><td>none</td></tr>
+<tr><td>Level-1 specialist (<code>ppo_state_L1_v2</code>)</td><td>79.0</td><td>1%</td><td>crosses the screen</td></tr>
+</tbody></table>
+<pre class="mermaid">flowchart LR
+    Start["start bottom-left&lt;br/&gt;x = 8"] --&gt; Camp["face the wall,&lt;br/&gt;shoot, hop in place"]
+    Camp --&gt; Bubbles["bubbles rise along&lt;br/&gt;the left wall"]
+    Bubbles --&gt; Lucky["enemies that wander&lt;br/&gt;into the column are caught"]
+    Lucky --&gt; Clear["level cleared&lt;br/&gt;(28% of episodes)"]
+    Camp --&gt; Hit["an enemy reaches&lt;br/&gt;the corner first"]
+    Hit --&gt; Die["death&lt;br/&gt;(42%)"]
+    Camp --&gt; Wait["enemies never&lt;br/&gt;come by"]
+    Wait --&gt; Timeout["timeout&lt;br/&gt;(30%)"]</pre>
+<p>This explains most of the other findings: which levels get cleared is a property of whether that level's enemies path through the bottom-left column, not of anything the agent decides. A direct check: simulating each level for four minutes with an immortal, idle player and measuring how much time enemies spend in the leftmost 16 pixels:</p>
+<table><thead><tr><th>Enemy time in the left column</th><th>Levels</th><th>Champion clears (of 5)</th><th>Never cleared</th></tr></thead><tbody>
+<tr><td>under 5%</td><td>20</td><td>0.00</td><td>20 of 20</td></tr>
+<tr><td>5-10%</td><td>8</td><td>1.12</td><td>4</td></tr>
+<tr><td>10-20%</td><td>31</td><td>1.26</td><td>18</td></tr>
+<tr><td>over 20%</td><td>41</td><td>2.27</td><td>14</td></tr>
+</tbody></table>
+<p>Every level whose enemies rarely visit the corner is never cleared. It is also why the agent's play looked "weird and non-human" in the galleries.</p>
+<p>The level-1 specialist moves normally. Training on all 100 levels at once found this camping policy instead, and the evolutionary search then refined it rather than escaping it.</p>
+<h2 id="analysis-how-episodes-end">How episodes end</h2>
+<table><thead><tr><th>Outcome</th><th>Baseline</th><th>Champion</th></tr></thead><tbody>
+<tr><td>Cleared</td><td>22%</td><td>28%</td></tr>
+<tr><td>Died</td><td>34%</td><td>42%</td></tr>
+<tr><td>Timed out</td><td>44%</td><td>30%</td></tr>
+</tbody></table>
+<p>The champion converted timeouts into both clears and deaths: it is a more active turret, not a different strategy.</p>
+<p><strong>Deaths</strong> (champion, 211 of 500 episodes): 41% before it has killed anything, and most within the first 15 seconds. The killer is only an angry enemy in 17% of cases; the rest are ordinary enemies arriving at the corner.</p>
+<table><thead><tr><th>Time of death</th><th>Baseline</th><th>Champion</th></tr></thead><tbody>
+<tr><td>under 5 s</td><td>25</td><td>25</td></tr>
+<tr><td>5-15 s</td><td>79</td><td>88</td></tr>
+<tr><td>15-30 s</td><td>36</td><td>55</td></tr>
+<tr><td>over 30 s</td><td>31</td><td>43</td></tr>
+</tbody></table>
+<p>Which kinds kill, per 100 of that kind in play: hidegonsu 9.8, invader 8.8, buster 8.7, stoner 7.9, hullaballoon 6.8, beluga 6.3, drunk 4.2, banebou 1.6. (Six of the eight kinds are stand-ins that reuse the buster or beluga logic, so this mostly measures spawn positions and counts.)</p>
+<p><strong>Timeouts</strong> (148): the player never moved in any of them; 54 had no kill at all, and the typical timeout still had 3-5 enemies alive. Longer episodes help only a little:</p>
+<table><thead><tr><th>Cap</th><th>Cleared</th><th>Died</th><th>Timed out</th></tr></thead><tbody>
+<tr><td>30 s</td><td>24%</td><td>29%</td><td>47%</td></tr>
+<tr><td>60 s</td><td>28%</td><td>42%</td><td>30%</td></tr>
+<tr><td>120 s</td><td>32%</td><td>43%</td><td>26%</td></tr>
+<tr><td>240 s</td><td>35%</td><td>41%</td><td>25%</td></tr>
+</tbody></table>
+<h2 id="analysis-what-the-agent-uses-from-its-observation">What the agent uses from its observation</h2>
+<p>Zeroing parts of the 616-number input at play time (champion, 500 episodes):</p>
+<table><thead><tr><th>Inputs removed</th><th>Cleared</th><th>Died</th><th>Timed out</th></tr></thead><tbody>
+<tr><td>nothing</td><td>141</td><td>211</td><td>148</td></tr>
+<tr><td>in-flight bubbles</td><td>147</td><td>190</td><td>163</td></tr>
+<tr><td>bubbles</td><td>127</td><td>162</td><td>211</td></tr>
+<tr><td>enemies</td><td>125</td><td>122</td><td>253</td></tr>
+<tr><td>loot (fruit, pickups)</td><td>123</td><td>140</td><td>237</td></tr>
+<tr><td>tile grid</td><td>21</td><td>363</td><td>116</td></tr>
+<tr><td>currents (grid as wall/air)</td><td>82</td><td>244</td><td>174</td></tr>
+</tbody></table>
+<ul><li>The grid is the one input it cannot do without. For a stationary agent the grid is effectively a level ID, so this suggests it has memorised per-level timing rather than reading geometry.</li><li>Removing enemies or loot makes it die <em>less</em> and time out more. Its reactions to enemies and fruit are often what gets it killed; blind, it simply waits. In-flight bubble info is irrelevant.</li><li>The currents row is a distribution shift (air tiles change value), so it overstates how much the currents themselves matter.</li></ul>
+<h2 id="analysis-which-levels-get-cleared">Which levels get cleared</h2>
+<p>Clear rate by level feature (champion):</p>
+<table><thead><tr><th>Feature</th><th>Clear rate</th></tr></thead><tbody>
+<tr><td>sparse walls (&lt; 20% of interior)</td><td>37% (60 levels)</td></tr>
+<tr><td>medium walls (20-35%)</td><td>17% (37 levels)</td></tr>
+<tr><td>dense walls (35%+)</td><td>0% (3 levels)</td></tr>
+<tr><td>only floaters</td><td>36% (18 levels)</td></tr>
+<tr><td>no floaters</td><td>30% (65 levels)</td></tr>
+<tr><td>mixed</td><td>14% (17 levels)</td></tr>
+<tr><td>2-3 enemies</td><td>40% (5 levels)</td></tr>
+<tr><td>4-5 enemies</td><td>28% (21 levels)</td></tr>
+<tr><td>6+ enemies</td><td>28% (74 levels)</td></tr>
+</tbody></table>
+<p>Enemy count barely matters, wall density does: open layouts let enemies and bubbles reach the left column. 56 levels were never cleared in 5 tries; 13 were cleared every time (1, 2, 8, 14, 19, 23, 25, 34, 36, 57, 68, 76, 86). Against the baseline the champion is clearly better on 10 levels and clearly worse on 2.</p>
+<h2 id="analysis-what-the-evolutionary-search-learned">What the evolutionary search learned</h2>
+<p>Each child compared with its own parent on the same seeds (episodes cleared out of 500; re-scoring the same model on new seeds moves it by about 10):</p>
+<table><thead><tr><th>Mutation</th><th>n</th><th>Mean change</th></tr></thead><tbody>
+<tr><td>entropy coefficient down</td><td>4</td><td>+7</td></tr>
+<tr><td>clear bonus down (reverting)</td><td>11</td><td>+2</td></tr>
+<tr><td>learning rate down</td><td>8</td><td>+2</td></tr>
+<tr><td>unmutated continuation</td><td>22</td><td>-3</td></tr>
+<tr><td>time penalty down</td><td>14</td><td>-11</td></tr>
+<tr><td>entropy coefficient up</td><td>9</td><td>-20</td></tr>
+<tr><td>death penalty down</td><td>10</td><td>-28</td></tr>
+<tr><td>time penalty up</td><td>22</td><td>-30</td></tr>
+<tr><td>clear bonus up</td><td>24</td><td>-32</td></tr>
+<tr><td>learning rate up</td><td>7</td><td>-33</td></tr>
+<tr><td>pop reward off</td><td>12</td><td>-53</td></tr>
+</tbody></table>
+<p>Plain continuation did nothing; every reward change hurt; only a lower learning rate and selection helped. In generation 3 the models with learning rate under 1e-4 averaged 128 cleared, 1e-4 to 2e-4 averaged 117, and above 2e-4 averaged 99.</p>
+<h2 id="analysis-experiments-prompted-by-this">Experiments prompted by this</h2>
+<p>All scored on fresh seeds, 100 levels x 10 episodes, one-minute cap, from the normal start. Reference: baseline 217 / 1000, champion <code>g3m05</code> 302 / 1000.</p>
+<table><thead><tr><th>Experiment</th><th>Cleared / 1000</th><th>Died</th><th>Timed out</th><th>Moves?</th></tr></thead><tbody>
+<tr><td><strong>Control</strong>: baseline + 30M steps at lr 1.5e-4, no selection</td><td>211</td><td>412</td><td>377</td><td>no (x = 4)</td></tr>
+<tr><td><strong>Random start</strong>: champion + 30M steps with <code>--random-start</code></td><td>167</td><td>585</td><td>248</td><td>no (x = 4)</td></tr>
+<tr><td><strong>From the mover</strong>: level-1 specialist + 30M steps on all levels</td><td>59</td><td>622</td><td>319</td><td>yes (x up to 84)</td></tr>
+<tr><td>Level-1 specialist as is, for reference</td><td>70</td><td>684</td><td>246</td><td>yes</td></tr>
+</tbody></table>
+<ul><li><strong>The champion's gain came from selection, not the learning rate.</strong> The control, which is exactly the champion's recipe minus the selection step, scores the same as the baseline (211 vs 217). The evolutionary loop earned its +85.</li><li><strong>Random starts did not teach movement.</strong> Trained from random platforms, the agent still walks to a wall and camps; from the normal start it is worse than before (167), and under random starts it clears 44 / 300 against 45 for the control, so it gained nothing from the training condition either.</li><li><strong>A moving agent does not become a good one in 30M steps.</strong> Starting from the level-1 specialist keeps the movement (it still crosses the screen) but it dies in 62% of episodes and ends up below the camping agents. Camping is not an accident of the start position: it is the easier policy for this network to find across 100 layouts.</li></ul>
+<p>Two follow-ups, same scoring:</p>
+<table><thead><tr><th>Experiment</th><th>Cleared / 1000</th><th>Died</th><th>Timed out</th><th>Moves?</th></tr></thead><tbody>
+<tr><td><strong>Mover, 100M steps</strong>: level-1 specialist + 100M on all levels</td><td>116</td><td>293</td><td>591</td><td><strong>no</strong> (x = 4)</td></tr>
+<tr><td><strong>Random start from scratch</strong>: MLP, 50M steps with <code>--random-start</code></td><td>15</td><td>923</td><td>62</td><td>yes (x std 26)</td></tr>
+</tbody></table>
+<ul><li><strong>Camping is an attractor.</strong> Given 100M steps instead of 30M, the moving specialist did not get better at moving: it stopped moving. By the end it stands at the spawn point facing the wall 99% of the time, exactly like the agents trained from scratch, and is worse than the baseline because it camps less effectively.</li><li><strong>Forcing movement from the start gives an agent that moves and dies.</strong> Trained from random platforms from scratch, the agent crosses the screen but dies in 92% of episodes from the normal start.</li></ul>
+<p>So within this network and training setup, every road leads to the corner. The likeliest reason it is such a good corner: six of the eight enemy kinds are stand-ins without their projectiles (<code>game.py</code>). In the real game a Stoner's rocks, a Hidegonsu's fireballs or an Invader's lasers would punish a stationary player; here nothing does, so standing in a spot that enemies walk into while bubbles rise around you is close to optimal. Implementing the projectile enemies is probably the single change most likely to produce an agent that plays like a person, and it is a fidelity fix rather than an RL trick.</p>
+<p>A different network does not change the picture either. <code>--arch conv</code> (a small CNN over the 16 x 24 grid plus an MLP over the rest, about 500k parameters, from scratch, 50M steps):</p>
+<table><thead><tr><th>Experiment</th><th>Cleared / 1000</th><th>Died</th><th>Timed out</th><th>Moves?</th></tr></thead><tbody>
+<tr><td>conv, normal start</td><td>151</td><td>227</td><td>622</td><td>no (x = 4)</td></tr>
+<tr><td>conv, <code>--random-start</code></td><td>6</td><td>912</td><td>82</td><td>yes (x std 24)</td></tr>
+<tr><td>MLP baseline, same budget, for reference</td><td>217</td><td>317</td><td>466</td><td>no</td></tr>
+</tbody></table>
+<p>The conv agent camps like the MLP and is worse at it (the CNN also trains about seven times slower on CPU). With random starts it moves and dies, like its MLP counterpart.</p>
+<h2 id="analysis-summary-of-the-day-s-experiments">Summary of the day's experiments</h2>
+<table><thead><tr><th>Lever tried</th><th>Result</th></tr></thead><tbody>
+<tr><td>Reward shaping (clear bonus, time penalty, pop reward, death penalty)</td><td>all hurt</td></tr>
+<tr><td>Lower learning rate alone</td><td>no change</td></tr>
+<tr><td>Evolutionary selection (6 generations, 180 fine-tunes)</td><td>+85 / 1000, then plateau at ~30%</td></tr>
+<tr><td>Random start position (fine-tune, from scratch, conv)</td><td>moves but dies, or camps anyway</td></tr>
+<tr><td>Start from a moving agent, 30M or 100M steps</td><td>collapses into camping</td></tr>
+<tr><td>CNN over the grid</td><td>camps, slightly worse</td></tr>
+</tbody></table>
+<p>Every agent that scores well stands in the bottom-left corner. The fix is most likely in the game, not the learner: give the six stand-in enemy kinds their projectiles so that standing still is punished the way it is in the original.</p>
+<h2 id="analysis-after-implementing-the-projectiles-2026-10-06-evening">After implementing the projectiles (2026-10-06 evening)</h2>
+<p>All eight enemy kinds now follow <code>bub_ai.z80</code>: Stoners throw rocks that roll until they hit a wall, Hidegonsus shoot fireballs that pass through walls, Invaders drop lasers on a timer, Drunks throw a boomerang beer and freeze until it returns, Hullaballoons float faster than Belugas, Banebous bounce. Every projectile kills the player; bubbles do not stop them.</p>
+<p>The camping agents, re-scored in the new game (same fresh seeds, 100 levels x 10 episodes):</p>
+<table><thead><tr><th>Model</th><th>Old game</th><th>New game</th></tr></thead><tbody>
+<tr><td>Baseline (<code>ppo_state_all_50M</code>)</td><td>217</td><td>125</td></tr>
+<tr><td>Champion <code>g3m05</code></td><td>302</td><td>131</td></tr>
+<tr><td>Level-1 specialist (moves)</td><td>70</td><td>45</td></tr>
+</tbody></table>
+<p>The corner is no longer safe: the champion's deaths rose from 378 to 586 and its clears more than halved. Among the deaths I could attribute, rocks, lasers and beer each killed more often than enemies did. These models cannot see projectiles (their observation predates them), so this is a lower bound on how much the new enemies change the game.</p>
+<p>Agents trained in the new game (same scoring; the old baseline made 217 in the old game at 50M steps):</p>
+<table><thead><tr><th>Run</th><th>Cleared / 1000</th><th>Died</th><th>Timed out</th><th>Moves?</th></tr></thead><tbody>
+<tr><td>From scratch, 50M, seed 1</td><td>30</td><td>656</td><td>314</td><td>barely (x within 16 px)</td></tr>
+<tr><td>From scratch, 50M, seed 2</td><td>12</td><td>788</td><td>200</td><td>no</td></tr>
+<tr><td>From scratch, 50M, seed 3</td><td>38</td><td>675</td><td>287</td><td>no</td></tr>
+<tr><td>Seed 3 continued to 200M</td><td>115</td><td>636</td><td>249</td><td>no (x = 4, facing left 99%)</td></tr>
+<tr><td>Level-1 mover transplanted, +100M (new inputs start at zero weight)</td><td>108</td><td>418</td><td>474</td><td>no (collapsed into camping)</td></tr>
+<tr><td>Curriculum (pool grows 1 -&gt; 100 levels over 120M of 200M steps)</td><td>5</td><td>912</td><td>83</td><td>yes (x std 22)</td></tr>
+</tbody></table>
+<p>Projectiles lowered the ceiling of camping (115 instead of 217) but did not make movement learnable: the agents that camp still beat the agents that move by a wide margin, and a moving initialisation collapses into camping again. The curriculum run learned to move on level 1, then fell apart as the pool grew (its training return went from 44 at 26M steps to under 10 for the rest of the run).</p>
+<p>So the fidelity fix was necessary but not sufficient. The remaining suspect is the representation: in the "state" observation every object is an absolute (x, y) in a fixed slot and the layout is 384 unrelated numbers, so "a platform two tiles above me with an enemy walking toward me" looks completely different on every level. A person sees that situation the same way everywhere.</p>
+<p><code>obs_type="ego"</code> (an 11 x 15 tile window centred on the player instead of the whole grid, every object as its offset from the player), 100M steps each:</p>
+<table><thead><tr><th>Run</th><th>Cleared / 1000</th><th>Died</th><th>Timed out</th><th>Moves?</th></tr></thead><tbody>
+<tr><td>ego, seed 1</td><td>36</td><td>820</td><td>144</td><td>no</td></tr>
+<tr><td>ego, seed 2</td><td>23</td><td>887</td><td>90</td><td>yes (x std 35), and dies</td></tr>
+<tr><td>ego + curriculum</td><td>93</td><td>657</td><td>250</td><td>mostly camps, occasional excursions</td></tr>
+</tbody></table>
+<p>The egocentric view did not produce a moving agent that survives either. The two outcomes are the same as before: camp, or move and die. Training returns were low and noisy throughout, so this is not a case of a good policy that needs more steps; nothing was converging.</p>
+<h2 id="analysis-where-this-leaves-things-2026-10-07">Where this leaves things (2026-10-07)</h2>
+<p>Across two days: about 1.5 billion agent steps, 7 ideas, 3 observation designs, 2 architectures. The reimplementation now has all eight enemy kinds with projectiles, and the camping exploit is weaker than it was, but no training recipe tried here learns to move <em>and</em> survive across 100 layouts. The best scores in the current game are still campers (115 / 1000).</p>
+<p>What has not been tried, roughly in order of how likely it is to work:</p>
+<ol><li><strong>Learning from human play.</strong> Record button presses while playing (<code>play.py</code> already has the loop), then pretrain the policy by behaviour cloning before PPO. Human play is moving play by construction, and PPO fine-tuning from a moving policy is a different starting point from the ones that collapsed here, because the collapse happened when the policy had never been rewarded for moving. A few hundred human episodes is enough for a first attempt.</li><li><strong>Memory.</strong> The policy has none: with sampled actions and no recurrence it cannot commit to "go right until the gap", which is what moving across a level requires. A GRU over the ego observation is the standard fix.</li><li><strong>A much bigger budget.</strong> Atari-style agents use hundreds of millions to billions of frames with much larger networks; these runs used 4-16M frames per level-equivalent.</li><li><strong>Fewer levels.</strong> An agent for 10 levels would show whether the method works at all before scaling to 100.</li></ol>
+<h2 id="analysis-punishing-time-and-standing-still-2026-10-08-09">Punishing time and standing still (2026-10-08/09)</h2>
+<p>The next direction was a heavier time penalty, a light penalty for standing still, and to keep the bubble-climbing (jumping up a wall on a column of bubbles) that the agents had started to show, as something they do in bursts rather than all the time. <code>stationary_penalty</code> was added to the env: a per-step charge whenever the player's x has stayed inside a band for a window of steps. Four rounds, all in the game with projectiles, scored on the usual fresh seeds (100 levels x 10 episodes) with <code>scripts/analyze.py</code>'s new behaviour profile (3 episodes per level). "Bouncer" is the best camper fine-tuned under the new penalties; "mover" is the agent the stationary penalty first set in motion.</p>
+<table><thead><tr><th>Round</th><th>Death penalty</th><th>Still-penalty band</th><th>Run</th><th>Cleared / 1000</th><th>x range</th><th>Bounces / min</th><th>Crosses screen</th></tr></thead><tbody>
+<tr><td>1</td><td>1</td><td>8 px / 2 s</td><td>time 0.01 only, scratch 100M</td><td>62</td><td>5 px</td><td>26.5</td><td>0 / 300</td></tr>
+<tr><td>1</td><td>1</td><td>8 px / 2 s</td><td>+ still 0.005, scratch 100M</td><td>8</td><td>58 px</td><td>19.4</td><td>180 / 300</td></tr>
+<tr><td>1</td><td>1</td><td>8 px / 2 s</td><td>+ still 0.01, scratch 100M</td><td>4</td><td>54 px</td><td>28.5</td><td>148 / 300</td></tr>
+<tr><td>1</td><td>1</td><td>8 px / 2 s</td><td>camper fine-tuned 50M ("bouncer")</td><td>122</td><td>7 px</td><td>20.8</td><td>0 / 300</td></tr>
+<tr><td>2</td><td>15</td><td>8 px / 2 s</td><td>scratch 100M</td><td>54</td><td>7 px</td><td>0.0</td><td>0 / 300</td></tr>
+<tr><td>2</td><td>15</td><td>8 px / 2 s</td><td>from the mover 50M</td><td>38</td><td>49 px</td><td>0.0</td><td>139 / 300</td></tr>
+<tr><td>2</td><td>15</td><td>8 px / 2 s</td><td>from the bouncer 50M</td><td>120</td><td>6 px</td><td>0.2</td><td>0 / 300</td></tr>
+<tr><td>2</td><td>15</td><td>8 px / 2 s</td><td>ego obs, scratch 100M</td><td>68</td><td>7 px</td><td>3.6</td><td>0 / 300</td></tr>
+<tr><td>3</td><td>5</td><td>8 px / 2 s</td><td>scratch 100M</td><td>65</td><td>8 px</td><td>5.7</td><td>0 / 300</td></tr>
+<tr><td>3</td><td>5</td><td>8 px / 2 s</td><td>from the mover 50M</td><td>74</td><td>11 px</td><td>0.0</td><td>0 / 300</td></tr>
+<tr><td>3</td><td>5</td><td>8 px / 2 s</td><td>from the bouncer 50M</td><td>126</td><td>9 px</td><td>26.5</td><td>0 / 300</td></tr>
+<tr><td>3</td><td>5</td><td>8 px / 2 s</td><td>ego, continued 50M</td><td>114</td><td>9 px</td><td>1.6</td><td>0 / 300</td></tr>
+<tr><td>4</td><td>5</td><td>32 px / 8 s</td><td>scratch 100M</td><td>35</td><td>6 px</td><td>21.3</td><td>1 / 300</td></tr>
+<tr><td>4</td><td>5</td><td>32 px / 8 s</td><td>from the mover 50M</td><td>68</td><td>3 px</td><td>0.0</td><td>0 / 300</td></tr>
+<tr><td>4</td><td>5</td><td>32 px / 8 s</td><td>from the bouncer 50M</td><td><strong>141</strong></td><td>3 px</td><td><strong>26.9</strong></td><td>0 / 300</td></tr>
+<tr><td>4</td><td>5</td><td>32 px / 8 s</td><td>ego, continued 50M</td><td>123</td><td>6 px</td><td>17.2</td><td>0 / 300</td></tr>
+</tbody></table>
+<p>All rounds use time penalty 0.01 (five times the earlier 0.002) and stationary penalty 0.005 unless stated.</p>
+<p>What happened, round by round:</p>
+<ol><li><strong>The heavier time penalty brought the climbing.</strong> Bubble bounces went from 3 a minute (the old camper) to 20-28 in every run, and the fine-tuned camper became the best agent in the game. <strong>The stationary penalty did make agents move</strong>, crossing the screen in half to two-thirds of episodes, but they died within seconds: median death at 4 s, 60% of actions RIGHT. With per-step charges of 0.015 and a death penalty of 1, a minute alive costs 13.5 and dying costs 1, so running into the first enemy was the optimal policy. A reward bug, not a behaviour.</li><li><strong>Death penalty 15 fixed the suicide and killed the climbing.</strong> Bounces dropped to zero; with death that expensive a jump is a risk not worth taking. And a new loophole: agents travelled 350-650 px per episode while staying within 7 px, wiggling in place to dodge the "still" charge.</li><li><strong>Death penalty 5 restored the climbing</strong> (bouncer: 26.5 bounces/min, 126 cleared) but every run, including the former mover, settled into wiggling.</li><li><strong>A band wiggling cannot satisfy</strong> (32 px of range over 8 s) ended the wiggling, and the agents simply paid the penalty instead: 91-94% of steps still, x range 3-6 px. The bouncer improved again (141 cleared, 27 bounces/min, 46 px of vertical range); the mover gave up moving and jumping both.</li></ol>
+<p>So the two asks pull against each other at these strengths. A stationary penalty light enough to leave the climbing alone is also light enough to ignore; one heavy enough to force movement produces running and dying, because a moving policy that survives has still not been learned by any method tried here. The time penalty, on the other hand, did exactly what was hoped: the best agent now climbs its bubble columns constantly (gallery: <code>exports/v6_bouncer_band32/index.html</code>), and it is the strongest agent in the current game at 141 / 1000.</p>
+<p>Not tried: a stationary penalty in the 0.02-0.05 range with death penalty 5 (would force movement, probably at the cost of the climbing and of clears); rewarding distance covered rather than charging for its absence; and the imitation route from the previous section, which remains the most likely way to get a moving agent that survives.</p>
+<h2 id="analysis-ten-generations-twelve-genes-tracked-in-mlflow-2026-10-10">Ten generations, twelve genes, tracked in MLflow (2026-10-10)</h2>
+<p><code>scripts/evolve.py</code> now mutates twelve parameters (clear bonus, capture bonus, time penalty, stationary penalty and band, death penalty, pop reward, learning rate, entropy, clip, gamma, value coefficient) and records every child as an MLflow run: genome as parameters, the full training curves, and after scoring its evaluation and a <code>survived</code> tag, plus a summary run per generation. Run <code>evo10</code>: 10 generations x 24 children x 8M steps from the climbing camper (<code>v6_band32_from_bouncer_50M</code>), 33 minutes per generation, 249 MLflow runs in experiment <code>evolve-evo10</code>.</p>
+<table><thead><tr><th>Generation</th><th>Best (cleared / 500)</th><th>Mean of all scored</th><th>Baseline on the same seeds</th></tr></thead><tbody>
+<tr><td>1</td><td>70 (the baseline itself)</td><td>55</td><td>70</td></tr>
+<tr><td>2</td><td>83</td><td>59</td><td>72</td></tr>
+<tr><td>3</td><td>90</td><td>71</td><td>77</td></tr>
+<tr><td>4</td><td>89</td><td>74</td><td>72</td></tr>
+<tr><td>5</td><td>85</td><td>74</td><td>64</td></tr>
+<tr><td>6</td><td>82</td><td>72</td><td>68</td></tr>
+<tr><td>7</td><td>89</td><td>76</td><td>72</td></tr>
+<tr><td>8</td><td>90</td><td>76</td><td>66</td></tr>
+<tr><td>9</td><td>89</td><td>78</td><td>70</td></tr>
+<tr><td>10</td><td>86</td><td>75</td><td>65</td></tr>
+</tbody></table>
+<p>On the fresh seed set (100 levels x 10 episodes):</p>
+<table><thead><tr><th>Model</th><th>Cleared / 1000</th><th>Died</th><th>Timed out</th></tr></thead><tbody>
+<tr><td>Base (<code>v6_band32_from_bouncer_50M</code>)</td><td>141</td><td>501</td><td>358</td></tr>
+<tr><td>Champion <code>g10m08</code></td><td><strong>170</strong></td><td>473</td><td>357</td></tr>
+<tr><td><code>g10m19</code></td><td>166</td><td>501</td><td>333</td></tr>
+<tr><td><code>g10m16</code></td><td>155</td><td>474</td><td>371</td></tr>
+</tbody></table>
+<p>A real but modest gain (+29, about twice the seed noise), the best agent in the current game. Its behaviour is the climbing camper's, more so: 31 bubble bounces a minute, 48 px of vertical range, 6 px of horizontal range. Gallery: <code>exports/evo10_champion/index.html</code>.</p>
+<p>What the ten generations found:</p>
+<ul><li><strong>No child beat the baseline in generation 1</strong>, and the unmutated continuation scored 45 against the baseline's 70. Resuming a trained agent with a fresh optimiser at the default learning rate (2.5e-4) damages it for the first several million steps. Every eventual survivor had a learning rate of 1e-4 or lower (the final ten: 3e-5 to 6e-5), and "lr down" was the only mutation that was neutral on average (-2.9 against -4.7 for leaving the genome alone). The search mostly discovered the right fine-tuning learning rate.</li><li><strong>Everything else hurt</strong>, averaged over all children against their parents on the same seeds: both directions of time penalty, death penalty, capture bonus, clip and gamma lost 6-14 episodes; turning the pop reward off lost 28. The reward recipe the run started from is a local optimum for this agent.</li><li><strong>Heavier stationary penalties did not make it move.</strong> Hand-picked variants with still-penalty 0.02 and 0.05 scored 55-67 of 500 in generation 1 and were not kept; the one line with 0.02 that survived a while (death penalty 10) was gone by generation 4. Nothing in the final ten strays far from the base recipe except the learning rate and a slightly higher gamma (0.993-0.995).</li><li>Gains flattened after generation 3: best-of-generation sat at 82-90 for the remaining seven, with the mean of the population creeping up as the low-learning-rate lines took over.</li></ul>
+<p>How to look at it: <code>uv run mlflow ui --backend-store-uri sqlite:///mlflow.db</code>, experiment <code>evolve-evo10</code>. Sort by <code>eval_cleared</code>, filter <code>tags.survived = "True"</code>, or open a child to see its policy loss, entropy and value loss over its 8M steps next to its evaluation.</p>
+<h2 id="analysis-tightening-the-loop-2026-10-11">Tightening the loop (2026-10-11)</h2>
+<p>The objection at this point: two-hour runs scored once at the end is too slow a loop, and a small MLP ought to do decently on this game if the plumbing is right. Changes, all in <code>train_ppo.py</code>:</p>
+<ul><li><strong>Live outcome rates.</strong> The progress line and the trackers now carry the clear / death / timeout share of the last 100 training episodes.</li><li><strong>Periodic all-level evaluation.</strong> <code>--eval-every N</code> (default 2M steps) plays every level twice with the current weights (about 4 s) and logs <code>eval/clear_rate</code> and friends, so a run shows its trajectory on all 100 levels while it trains instead of after.</li><li><strong>Autoreset fix.</strong> Gymnasium's vector autoreset inserts a fake transition after every terminal step (action ignored, reward 0, "observation" is the previous episode's last frame). Those steps are now masked out of the update.</li><li><code>--frame-skip</code>, <code>--lives</code>, <code>--nearest-first</code> (slots ordered by distance from the player, so slot 0 is always "the closest enemy / bubble / shot"), <code>--grace-frames</code> with <code>--grace-anneal</code>.</li></ul>
+<p>Plumbing audit, what checked out: explained variance of the critic is 0.9 across the evolution's 240 runs; single-step rewards rarely exceed the clear bonus (median largest reward per episode 5, 90th percentile 10, one chain in sixty episodes reached 80); KL and clip fraction are small.</p>
+<p><strong>Where the difficulty is.</strong> From the fixed spawn point, with the player doing nothing: dead within 3 s on 7 levels, within 6 s on 64, within 15 s on 79; 19 levels never touch him in a minute. A trivial stand-and-shoot policy (alternate SHOOT and NOOP) clears 5% of episodes and survives a median 29 s. A random policy clears 0.5% and dies at 4 s.</p>
+<p><strong>Quick rounds</strong>: 20M steps each, eight in parallel, all 100 levels, evaluated on all 100 levels every 1M steps (2 episodes per level). Numbers are episodes cleared out of 200, mean of the last five evaluations.</p>
+<table><thead><tr><th>Round 1 (recipe)</th><th>Last-5 mean</th></tr></thead><tbody>
+<tr><td>shaped reward (time 0.01, still 0.005, death 5), state obs</td><td>10.2</td></tr>
+<tr><td>plain reward, state obs</td><td>2.2</td></tr>
+<tr><td>plain, ego obs</td><td>7.6</td></tr>
+<tr><td>plain, frame skip 2</td><td>1.6</td></tr>
+<tr><td>plain, 3 lives</td><td>0.8</td></tr>
+<tr><td>plain, 32 envs x 256 steps</td><td>4.4</td></tr>
+<tr><td>plain, gamma 0.995 / lambda 0.97</td><td>6.8</td></tr>
+<tr><td>plain, entropy 0.03</td><td>2.8</td></tr>
+</tbody></table>
+<table><thead><tr><th>Round 2 (nearest-first slots)</th><th>Last-5 mean</th></tr></thead><tbody>
+<tr><td>nearest-first, state</td><td>4.2</td></tr>
+<tr><td>nearest-first, state, shaped</td><td>4.8</td></tr>
+<tr><td>nearest-first, ego</td><td>9.6</td></tr>
+<tr><td>nearest-first, ego, shaped</td><td>4.0</td></tr>
+<tr><td>nearest-first, state, gamma 0.995</td><td>9.2</td></tr>
+<tr><td>nearest-first, ego, gamma 0.995</td><td>7.4</td></tr>
+<tr><td>nearest-first, state, second seed</td><td>3.2</td></tr>
+<tr><td>plain state, second seed (control)</td><td>7.8</td></tr>
+</tbody></table>
+<p>At 20M steps nothing separates from anything: every recipe sits between 1% and 5% of episodes, which is the stand-and-shoot floor, and the two seeds of the same plain recipe (2.2 and 7.8) differ by more than most recipes differ from each other. The learned agents clear almost exactly the levels the stand-and-shoot policy clears plus a handful more, and die at a median of 5-6 s, like an idle player. In other words, by 20M steps on 100 levels the agents have learned to shoot in place and not much else; the 50M-plus runs that camp are the continuation of that.</p>
+<table><thead><tr><th>Round 3 (grace period before enemies enter; evaluated without it)</th><th>Last-5 mean</th></tr></thead><tbody>
+<tr><td>4 s, annealed to 0 over the first half</td><td>1.4</td></tr>
+<tr><td>4 s, annealed over 80%</td><td>2.2</td></tr>
+<tr><td>8 s, annealed over 80%</td><td>1.8</td></tr>
+<tr><td>4 s, annealed over 80%, shaped reward</td><td>10.2</td></tr>
+<tr><td>4 s, annealed over 80%, ego obs</td><td>0.6</td></tr>
+<tr><td>4 s, never annealed</td><td>1.4</td></tr>
+<tr><td>4 s, annealed over 80%, 3 lives</td><td>0.8</td></tr>
+<tr><td>plain state, third seed (control)</td><td>3.6</td></tr>
+</tbody></table>
+<p>The grace period did not help; if anything it hurt, and the run that trained with a permanent 4-second head start still died in 96% of its training episodes. So the first-seconds lottery is not the whole story: given time to set up, the agent still does not learn to use it in 20M steps. The one consistent signal across all 24 quick runs is that the shaped reward (time penalty 0.01, stationary penalty 0.005, death penalty 5) doubles the plain reward's result (10.2 in both rounds that had it, against 2-8 for plain), and nothing else moved the needle.</p>
+<p><strong>Where this leaves the "plumbing" question.</strong> Nothing found is broken: the critic fits, rewards are sane, the autoreset leak is fixed, slot order and the egocentric view are available and neither changes the early curve. What the loop shows instead is a sample-complexity problem. One level is learned in about 2M steps; a hundred levels at 20M steps (200k per level) is still at the stand-and-shoot floor, and the 50M-step runs (500k per level) reach 14-17% of episodes. Little transfers between layouts with these representations, so the cost scales with the number of levels. Getting a decent all-levels agent by this route means either hundreds of millions of steps per recipe (which the quick loop cannot screen) or a representation that transfers, which the egocentric and nearest-first variants were the first attempts at.</p>
+<p>All 24 quick runs, with their evaluation curves, are in MLflow experiment <code>quick-1011</code>; the campaign scripts are in <code>scripts/campaigns/</code>.</p>
+<h2 id="analysis-the-full-pipeline-at-full-length-in-the-current-game-2026-10-12">The full pipeline, at full length, in the current game (2026-10-12)</h2>
+<p>The decision after the quick rounds: stop screening at 20M steps and rerun the pipeline that actually produced the champion, at full length. <code>scripts/campaigns/2026-10-12_full.sh</code>, unattended, about 12 hours:</p>
+<ol><li><strong>Stage 1</strong>: six seeds from scratch, 200M steps each, all 100 levels, the shaped recipe (time 0.01, still 0.005 over 32 px / 8 s, death 5), state observation, lr 2.5e-4, all-level evaluation every 1M steps.</li><li><strong>Stage 2</strong>: the best seed by the standard test seeds the evolution as in <code>evo10</code> (10 generations x 24 children x 8M steps, 12 genes).</li></ol>
+<p>Stage 1, standard test (100 levels x 10 episodes, one-minute cap):</p>
+<table><thead><tr><th>Seed</th><th>Cleared / 1000</th></tr></thead><tbody>
+<tr><td>1</td><td><strong>84</strong></td></tr>
+<tr><td>2</td><td>74</td></tr>
+<tr><td>3</td><td>48</td></tr>
+<tr><td>4</td><td>60</td></tr>
+<tr><td>5</td><td>52</td></tr>
+<tr><td>6</td><td>53</td></tr>
+</tbody></table>
+<p>The in-training curves (2 episodes per level every 1M steps) climbed from about 1% at 1M steps to 5-9% by 200M and were still rising slowly; training clear rates ended at 5-8% with deaths down to 39-59%. Six seeds of one recipe span 48 to 84 of 1000, which is the seed noise to keep in mind for every single-run comparison in this document.</p>
+<p>Stage 2 from seed 1 (84 / 1000):</p>
+<table><thead><tr><th>Generation</th><th>Best (cleared / 500)</th><th>Baseline on the same seeds</th></tr></thead><tbody>
+<tr><td>1</td><td>48</td><td>27</td></tr>
+<tr><td>3</td><td>65</td><td>31</td></tr>
+<tr><td>5</td><td>69</td><td>40</td></tr>
+<tr><td>7</td><td>72</td><td>37</td></tr>
+<tr><td>10</td><td>77</td><td>38</td></tr>
+</tbody></table>
+<p>Standard test of the result:</p>
+<table><thead><tr><th>Model</th><th>Cleared / 1000</th><th>Died</th><th>Timed out</th></tr></thead><tbody>
+<tr><td>Stage-1 best (seed 1, 200M from scratch)</td><td>84</td><td>466</td><td>450</td></tr>
+<tr><td>Champion <code>full1012/g9m03</code></td><td><strong>139</strong></td><td>347</td><td>514</td></tr>
+<tr><td>Previous champion <code>evo10/g10m08</code>, for reference</td><td>170</td><td>473</td><td>357</td></tr>
+</tbody></table>
+<p>The pipeline reproduces: evolution again gives a large gain over its base (84 to 139, +55), with the same shape as before (gains in the first few generations, then a plateau). The result is below the previous champion (170), which had a longer history behind it: 50M steps in the game before projectiles, 200M of fine-tunes, and its own 10 generations, about 1.1B steps in all against 280M here. The new champion plays the same way as every good agent so far: x range 4 px, 91% of steps still, 14 bubble bounces a minute (gallery: <code>exports/full1012_champion/index.html</code>).</p>
+<p>Everything is in MLflow: experiment <code>full-1012</code> for the six stage-1 runs with their 1M-step evaluation curves, <code>evolve-full1012</code> for the 240 children.</p>
+<h2 id="analysis-round-2-of-the-full-pipeline-and-a-checkpoint-lottery-2026-10-13">Round 2 of the full pipeline, and a checkpoint lottery (2026-10-13)</h2>
+<p>Changes before this round: running out the clock now costs nearly a death (<code>timeout_penalty</code> 4 against death 5), level 100 is excluded everywhere (its boss is encoded as a Drunk at x = 100, off a 96-pixel screen, so it never enters play and the level cannot be cleared), and there is <strong>one standard test</strong>: 99 levels x 10 episodes = 990, seed 4242, one life, one minute, used identically by the in-training evaluations (every 1M steps, 20 s each now that the evaluator steps one env per level in lockstep), by the evolution's scoring and by the command-line tool. Numbers below are on that standard; the batched evaluator draws random actions in a different order, so earlier scores shift within noise (the <code>evo10</code> champion reads 181/990 against 170/1000 before).</p>
+<p>Stage 1, twelve more seeds from scratch (200M steps each, recipe plus the timeout penalty): final checkpoints scored 8 to 72 of 990. Stage 2, one shared evolution from four bases (seeds 1, 2, 9, 17), 10 generations:</p>
+<table><thead><tr><th>Model</th><th>Cleared / 990</th></tr></thead><tbody>
+<tr><td>Bases: seed 2 / seed 1 / seed 17 / seed 9</td><td>88 / 75 / 72 / 70</td></tr>
+<tr><td>Champion <code>full1012b/g10m09</code></td><td><strong>129</strong></td></tr>
+<tr><td>Round-1 champion <code>full1012/g9m03</code></td><td>144</td></tr>
+<tr><td><code>evo10/g10m08</code> (longest history)</td><td>181</td></tr>
+</tbody></table>
+<p>All ten final survivors descend from one base (seed 1), the only one whose unmutated continuation improved in generation 1 (71 to 89; the other three lost 2 to 44). Same gain shape as every evolution so far: +40-50 over the base, flat after generation 5. The champion camps: 4 px of x range, 89% still, 15 bounces a minute (gallery: <code>exports/full1012b_champion/index.html</code>).</p>
+<p><strong>The checkpoint lottery.</strong> With the standard test running every 1M steps, the in-training curves of the twelve seeds swing wildly from one checkpoint to the next (seed 9 at 20M-step intervals: 46, 5, 51, 41, 25, 64, 24, 46, 33, 70), and the final checkpoint is far below the best one along the way:</p>
+<table><thead><tr><th>Seed</th><th>Best evaluation during training</th><th>Final checkpoint</th></tr></thead><tbody>
+<tr><td>8</td><td>82</td><td>15</td></tr>
+<tr><td>10</td><td>72</td><td>9</td></tr>
+<tr><td>12</td><td>113</td><td>53</td></tr>
+<tr><td>14</td><td>73</td><td>8</td></tr>
+<tr><td>16</td><td>75</td><td>11</td></tr>
+<tr><td>18</td><td>100</td><td>14</td></tr>
+<tr><td>9 / 13 / 17 (the ones that got picked)</td><td>72 / 93 / 105</td><td>70 / 69 / 72</td></tr>
+</tbody></table>
+<p>The policy does not converge; it wanders, and a 200M-step run's "result" was whatever the last update happened to leave. The bases chosen for the evolutions were simply the seeds whose final checkpoint happened to be near their best. The best checkpoints (up to 113) sit close to what the evolutions reach (129-144), which suggests a good part of the evolutions' gain is the same thing: selection among noisy checkpoints.</p>
+<p>Fix: <code>train_ppo.py</code> now keeps <code>best.pt</code>, the best evaluated checkpoint, and evolution children use theirs. The best of 200 noisy evaluations overstates the checkpoint's true score (winner's curse), so round 3 scores every <code>best.pt</code> on an independent seed as well as the standard one and picks bases by the independent score.</p>
+<h2 id="analysis-round-3-keep-the-best-checkpoint-2026-10-13">Round 3: keep the best checkpoint (2026-10-13)</h2>
+<p>Six seeds from scratch, 200M steps, standard test every 1M steps, <code>best.pt</code> kept. Each <code>best.pt</code> scored on the standard seed and on an independent seed (777) to measure how much "best of 200 evaluations" flatters itself:</p>
+<table><thead><tr><th>Seed</th><th>best.pt, standard</th><th>best.pt, independent seed</th><th>final checkpoint, independent seed</th></tr></thead><tbody>
+<tr><td>19</td><td>85</td><td>52</td><td>22</td></tr>
+<tr><td>20</td><td>88</td><td>81</td><td>76</td></tr>
+<tr><td>21</td><td>94</td><td>88</td><td>81</td></tr>
+<tr><td>22</td><td>88</td><td>89</td><td>84</td></tr>
+<tr><td>23</td><td><strong>143</strong></td><td><strong>136</strong></td><td>105</td></tr>
+<tr><td>24</td><td>91</td><td>85</td><td>25</td></tr>
+</tbody></table>
+<p>Keeping the best checkpoint is worth 3 to 60 of 990 over taking the last one, and the winner's curse is small for most seeds (3-7) and large for one (33). Seed 23 is the first from-scratch run to match the evolved champions, and it was still climbing at 200M steps (standard test at 20M-step intervals: 37, 75, 63, 84, 105, 96, 91, 88, 114, 116).</p>
+<p>Stage 2 from the top four by independent score (seeds 24, 23, 22, 21): seed 23's base topped generations 1-5 unbeaten (134-148 on the generation seeds), then its children pulled ahead: 154, 162, 159, 171, 170.</p>
+<table><thead><tr><th>Model</th><th>Standard (4242)</th><th>Independent (777)</th></tr></thead><tbody>
+<tr><td>Seed 23 <code>best.pt</code> (the base)</td><td>143</td><td>136</td></tr>
+<tr><td><strong>Round-3 champion <code>full1013/g10m20</code></strong></td><td>169</td><td><strong>155</strong></td></tr>
+<tr><td>Round-1 champion <code>full1012/g9m03</code></td><td>144</td><td>136</td></tr>
+<tr><td>Round-2 champion <code>full1012b/g10m09</code></td><td>129</td><td>125</td></tr>
+<tr><td><code>evo10/g10m08</code> (1.1B-step history, pre-projectile start)</td><td>181</td><td>152</td></tr>
+</tbody></table>
+<p>On the independent seed the round-3 champion is the best model so far, from 280M steps entirely in the current game. All eight final survivors descend from seed 23; their genomes drifted to lr 1.1e-4, a lower time penalty (0.004-0.006), gamma 0.973-0.985 and entropy 0.005-0.008, with the stationary and death penalties unchanged. Behaviour unchanged: x range 4 px, 88% still, 23 bounces a minute (gallery: <code>exports/full1013_champion/index.html</code>).</p>
+<h2 id="analysis-widening-the-search-2026-10-18">Widening the search (2026-10-18)</h2>
+<p>Round 4 (six seeds at 400M steps) died with the machine: a kernel panic from memory exhaustion at about 74M steps per run. A training process holds a steady 330 MB across dozens of evaluations, so the suspects are the MLflow server under six concurrent writers with the UI polling full metric histories. Campaigns now start their own server (the UI on 5000 only reads), long runs log less often, and a memory watchdog (<code>scripts/campaigns/memwatch.sh</code>) stops training if free memory falls under 2 GB. The partial round-4 best checkpoints (63-82 of 990 at 74M steps) were kept.</p>
+<p>The direction from here: the search has been too narrow. Families and methods now in play, all building off the four best bases (<code>full1013/g10m20</code>, seed 23's <code>best.pt</code>, <code>evo10/g10m08</code>, <code>full1012/g9m03</code>):</p>
+<table><thead><tr><th>Family</th><th>Knobs</th><th>Method</th></tr></thead><tbody>
+<tr><td>Reward shaping</td><td>clear bonus 2-300, time penalty 0-0.1, stationary penalty 0-0.1 and band 8-64 px, death 0.25-30, timeout 0-30, capture bonus 0-3, exploration bonus 0-3, pop reward on/off</td><td>evolution genes</td></tr>
+<tr><td>PPO optimisation</td><td>lr 1e-5 to 1e-3, entropy 5e-4 to 0.1, clip 0.03-0.5, gamma 0.9-0.999, GAE lambda 0.8-0.99, value coefficient 0.1-2, epochs 1-10</td><td>evolution genes</td></tr>
+<tr><td>Data collection</td><td>4-64 parallel envs, rollout 32-1024 steps (batch 128 to 65k)</td><td>evolution genes</td></tr>
+<tr><td>Mutation strength</td><td>1-4 genes per child, each by up to 3x (was 1-3 genes, 2x)</td><td><code>evolve.py</code> constants</td></tr>
+<tr><td>Architecture</td><td>MLP width 256/512/1024, depth 2/3, tanh/relu; conv grid encoder</td><td>from-scratch runs (<code>--hidden</code>, <code>--layers</code>, <code>--act</code>, <code>--arch</code>)</td></tr>
+<tr><td>Observation</td><td>absolute state, egocentric, nearest-first slot order</td><td>from-scratch runs (<code>--obs</code>, <code>--nearest-first</code>)</td></tr>
+<tr><td>Training distribution</td><td>uniform levels vs hard-level oversampling (levels drawn in proportion to recent failure rate), curriculum, random start, grace period</td><td>from-scratch runs (<code>--level-sampling hard</code>, ...)</td></tr>
+<tr><td>Control</td><td>frame skip 2/4, lives 1/3</td><td>from-scratch runs</td></tr>
+</tbody></table>
+<p>Round A (running): 17-gene evolution from the four bases, 32 children per generation, 8 generations, 8M steps each, in MLflow experiment <code>evolve-wideA</code>. Round B (next): from-scratch runs over the architecture, observation and training-distribution families, which cannot be reached by fine-tuning existing weights.</p></section><section class="part" id="training-setup"><h1>Training setup and results</h1>
+<p>The best model so far (<code>runs/ppo_state_all_50M/model.pt</code>) was trained with <code>scripts/train_ppo.py</code>: PPO, the structured <strong>state</strong> observation (not pixels), a random level from all 100 each episode (<code>--levels 1-100</code>), time penalty 0.002, 50M agent steps. Earlier models trained on level 1 only for 2M steps; results for all of them are at the bottom.</p>
+<h2 id="training-setup-the-interaction-loop">The interaction loop</h2>
+<pre class="mermaid">flowchart LR
+    subgraph Env["BubbleBobbleEnv (env.py)"]
+        direction TB
+        Game["Game.step(buttons)&lt;br/&gt;game.py, one 60 Hz frame"]
+        Skip["repeated 4x&lt;br/&gt;(frame_skip=4)"]
+        Game --- Skip
+    end
+    Agent["PPO agent&lt;br/&gt;(train_ppo.py)"]
+    Agent -- "action: 1 of 9&lt;br/&gt;button combos" --&gt; Env
+    Env -- "observation:&lt;br/&gt;656 floats" --&gt; Agent
+    Env -- "reward:&lt;br/&gt;summed over 4 frames" --&gt; Agent
+    Env -- "terminated / truncated" --&gt; Agent</pre>
+<p>The agent picks one action every 4 game frames, so it acts at 15 Hz.</p>
+<h2 id="training-setup-observation-the-656-number-state-vector">Observation: the 656-number state vector</h2>
+<p>Built in <code>BubbleBobbleEnv._obs</code> (<code>src/bubblebobblerl/env.py</code>). The agent never sees the picture; it reads the game's internal state directly.</p>
+<pre class="mermaid">flowchart TB
+    Obs["state observation&lt;br/&gt;656 x float32"]
+    Obs --&gt; P["Player: 8&lt;br/&gt;x, y, facing, jump mode,&lt;br/&gt;shoot cooldown, invincible,&lt;br/&gt;dead, enemies alive / 8"]
+    Obs --&gt; G["Tile grid: 384&lt;br/&gt;16 rows x 24 cols,&lt;br/&gt;0 = wall, 0.25 to 1 = air&lt;br/&gt;with up/left/right/down current"]
+    Obs --&gt; E["Enemies: 96&lt;br/&gt;16 slots x 6:&lt;br/&gt;present, x, y, facing,&lt;br/&gt;angry / falling-in, kind"]
+    Obs --&gt; B["Bubbles: 80&lt;br/&gt;16 slots x 5:&lt;br/&gt;present, x, y,&lt;br/&gt;holds enemy, life left"]
+    Obs --&gt; L["Loot: 32&lt;br/&gt;8 slots x 4:&lt;br/&gt;present, x, y, value&lt;br/&gt;(fruit and untaken pickups)"]
+    Obs --&gt; F["Bubbles in flight: 16&lt;br/&gt;4 slots x 4:&lt;br/&gt;present, x, y, facing"]
+    Obs --&gt; S["Enemy projectiles: 40&lt;br/&gt;8 slots x 5:&lt;br/&gt;present, x, y, x speed, falling"]</pre>
+<p>Older models: 552 inputs (<code>ppo_state_L1</code>: no loot, in-flight bubbles, enemy kind or air currents) and 616 inputs (everything up to the evolution runs: no projectiles, because the game had none). <code>Agent.load</code> trims the observation so they still run; the game they play now has projectiles they cannot see. Still not in the observation: dead enemies mid-arc (about a quarter second before they become fruit).</p>
+<h2 id="training-setup-actions">Actions</h2>
+<p><code>Discrete(9)</code>: NOOP, LEFT, RIGHT, JUMP, LEFT+JUMP, RIGHT+JUMP, SHOOT, LEFT+SHOOT, RIGHT+SHOOT. Jump and shoot only fire on a fresh press, so holding the same action across steps does not repeat them.</p>
+<h2 id="training-setup-reward">Reward</h2>
+<pre class="mermaid">flowchart LR
+    S["score gained / 100&lt;br/&gt;(pop +0.1, fruit +5 to +640,&lt;br/&gt;pickup +1)"] --&gt; R(("reward&lt;br/&gt;per step"))
+    C["+0.1 per enemy&lt;br/&gt;captured in a bubble"] --&gt; R
+    D["-1.0 on death"] --&gt; R
+    L["+10 on level clear"] --&gt; R
+    T["- time_penalty per step&lt;br/&gt;(default 0)"] --&gt; R</pre>
+<p>Two optional knobs, both off by default: <code>time_penalty</code> (stands in for the unimplemented hurry-up) and <code>reward_pops=False</code>, which stops paying the 10 points per bare bubble pop or bounce, since those can be farmed forever.</p>
+<h2 id="training-setup-episode-lifecycle">Episode lifecycle</h2>
+<pre class="mermaid">stateDiagram-v2
+    [*] --&gt; Playing: reset(), level 1 or random from pool, 1 life
+    Playing --&gt; Playing: step (4 game frames)
+    Playing --&gt; Cleared: last enemy killed, then 256-frame delay
+    Playing --&gt; Dead: touched by an enemy
+    Playing --&gt; Truncated: 14,400 frames (4 minutes)
+    Cleared --&gt; [*]: terminated, +10
+    Dead --&gt; [*]: terminated, -1
+    Truncated --&gt; [*]: truncated</pre>
+<p>One life and one level per episode. With <code>levels=[...]</code> (script flag <code>--levels 1-100</code>) each reset draws a level from the pool; otherwise every episode is level 1.</p>
+<h2 id="training-setup-training-run">Training run</h2>
+<table><thead><tr><th>Setting</th><th>Value</th></tr></thead><tbody>
+<tr><td>Algorithm</td><td>PPO (clipped objective, GAE)</td></tr>
+<tr><td>Parallel envs</td><td>16 (<code>SyncVectorEnv</code>)</td></tr>
+<tr><td>Rollout length</td><td>128 steps, so 2,048 samples per update</td></tr>
+<tr><td>Update</td><td>4 epochs x 4 minibatches of 512</td></tr>
+<tr><td>Learning rate</td><td>2.5e-4 (Adam, constant)</td></tr>
+<tr><td>Discount / GAE lambda</td><td>0.99 / 0.95</td></tr>
+<tr><td>Clip range</td><td>0.1</td></tr>
+<tr><td>Entropy / value coefficients</td><td>0.01 / 0.5</td></tr>
+<tr><td>Gradient clip</td><td>0.5</td></tr>
+<tr><td>Total steps</td><td>2,000,000 agent steps (8M game frames)</td></tr>
+</tbody></table>
+<h2 id="training-setup-results-on-level-1">Results on level 1</h2>
+<table><thead><tr><th>Policy</th><th>Mean return</th><th>Mean score</th><th>Level clears</th></tr></thead><tbody>
+<tr><td>Random</td><td>1.46</td><td>185</td><td>1 / 20</td></tr>
+<tr><td>Scripted hunter</td><td>3.58</td><td>230</td><td>4 / 20</td></tr>
+<tr><td>PPO, 2M steps, 552-input obs (<code>ppo_state_L1</code>)</td><td>23.05</td><td>1719</td><td>30 / 50</td></tr>
+<tr><td>PPO, 2M steps, 616-input obs (<code>ppo_state_L1_v2</code>)</td><td>22.93</td><td>1660</td><td>32 / 50</td></tr>
+</tbody></table>
+<p>The richer observation made no measurable difference on level 1.</p>
+<h2 id="training-setup-results-across-all-100-levels">Results across all 100 levels</h2>
+<p>Best of 3 episodes per level, 600-step cap, from <code>scripts/export_levels.py</code>. All runs are 2M steps.</p>
+<table><thead><tr><th>Model</th><th>Cleared</th><th>Died</th><th>Timed out</th></tr></thead><tbody>
+<tr><td>Level 1 only, old obs (<code>ppo_state_L1</code>)</td><td>16</td><td>30</td><td>54</td></tr>
+<tr><td>All levels, time penalty 0.002 (<code>ppo_state_all</code>)</td><td>0</td><td>61</td><td>39</td></tr>
+<tr><td>All levels, same, no pop reward (<code>ppo_state_all_nopop</code>)</td><td>1</td><td>91</td><td>8</td></tr>
+<tr><td>All levels, time penalty 0.002, <strong>50M steps</strong> (<code>ppo_state_all_50M</code>)</td><td>29</td><td>19</td><td>52</td></tr>
+<tr><td>Same model, greedy playback (<code>--greedy</code>)</td><td>18</td><td>14</td><td>68</td></tr>
+<tr><td>All levels, 50M steps, decaying learning rate (<code>ppo_state_all_50M_anneal</code>)</td><td>15</td><td>26</td><td>59</td></tr>
+</tbody></table>
+<p>Multi-level training fails at 2M steps (about 20k per level) and works at 50M. The 2M <code>ppo_state_all</code> agent dies in the first seconds of most episodes; removing the pop reward made it learn almost nothing, so pops are its main early learning signal. The 50M agent also clears level 1 in 48 of 50 episodes, better than the level-1 specialists. Its training return rose until about 16M steps and then hovered around 50. Under training conditions (4-minute limit) it clears 37 of 200 episodes, dies in 92 and runs out the clock in 71, so finishing levels rather than surviving and collecting points is the remaining weakness.</p>
+<p>Decaying the learning rate (<code>--anneal-lr</code>) raised the reward but lowered the clear rate: under training conditions the annealed agent averages a return of 61.9 against 55.4, yet clears 18 of 200 episodes against 37 and runs out the clock in 97 against 71. It is better at what the reward pays for, which is staying alive and collecting points for four minutes, not finishing levels. Each configuration was run once, so differences this size are not firm.</p>
+<p>Greedy playback (always the most likely action) does worse than sampling on the same model, so sampling stays the default.</p>
+<h2 id="training-setup-evolutionary-fine-tuning-scripts-evolve-py">Evolutionary fine-tuning (<code>scripts/evolve.py</code>)</h2>
+<pre class="mermaid">flowchart TB
+    Base["baseline model&lt;br/&gt;ppo_state_all_50M"]
+    Plan["30 children per generation:&lt;br/&gt;copy a parent's weights and settings,&lt;br/&gt;mutate the settings"]
+    Train["fine-tune each child&lt;br/&gt;10M steps, all levels, 8 in parallel"]
+    Score["score children + parents + baseline&lt;br/&gt;100 levels x 5 episodes, 1-minute cap,&lt;br/&gt;same seeds, rank by episodes cleared"]
+    Select["keep the top 10,&lt;br/&gt;delete the other models"]
+    Base --&gt; Plan --&gt; Train --&gt; Score --&gt; Select
+    Select -- "next generation (3 total)" --&gt; Plan</pre>
+<p>Settings that mutate: clear bonus, time penalty, pop reward on/off, death penalty, learning rate, entropy coefficient. Generation 1 also includes hand-picked variants (clear bonus 30/100, time penalty 0.01/0.03, pops off, and combinations).</p>
+<p>Run <code>overnight1</code> (3 generations, about 3 hours, 890M steps):</p>
+<table><thead><tr><th>Generation</th><th>Best member (cleared / 500)</th><th>Baseline on the same seeds</th></tr></thead><tbody>
+<tr><td>1</td><td>120</td><td>103</td></tr>
+<tr><td>2</td><td>129</td><td>93</td></tr>
+<tr><td>3</td><td>142</td><td>112</td></tr>
+</tbody></table>
+<p>Those "best" figures are picked as the maximum of about 40 models, so they are inflated. Re-scored on fresh seeds (100 levels x 10 episodes):</p>
+<table><thead><tr><th>Model</th><th>Cleared / 1000</th><th>Died</th><th>Timed out</th><th>Levels cleared at least once</th></tr></thead><tbody>
+<tr><td>Baseline (<code>ppo_state_all_50M</code>)</td><td>217</td><td>317</td><td>466</td><td>43</td></tr>
+<tr><td>Champion <code>g3m05</code></td><td>302</td><td>378</td><td>320</td><td>48</td></tr>
+<tr><td>Runner-up <code>g3m15</code></td><td>268</td><td>349</td><td>383</td><td>48</td></tr>
+<tr><td>Third <code>g3m21</code></td><td>245</td><td>335</td><td>420</td><td>45</td></tr>
+</tbody></table>
+<p>The champion is at <code>runs/evolve/overnight1/gen_03/g3m05/model.pt</code>.</p>
+<p>What the search found:</p>
+<ul><li>The winning line kept the baseline reward unchanged. Its only mutation was a lower learning rate (1.5e-4 instead of 2.5e-4), followed by two unmutated continuations. 8 of the final 10 survivors descend from that one generation-1 child.</li><li>Turning the pop reward off was consistently among the worst choices (39 to 71 of 500), and a clear bonus of 100 on its own also did badly (42).</li><li>A steep time penalty (0.03) won generation 1 but did not keep up. One line with clear bonus about 32 and time penalty 0.01 survived to the end; it times out least but dies most.</li><li>So the earlier guess that the reward settings were the bottleneck was not borne out: more training at a lower learning rate, plus selection, gave the gain.</li></ul>
+<p>One generation-3 child failed when the disk filled up; it was skipped.</p>
+<p>Generations 4-6 (run the next day, about 3.5 hours more):</p>
+<table><thead><tr><th>Generation</th><th>Best member (cleared / 500)</th><th>Baseline on the same seeds</th></tr></thead><tbody>
+<tr><td>4</td><td>156</td><td>104</td></tr>
+<tr><td>5</td><td>158 (still <code>g3m05</code>)</td><td>100</td></tr>
+<tr><td>6</td><td>163</td><td>109</td></tr>
+</tbody></table>
+<p>On the fresh seed set used above (100 levels x 10 episodes), the later survivors are no better than <code>g3m05</code>: <code>g6m16</code> 298, <code>g6m06</code> 316, <code>g4m11</code> 298 against <code>g3m05</code> 302 and the baseline 217. Three more generations bought nothing measurable; the search has plateaued at about 30% of episodes. <code>docs/analysis.md</code> explains why: every one of these agents plays the same stationary strategy, and the plateau is that strategy's ceiling.</p></section><section class="part" id="model-architecture"><h1>Model architecture</h1>
+<p>The model is the <code>Agent</code> class in <code>scripts/train_ppo.py</code>: a shared encoder feeding two linear heads (actor-critic). The trained model uses the MLP encoder. About 236,000 parameters in total.</p>
+<h2 id="model-architecture-current-model-state-observation">Current model (state observation)</h2>
+<pre class="mermaid">flowchart TB
+    In["state observation&lt;br/&gt;656 floats"]
+    subgraph Encoder["shared encoder"]
+        L1["Linear 656 -&gt; 256&lt;br/&gt;168,192 params"]
+        T1["Tanh"]
+        L2["Linear 256 -&gt; 256&lt;br/&gt;65,792 params"]
+        T2["Tanh"]
+        L1 --&gt; T1 --&gt; L2 --&gt; T2
+    end
+    In --&gt; L1
+    T2 --&gt; Actor["Actor head&lt;br/&gt;Linear 256 -&gt; 9&lt;br/&gt;2,313 params"]
+    T2 --&gt; Critic["Critic head&lt;br/&gt;Linear 256 -&gt; 1&lt;br/&gt;257 params"]
+    Actor --&gt; Dist["Categorical over 9 actions&lt;br/&gt;(sampled, also at playback)"]
+    Critic --&gt; V["state value V(s)"]</pre>
+<ul><li>Weights use orthogonal initialisation (gain sqrt(2) in the encoder, 0.01 on the actor, 1.0 on the critic).</li><li>The actor and critic share the whole encoder; only the last layer differs.</li><li>There is no memory (no recurrence, no frame stacking). Each decision uses the current observation only.</li><li>Actions are sampled from the distribution during playback too, so the same model gives different episodes.</li></ul>
+<h2 id="model-architecture-how-a-ppo-update-flows">How a PPO update flows</h2>
+<pre class="mermaid">flowchart TB
+    Roll["Collect rollout&lt;br/&gt;16 envs x 128 steps = 2,048 samples&lt;br/&gt;store obs, action, log-prob, reward, done, value"]
+    GAE["Compute advantages (GAE, gamma 0.99, lambda 0.95)&lt;br/&gt;returns = advantages + values"]
+    MB["Shuffle, split into 4 minibatches of 512"]
+    Loss["loss = clipped policy loss&lt;br/&gt;+ 0.5 x value MSE&lt;br/&gt;- 0.01 x entropy"]
+    Step["Adam step, lr 2.5e-4&lt;br/&gt;gradient norm clipped to 0.5"]
+    Save["save model.pt, log to TensorBoard"]
+    Roll --&gt; GAE --&gt; MB --&gt; Loss --&gt; Step
+    Step -- "4 epochs over the same rollout" --&gt; MB
+    Step --&gt; Save
+    Save -- "until 2M steps" --&gt; Roll</pre>
+<h2 id="model-architecture-pixel-variant-obs-screen-not-yet-working">Pixel variant (<code>--obs screen</code>, not yet working)</h2>
+<p>The script also defines a CNN encoder for the 64x96 1-bit screen. It has never been trained, and it currently crashes on the first forward pass: the flatten size is written as <code>32 <em> 7 </em> 11</code> (2,464) but the convolutions actually produce <code>32 <em> 6 </em> 10</code> (1,920).</p>
+<pre class="mermaid">flowchart TB
+    Img["screen observation&lt;br/&gt;64 x 96, 1 bit, single frame"]
+    C1["Conv 1 -&gt; 16, 8x8, stride 4&lt;br/&gt;output 16 x 15 x 23"]
+    C2["Conv 16 -&gt; 32, 4x4, stride 2&lt;br/&gt;output 32 x 6 x 10"]
+    F["Flatten: 1,920"]
+    FC["Linear -&gt; 256&lt;br/&gt;(code expects 2,464 inputs: bug)"]
+    Heads["same actor and critic heads"]
+    Img --&gt; C1 -- ReLU --&gt; C2 -- ReLU --&gt; F --&gt; FC -- ReLU --&gt; Heads</pre>
+<p>A single frame also hides motion (jump phase, which way a bubble is drifting), so a working pixel setup would want frame stacking on top of the size fix.</p></section><section class="part" id="experiments"><h1>Running your own experiments</h1>
+<p>Everything here is one command each, runs unattended, and leaves its results under <code>runs/</code>. A full "round" is: train one or more agents, score them on the same fresh seeds, profile what they do, and watch the interesting ones.</p>
+<h2 id="experiments-setup-once">Setup, once</h2>
+<pre><code>uv sync --extra play --extra train</code></pre>
+<p>Two habits that matter when several runs share the machine:</p>
+<ul><li><code>export OMP_NUM_THREADS=1</code> before launching. Each run then uses one core; without it every run grabs all 12 and they crawl.</li><li><code>caffeinate -is</code> in front of the first run keeps the Mac awake (lid open, plugged in). Everything else can go on in the background with <code>&amp;</code>.</li></ul>
+<h2 id="experiments-1-train">1. Train</h2>
+<pre><code>export OMP_NUM_THREADS=1
+caffeinate -is uv run python scripts/train_ppo.py \
+    --levels 1-100 --time-penalty 0.01 --death-penalty 5 \
+    --total-steps 100000000 --seed 1 \
+    --run-name my_first_run --quiet \
+    &gt; runs/my_first_run.log 2&gt;&amp;1 &amp;</code></pre>
+<p>Speed is about 14,000 agent steps per second per run, so 100M steps is roughly two hours. The model lands at <code>runs/my_first_run/model.pt</code> (saved continuously, so you can score a run before it finishes), and the log prints the average return of the last 20 episodes once per million steps:</p>
+<pre><code>tail -3 runs/my_first_run.log</code></pre>
+<h3 id="experiments-curves-mlflow-and-tensorboard">Curves: MLflow (and TensorBoard)</h3>
+<p>Every run logs to a local MLflow store (<code>mlflow.db</code> in the repo, SQLite, nothing leaves the machine) and to TensorBoard files in its run directory. To browse runs, compare them and look at the curves:</p>
+<pre><code>uv run mlflow ui --backend-store-uri sqlite:///mlflow.db</code></pre>
+<p>then open http://127.0.0.1:5000. Each run records all its flags as parameters, the final <code>model.pt</code> as an artifact, and these metrics every 5 PPO updates (<code>--log-every</code> changes that):</p>
+<table><thead><tr><th>Metric</th><th>What to look for</th></tr></thead><tbody>
+<tr><td><code>charts_episodic_return</code>, <code>charts_episodic_length</code></td><td>the reward the agent is actually collecting; length tells you whether it dies fast or runs out the clock</td></tr>
+<tr><td><code>losses_policy_loss</code></td><td>PPO's surrogate objective; small and noisy is normal, it is not meant to go to zero</td></tr>
+<tr><td><code>losses_value_loss</code></td><td>how well the critic predicts return; should fall, then track the reward scale</td></tr>
+<tr><td><code>losses_entropy</code></td><td>how random the policy is; falling means it is committing to actions, collapsing to ~0 means it stopped exploring</td></tr>
+<tr><td><code>losses_approx_kl</code>, <code>losses_clipfrac</code></td><td>how far each update moves the policy; KL above ~0.02 or clipfrac above ~0.3 means the learning rate is too high</td></tr>
+<tr><td><code>losses_explained_variance</code></td><td>1 = the critic explains the returns perfectly, 0 = no better than a constant, negative = worse</td></tr>
+<tr><td><code>charts_learning_rate</code>, <code>charts_level_pool</code>, <code>charts_sps</code></td><td>the schedule (<code>--anneal-lr</code>, <code>--curriculum</code>) and speed</td></tr>
+</tbody></table>
+<p>TensorBoard shows the same curves: <code>uv run tensorboard --logdir runs/</code>. <code>--no-mlflow</code> / <code>--no-tensorboard</code> turn either off; <code>evolve.py</code> turns both off for its children, since 30 runs per generation is noise in the UI.</p>
+<h3 id="experiments-the-knobs">The knobs</h3>
+<p>Reward shaping (what the agent is paid for):</p>
+<table><thead><tr><th>Flag</th><th>Default</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>--time-penalty</code></td><td>0</td><td>charge per step; 0.01 is what produced the bubble-climbing</td></tr>
+<tr><td><code>--death-penalty</code></td><td>1</td><td>charge on death; use 5 with per-step penalties (1 makes suicide optimal, 15 makes the agent timid)</td></tr>
+<tr><td><code>--clear-bonus</code></td><td>10</td><td>reward for clearing a level</td></tr>
+<tr><td><code>--stationary-penalty</code></td><td>0</td><td>charge per step while x stays inside <code>--stationary-band</code> px for <code>--stationary-window</code> steps (15 steps = 1 s)</td></tr>
+<tr><td><code>--no-pop-reward</code></td><td>off</td><td>stop paying for popping empty bubbles (hurt badly when tried)</td></tr>
+</tbody></table>
+<p>The task:</p>
+<table><thead><tr><th>Flag</th><th>Default</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>--levels 1-100</code></td><td>level 1 only</td><td>pool of levels, one drawn per episode; <code>"1,5,20-30"</code> works</td></tr>
+<tr><td><code>--curriculum 0.6</code></td><td>off</td><td>grow the pool from level 1 to all of them over the first 60% of training</td></tr>
+<tr><td><code>--random-start</code></td><td>off</td><td>player starts on a random platform</td></tr>
+<tr><td>`--obs state</td><td>ego</td><td>screen`</td><td>state</td><td>what the agent sees: absolute positions, player-relative positions, or pixels (pixels are untested)</td></tr>
+<tr><td>`--arch mlp</td><td>conv`</td><td>mlp</td><td>flat network, or a small CNN over the tile grid (7x slower on CPU)</td></tr>
+</tbody></table>
+<p>Continuing from an existing agent:</p>
+<table><thead><tr><th>Flag</th><th>What it does</th></tr></thead><tbody>
+<tr><td><code>--init-model runs/&lt;run&gt;/model.pt</code></td><td>start from those weights (an older, shorter observation is padded with zero weights)</td></tr>
+</tbody></table>
+<p>PPO itself (<code>--lr</code>, <code>--ent-coef</code>, <code>--clip</code>, <code>--gamma</code>, <code>--num-envs</code>, ...) rarely needs touching; <code>--lr 1.5e-4</code> and lower helped slightly in the evolution runs.</p>
+<h2 id="experiments-2-score-on-the-same-seeds-every-time">2. Score, on the same seeds every time</h2>
+<pre><code>uv run python scripts/evaluate.py runs/my_first_run/model.pt --episodes 10 --seed 4242</code></pre>
+<p>Every level, 10 episodes, one life, one-minute cap: "cleared N/1000". Seed 4242 is the set every number in <code>docs/</code> uses, so your result is directly comparable. Reference points in the current game (with projectiles):</p>
+<table><thead><tr><th>Agent</th><th>Cleared / 1000</th></tr></thead><tbody>
+<tr><td>random play</td><td>about 10</td></tr>
+<tr><td>best camper (<code>runs/v6_band32_from_bouncer_50M</code>)</td><td>141</td></tr>
+<tr><td>anything that moves</td><td>under 80 so far</td></tr>
+</tbody></table>
+<p>Noise: re-scoring the same model on different seeds moves it by about 15-20. Differences smaller than that are not real. Add <code>--obs ego</code> for ego models.</p>
+<h2 id="experiments-3-see-what-it-actually-does">3. See what it actually does</h2>
+<pre><code>uv run python scripts/analyze.py runs/my_first_run/model.pt --episodes 3 --sections behaviour,outcomes</code></pre>
+<p>The behaviour profile is the quickest read: horizontal distance and x range per episode (a camper has an x range under 10 px), share of time still, bubble bounces per minute (3 for the old camper, 27 for the climber), and how many episodes cross the screen. <code>--sections</code> can also include <code>ablation</code> (which inputs it relies on), <code>levels</code> (clear rate by level features) and <code>cap</code> (does more time help). The default runs them all and takes about 20 minutes.</p>
+<h2 id="experiments-4-watch-it">4. Watch it</h2>
+<pre><code>uv run python scripts/export_levels.py runs/my_first_run/model.pt --out exports/my_first_run
+open exports/my_first_run/index.html</code></pre>
+<p>A GIF per level (best of 3 tries) in a page with green/red/grey bars for cleared/died/timed out. About 2 minutes and 30 MB. For a single level at full speed:</p>
+<pre><code>uv run python scripts/train_ppo.py --play runs/my_first_run/model.pt --level 7</code></pre>
+<p>writes <code>agent.gif</code>. And to play the game yourself: <code>uv run bubblebobblerl-play --level 7</code>.</p>
+<h2 id="experiments-running-a-round-of-several-at-once">Running a round of several at once</h2>
+<p>Four runs fit comfortably on the 8 performance cores. Put the shared flags in an array (a plain string will not be split by zsh):</p>
+<pre><code>export OMP_NUM_THREADS=1
+P=(--levels 1-100 --time-penalty 0.01 --death-penalty 5 --quiet)
+caffeinate -is uv run python scripts/train_ppo.py "${P[@]}" --stationary-penalty 0.02 --total-steps 100000000 --seed 1 --run-name r1_still02  &gt; runs/r1_still02.log  2&gt;&amp;1 &amp;
+uv run python scripts/train_ppo.py "${P[@]}" --stationary-penalty 0.05 --total-steps 100000000 --seed 2 --run-name r1_still05  &gt; runs/r1_still05.log  2&gt;&amp;1 &amp;
+uv run python scripts/train_ppo.py "${P[@]}" --init-model runs/v6_band32_from_bouncer_50M/model.pt --total-steps 50000000 --seed 3 --run-name r1_bouncer_more &gt; runs/r1_bouncer_more.log 2&gt;&amp;1 &amp;</code></pre>
+<p>Then, when they are done, score them all with one loop:</p>
+<pre><code>for r in r1_still02 r1_still05 r1_bouncer_more; do
+  uv run python scripts/evaluate.py runs/$r/model.pt --episodes 10 --seed 4242 &amp;
+done; wait</code></pre>
+<p>Do not edit <code>scripts/</code> or <code>src/</code> while runs are going: a run that imports a module late (the evolution workers do) can pick up a half-changed codebase.</p>
+<h2 id="experiments-letting-evolution-do-the-rounds">Letting evolution do the rounds</h2>
+<p><code>scripts/evolve.py</code> automates "train a population, keep the best, reseed":</p>
+<pre><code>caffeinate -is uv run python scripts/evolve.py \
+    --base runs/v6_band32_from_bouncer_50M/model.pt --name myevo \
+    --generations 3 --population 30 --survivors 10 --steps 10000000 --workers 8</code></pre>
+<p>Each generation mutates twelve settings (reward shaping and PPO hyperparameters), fine-tunes 30 children in parallel, scores everyone on the same seeds, and keeps the top 10. About an hour per generation; <code>runs/evolve/myevo/leaderboard.md</code> has the ranked table and re-running the same command resumes after a crash. The genome it mutates and the hand-picked first-generation variants are at the top of the script if you want to change what it searches over.</p>
+<p>Every child becomes an MLflow run in experiment <code>evolve-myevo</code> (curves, genome, evaluation, <code>survived</code> tag) and each generation adds a summary run. While it runs, the server it starts serves http://127.0.0.1:5001; afterwards the usual <code>mlflow ui</code> command shows the same runs. One lesson from <code>evo10</code>: fine-tuning from a trained agent wants a learning rate of about 5e-5 to 1e-4, not the 2.5e-4 default, or the first few million steps undo it.</p>
+<h2 id="experiments-ideas-that-have-not-been-tried">Ideas that have not been tried</h2>
+<ul><li>A stationary penalty of 0.02-0.05 with death penalty 5: forces movement, probably at the cost of the climbing and the clear rate. Worth seeing.</li><li>Paying for distance covered instead of charging for standing still (a few lines in <code>BubbleBobbleEnv.step</code>, next to <code>stationary_penalty</code>).</li><li>A pool of 10 levels instead of 100, to find out whether a moving agent can be learned at all on fewer layouts.</li><li>Longer runs: nothing here went past 200M steps.</li><li>Recording your own play in <code>play.py</code> and pretraining from it (the most likely route to a moving agent that survives, in my view).</li></ul>
+<h2 id="experiments-where-things-live">Where things live</h2>
+<table><thead><tr><th>Path</th><th>Contents</th></tr></thead><tbody>
+<tr><td><code>runs/&lt;name&gt;/model.pt</code>, <code>runs/&lt;name&gt;.log</code></td><td>each run's weights and progress (gitignored)</td></tr>
+<tr><td><code>runs/analysis/</code></td><td>JSON and Markdown from <code>analyze.py</code></td></tr>
+<tr><td><code>mlflow.db</code>, <code>mlruns/</code></td><td>MLflow's run database and artifacts (gitignored)</td></tr>
+<tr><td><code>exports/&lt;name&gt;/index.html</code></td><td>galleries (gitignored)</td></tr>
+<tr><td><code>docs/*.md</code>, <code>docs/report.html</code></td><td>the write-ups; <code>uv run python scripts/build_report.py</code> rebuilds the report</td></tr>
+</tbody></table></section>
+</main>
+</div>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  mermaid.initialize({ startOnLoad: true, theme: dark ? "dark" : "neutral" });
+</script>
+</body>
+</html>

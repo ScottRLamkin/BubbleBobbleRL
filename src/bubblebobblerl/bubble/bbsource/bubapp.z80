@@ -1,0 +1,470 @@
+;Bubble Bobble 83+  APP
+;
+; By Dwedit (Dan Weiss)
+;    bubblebobble@dwedit.cjb.net
+;
+; http://bubblebobble.dwedit.cjb.net/
+;
+
+;TODO:
+;      reset high scores button
+;      Ending?
+;      Extend animation?
+;			 Fix Linkplay
+
+LINKVER = 10
+#DEFINE GAMEVERSION "v1.0alpha"
+
+#DEFINE BOUNDCHECKING ;level loader can't corrupt memory
+#DEFINE WIDESCORES  ;high scores 11 letters wide
+#define SKEL_HURRY  ;add the baron
+#define NEWRANDOM   ;use new random number generator
+#define EXTERNAL    ;External levels
+#define SENDLEVELS  ;send levels even if not external
+;#define LOUDSEED    ;Display the random number seed and spritetable checksum
+;#define SUPPRESS    ;Suppress Link Errors
+#define CHEAT       ;Enable cheats
+#define LINK        ;Enable linkplay
+#define SOFTQUIT    ;Quitting the game returns to the title screen
+;#define ENDING      ;Enable ending  NOT FINISHED YET!
+#define HUNT        ;Enemies target the closest player
+#define NEWMAINMENU ;Main menu has more options than just Play and New
+#define HIGHSCORE   ;Enables Highscores
+;#define GRAYTITLE   ;Flickery Grayscale title
+;#define SLOWSHOES   ;Enables Slow Shoes, only 1.5x speed vs double speed
+;#define NOINFO      ;Removes the Info screen to save ram.
+;#define LESSTEXT    ;Lots of game text about how to link up is removed
+
+#define ONEPAGE     ;only use one page
+;#define TWOPAGE     ;use 2 pages
+;#define ICECLIMB    ;enables Iceclimb :)
+
+#ifdef WIDE16
+screenwidth = 16
+screensize = 1024
+#else
+screenwidth = 12
+screensize = 768
+#endif
+
+#DEFINE disp(xxxx) ld hl,xxxx \ call AppPuts
+#DEFINE puts call AppPuts
+#DEFINE vputs call AppVPuts
+#DEFINE vputsj jp AppVPuts
+#define vputsram bcall(_vputs)
+#define vputsjram bjp(_vputs)
+#define vputmap bcall(_vputmap)
+
+
+
+
+#DEFINE APPNAME "Bubble  "
+
+#IFDEF ONEPAGE
+#DEFINE APPPAGES 1
+#ENDIF
+#IFDEF TWOPAGE
+#DEFINE APPPAGES 2
+#ENDIF
+
+#include "dwedit.inc"
+
+;============
+;  Equates!
+;============
+SpriteTotal = 64
+SpriteCount = SpriteTotal
+numSprite = SpriteTotal
+
+TopRow = -16
+BottomRow = 76
+PlayHeight = bottomrow - toprow
+
+DefaultXSpriteHeight = 8
+
+#include "bub_appd.inc"
+
+;===============
+;  Game Code!
+;===============
+AppStart:
+#IFDEF TWOPAGE
+	jp AppStart2
+
+	.ds $4088 - $
+
+_PlayIceClimb = $0088+(3*0)
+	.dw $4000+(0*3)
+	.db 1
+
+_NewLevel = $0088+(3*1)
+	.dw $4000+(1*3)
+	.db 1
+
+_GetMapOnly = $0088+(3*2)
+	.dw $4000+(2*3)
+	.db 1
+
+_IonFastCopy = $0088+(3*3) ;$ - $4000
+	.dw IonFastCopy
+	.db 0
+
+_CreateSprite = $0088+(3*4)
+	.dw CreateSprite
+	.db 0
+	
+#ENDIF
+
+AppStart2:
+
+
+
+#ifdef TI73
+	AppOffErr 
+	b_call _DisableAPI 
+	ld hl,DummyReturn 
+	ld (AppRawKeyHandle),hl 
+	getcurrentpage
+	ld (AppPage),a 
+#endif
+
+	call LoadAppvar
+#IFDEF LINK
+	call KillLinkAssist  ;make a TI83+SE act like a TI83+
+#ENDIF
+
+	set textinverse,(iy+textflags)
+	set textwrite,(iy+sgrflags)
+
+	ld (backupsp),sp              ;Save Stack Pointer
+
+RestartGame:
+	call initalize                ;Set up game
+	jp GameLoop                   ;Play!
+
+;	.db "BREAKD"
+;	.dw RestoreGame
+
+
+SaveAndQuit:
+	ld a,1
+	ld (SavedFlag),a
+Quit:
+#IFDEF SOFTQUIT
+	ld sp,(backupSP)
+	call SwapAPD
+	ld hl,TitlePic
+	ld de,plotsscreen
+	ld bc,768
+	call DispRLE
+	call SwapAPD
+	call Scrollup
+	jr RestartGame
+Quit2:
+	ld sp,(backupSP)
+	call SaveAppvar
+#ELSE
+Quit2:
+	ld sp,(backupSP)
+	call SaveAppvar
+#ENDIF
+	res oninterrupt, (iy+onflags)
+	res textinverse,(iy+textflags)
+	res textwrite,(iy+sgrflags)
+
+#IFDEF LINK
+	call RestoreLinkAssist
+#ENDIF
+
+	bjump(_JForceCmdNoChar)
+DummyReturn:
+	ret
+
+;Equates for the self modifying code
+PutSprClpAND = usermem+AppVarLen
+#IFNDEF NEWRANDOM
+BubRandom = PutSprClpAND + 160
+Animate = BubRandom + 35
+#ELSE
+Animate = PutSprClpAND + 160 + 35
+#ENDIF	
+ParallelUniverse = Animate+26
+SetAHL = ParallelUniverse + 17
+BackupSp = SetAHL+12 ;Pointer
+
+
+
+
+;======================
+;         Code
+;======================
+#include "bub_main.z80"
+#include "bub_ai.z80"
+#include "bub_draw.z80"
+#include "bub_end.z80"
+#IFDEF ONEPAGE
+#include "bub_lev.z80"
+#endif
+
+
+#IFDEF LINK
+
+#IFDEF TI83P
+;#DEFINE ROMLINK
+#ENDIF
+
+#include "zrec8x.z80"
+#include "zsend8x.z80"
+
+#include "bub_link.z80"
+
+#ENDIF
+
+;======================
+;         Data
+;======================
+#include "bub_gfx.h"
+#include "bub_tabl.h"
+#IFNDEF EXTERNAL
+levelcount = 100
+#ENDIF
+
+#include "bub_data.h"
+
+;Sprite Routine
+#include "spr21app.inc"
+
+;AppPutSprClpAND
+
+
+ionfastcopy:
+#include "fastcopy.h"
+
+ionLargeSprite:
+#include "largespr.h"
+
+StrCopy:
+	ld de,op1
+StrCopyLoop:
+	ldi
+	ld a,(hl)
+	or a
+	jr nz,StrCopyLoop
+	ldi
+	ret
+
+AppPuts:
+	call StrCopy
+	push hl
+		ld hl,op1
+		b_call _puts
+	pop hl
+	ret
+
+AppVPuts:
+	call StrCopy
+	push hl
+		ld hl,op1
+		b_call _vputs
+	pop hl
+	ret
+
+SaveAppVar:
+	ld hl,AppVarName
+	rst 20h
+	b_call _chkfindsym
+	
+	inc de
+	inc de
+	ld hl,Tile
+	ld bc,AppVarLen
+	ldir
+
+	ld hl,Tile
+	ld de,AppVarLen+500
+	b_call _delMem
+
+	ld hl,AppVarName
+	rst 20h
+	b_call _arc_unarc
+	ret
+
+LoadAppVar:
+	call CreateAppVar
+
+	ld hl,AppVarLen+500
+	b_call _enoughmem
+	jp c,MemError
+	
+	ld de,Tile
+	ld hl,AppVarLen+500
+	b_call _InsertMem
+	
+	ld hl,AppVarName
+	rst 20h
+	b_call _chkfindsym
+	
+	ex de,hl
+	inc hl
+	inc hl
+	ld de,Tile
+	ld bc,AppVarLen
+	ldir
+	
+	ld hl,AppPutSprClpAND
+	ld de,PutSprClpAND
+	ld bc,160
+	ldir
+	
+#IFNDEF NEWRANDOM
+	ld hl,AppBubRandom
+	ld de,BubRandom
+	ld bc,34
+	ldir
+;#ELSE
+;	ld hl,AppBubRandom
+;	ld de,UserMem + AppVarLen+ 141
+;	ld bc,34
+;	ldir
+#ENDIF
+
+	ld hl,AppAnimate
+	ld de,Animate
+	ld bc,25
+	ldir
+	
+	ld hl,AppParallelUniverse
+	ld de,ParallelUniverse
+	ld bc,16
+	ldir
+	
+	ld hl,AppSetAHL
+	ld de,SetAHL
+	ld bc,11
+	ldir
+
+
+Dispscore2_Mod = BackupSP+2
+	ld hl,AppDispscore2_Mod
+	ld de,Dispscore2_Mod
+	ld bc,18
+	ldir
+
+	
+	
+	
+	ret
+	
+
+
+CreateAppVar:
+	ld hl,AppVarName
+	rst 20h
+	b_call _chkfindsym
+#IFDEF TI73
+	ld b,0
+#ENDIF
+
+	jr c,AppVarNotFound
+	
+	ld a,b
+	or a
+	jr z,AppvarNotArchived
+	b_call _arc_unarc
+	jr CreateAppVar
+AppvarNotArchived:
+	ex de,hl
+	ld e,(hl)
+	inc hl
+	ld d,(hl)
+	ld hl,AppVarLen
+	or a
+	sbc hl,de
+
+	jp z,DoneWithAppvar
+	ld hl,AppVarName
+	rst 20h
+	b_call _chkfindsym
+	b_call _delvar
+	jr CreateAppVar
+	
+AppVarNotFound:
+	ld hl,AppVarLen+17
+	b_call _enoughmem
+	jr nc,EnoughRam
+
+MemError:
+	call BlackScreen
+	call ionFastCopy
+	ld hl,0
+	ld (currow),hl
+	call DrawText
+	.dw tMemError
+	call WaitKey
+	b_call _clrlcdfull
+	bjump(_JForceCmdNoChar)
+
+EnoughRam:
+	ld hl,AppVarLen
+	b_call _createappvar
+
+InitalizeAppvar:
+	ld hl,AppVarName
+	rst 20h
+	
+	b_call _chkfindsym
+	inc de
+	inc de
+
+	push de
+	
+	push de
+	pop hl
+	inc de
+	ld (hl),255
+	ld bc,65
+	ldir
+	ld bc,AppVarLen-65
+	ld (hl),0
+	ldir
+	
+	pop de
+	ld hl,HighScoreTable-Tile
+	add hl,de
+	ex de,hl
+	
+	ld hl,DefaultHighscoreTable
+#IFDEF WIDESCORES
+	ld bc,85
+#ELSE
+	ld bc,60
+#ENDIF
+	ldir
+	
+	jp DoneWithAppvar
+DoneWithAppvar:
+	ret
+	
+	
+AppVarName:
+	.db $15,"Bubble",0,0
+
+#IFDEF ICECLIMB
+PlayIceClimb:
+	call copy2apd
+	call swapapd
+	ld hl,saferam1
+	ld de,saferam1+1
+	ld bc,767
+	ld (hl),0
+	ldir
+	call Scrollup
+	
+	b_call _PlayIceClimb
+	jp Quit
+#ENDIF
+
+#IFDEF EXTERNAL
+ionDetect:
+#include "detect.h"
+#ENDIF

@@ -1,0 +1,762 @@
+#IFDEF APP
+KillLinkAssist:
+;	in a,(2)
+;	and %10000000
+;	ret z
+;  ld a,%10000000
+;  out (8),a
+;  ret
+RestoreLinkAssist:
+;	in a,(2)
+;	and %10000000
+;	ret z
+;	xor a
+;  out (8),a
+  ret
+#ENDIF
+
+
+NewLinkGameScreen:
+	call blackscreen
+	call DrawText
+	.dw tLink0
+	
+#IFNDEF LESSTEXT
+	call DrawText
+	.dw tLink2
+#ENDIF	
+	jp ionfastcopy
+
+CheckForClear:
+	;Check for clear...
+	ld a,255
+	out (1),a
+	ld a,KeyRow_5
+	out (1),a
+	in a,(1)
+	cp KClear
+	jp z,Quit
+#IFDEF WIDE16
+	ld a,255
+	out (1),a
+	ld a,KeyRow_Top
+	out (1),a
+	in a,(1)
+	cp KMode
+	jp z,Quit
+#endif
+	ret
+
+
+LinkErrorQuit:
+	call Ionfastcopy
+	ld hl,0
+	ld (currow),hl
+	ld hl,tLinkError
+	puts
+	call WaitKey
+	jp SaveAndQuit
+
+NewLinkGame:
+
+#IFDEF TI83P
+	in a,(2)
+	bit 7,a
+	jr z,dontdisplaywarning ;TI83+ not SE
+	call blackscreen
+	call DrawText
+	.dw tNoWorky
+	call ionfastcopy
+	call waitkey
+	
+	
+dontdisplaywarning:
+	
+#endif
+
+
+	;Set up game, send the I AM PLAYER 2 byte...
+	call SendThis
+	.db Linkver
+
+ImPlayer1:	
+	call NewLinkGameScreen
+
+LinkGameStarter:
+	
+	call WaitLink
+	cp $C1
+	jp z,ImPlayer2
+	
+	cp $C2
+	jp z,ResumeSync2
+	
+	cp -Linkver
+	jp z,ResumeSyncGame
+		
+	cp Linkver
+	jr z,StartLinkGame
+	
+	jr LinkErrorQuit
+
+StartLinkGame:
+	
+	call SendThis
+	.db $c1
+;	ld a,$c1
+;	call Sendbyte
+	jp BubNewGame
+
+WaitGet:
+	call LinkActivity
+	ret nz
+	ei \ halt
+	call CheckForClear
+	jr WaitGet
+
+	
+WaitLink:
+;	ld de,0
+WaitLinkLoop:
+;	inc de
+	call WaitGet
+	call GetByte
+	ret
+;	ret nz
+
+;	call CheckForClear
+;Check for Clear
+;	ld a,255
+;	out (1),a
+;	ld a,KeyRow_5
+;	out (1),a
+;	in a,(1)
+;	cp KClear
+;	jp z,Quit
+
+;	ld a,e
+;	or d
+;	ret z
+;	jp WaitLinkLoop
+
+WaitSend:
+	ld e,a
+WaitSendLoop:
+	ld a,e
+	call SendByte
+	call GetByte
+	cp $BB
+	ret z
+
+	call CheckForClear
+;Check for Clear
+;	ld a,255
+;	out (1),a
+;	ld a,KeyRow_5
+;	out (1),a
+;	in a,(1)
+;	cp KClear
+;	jp z,Quit
+
+	jp WaitSendLoop
+
+SendSeed:
+#IFNDEF NEWRANDOM
+	ld a,(randdata1)
+	call sendbyte
+	ld hl,(randdata2)
+	push hl
+	ld a,l
+	call sendbyte
+	pop hl
+	ld a,h
+	call sendbyte
+#ELSE
+	ld hl,(RandSeed)
+	push hl
+	ld a,l
+	call sendbyte
+	pop hl
+	ld a,h
+	call sendbyte
+#ENDIF
+	ret
+	
+Getseed:
+#IFNDEF NEWRANDOM
+	call getbyte
+	ld (randdata1),a
+	call getbyte
+	ld l,a
+	push hl
+	call getbyte
+	pop hl
+	ld h,a
+	ld (randdata2),hl
+#ELSE
+	call GetByte
+	ld l,a
+	push hl
+	call GetByte
+	pop hl
+	ld h,a
+	ld (RandSeed),hl
+#endif
+	ret
+
+
+BubNewGame:
+;	ei \ halt
+;	TRACE("BUBNEWGAME")  ;DELETEME
+	call ResetGame
+	
+	ld a,1
+	ld (linkgame),a
+
+#IFDEF EXTERNAL
+	call SelectWorld
+;	ld a,(levelcount)
+;	call WaitSend
+#else
+#ifdef SENDLEVELS
+	ld a,level_count
+	ld (levelcount),a
+#endif
+#ENDIF
+
+	call SelectSuperGame
+
+;	ld a,(supergame)
+;	call WaitSend
+
+	call SetInitialLevel
+		
+	push af
+		call WaitSend
+#IFDEF SENDLEVELS
+		ld a,(levelcount)
+		call sendbyte
+#ENDIF
+		ld a,(supergame)
+		call sendbyte
+		
+		call SendSeed
+	
+		ld a,10
+		ld (Lives),a
+
+	pop af
+	
+	
+	;Load Level
+	call NewLevel
+	;Save level gfx
+	call DisplayOverlay ;changed
+	call SwapAPD
+	
+	;Scroll the Display
+	jp Scrollup
+
+	
+	
+ImPlayer2:	
+BobNewGame:
+	;Reset game
+	call ResetGame
+
+	ld a,2
+	ld (linkgame),a
+	
+	;Display WAITING FOR LEVEL SELECTION
+	call Blackscreen
+
+	call DrawText
+	.dw tLink7
+;	
+;	ld de,0
+;	ld hl,tLink7
+;	call fastvputs
+;
+;#IFNDEF LESSTEXT
+;	ld de,8*256
+;	ld hl,tLink8
+;	call fastvputs
+;
+;	ld de,14*256
+;	ld hl,tLink9
+;	call fastvputs
+;#ENDIF
+
+	call Ionfastcopy
+	call Copy2APD
+	
+	;Get initial level number
+	call WaitLink
+	push af
+	
+	call sendthis
+	.db $BB
+;		ld a,$BB
+;		call sendbyte
+
+#IFDEF SENDLEVELS
+		;Get number of levels...
+		call getbyte
+		ld (levelcount),a
+#endif
+		;get super game status
+		call getbyte
+		ld (supergame),a
+
+		call Getseed
+
+	pop af
+
+
+	call SetInitialLevel2
+
+	
+	
+	ld a,10
+	ld (Lives),a
+	
+	ld a,(onlevel)
+	;Load Level
+	call NewLevel
+	;Save level gfx
+	call DisplayOverlay ;changed
+	call SwapAPD
+	
+	;Scroll the Display
+	jp Scrollup
+
+SwapKeys:
+	ld hl,Keys
+	ld de,P2Keys
+	ld bc,7
+	jp SwapMem
+LinkKeys:
+	ld a,(linkgame)
+	or a
+	ret z
+	dec a
+	jr z,Bubkeys
+Bobkeys:
+#IFDEF SUPPRESS
+	call WaitLink
+	cp $BB
+	jp nz,LinkErrorQuit
+#ELSE
+	call GetThis2
+	.db $BB
+;	call Getbyte
+;	cp $BB
+;	jp nz,LinkErrorQuit
+#endif
+	call sendbyte
+	call SwapKeys
+	ld de,keys
+	ld bc,7
+	call Getblock
+	ld de,P2Keys
+	ld bc,7
+	call Sendblock
+#IFDEF SYNCSEED
+	call getseed
+#ENDIF
+	ret
+
+Bubkeys:
+#ifdef SUPPRESS
+	ld a,$BB
+	call waitsend
+	jp nz,LinkErrorQuit
+#ELSE
+	call SendThis
+	.db $BB
+;	ld a,$BB
+;	call sendbyte
+	call GetThis2
+	.db $BB
+;	call Getbyte
+;	cp $BB
+;	jp nz,LinkErrorQuit
+#ENDIF
+	ld de,keys
+	ld bc,7
+	call Sendblock
+	ld de,P2Keys
+	ld bc,7
+	call Getblock
+#IFDEF SYNCSEED
+	call sendseed
+#ENDIF
+	ret
+
+GetBlock:
+	push bc
+	push de
+	call Getbyte
+	pop de
+	ld (de),a
+;	call CheckForClear
+	inc de
+	pop bc
+	dec bc
+	ld a,b
+	or c
+	ret z
+	jr GetBlock
+
+SendBlock:
+	push bc
+	ld a,(de)
+	inc de
+	push de
+	call SendByte
+;	call CheckForClear
+	pop de
+	pop bc
+	dec bc
+	ld a,b
+	or c
+	ret z
+	jr SendBlock
+
+LinkWaitKey:
+	ld a,(Linkgame)
+	or a
+	jp z,WaitKey
+	dec a
+	jr z,BubWaitKey
+	call SendThis
+	.db $BB
+;	ld a,$BB
+;	call Sendbyte
+	call WaitLink
+	push af
+	call Getseed
+	pop af
+	ret
+	
+BubWaitKey:
+	call GetThis2
+	.db $BB
+;	call GetByte
+;	cp $BB
+;	jp nz,LinkErrorQuit	
+	call Waitkey
+	push af
+	call SendByte
+	call SendSeed
+	pop af
+	ret
+
+;	
+;RetIfNotLink:
+;	ld a,(linkgame)
+;	or a
+;	ret nz
+;	pop af
+;	ret
+;
+;SendNewLevel:
+;	call RetIfNotLink
+;	call SendNewScore
+;
+;	ld a,bob_NewLevel
+;	call WaitSend
+;
+;	ld a,(onlevel)
+;	call sendbyte
+;	ret
+;
+;BobNewLevel:
+;	ld a,$BB
+;	call Sendbyte
+;	call GetByte
+;	ld (onlevel),a
+;	call Newlevel
+;	call SwapAPD
+;	call DrawMap
+;	ld hl,0
+;	ld (pencol),hl
+;	call DispScore2
+;	ld a,3
+;	ld (scoreupdateflag),a
+;	call Swapapd
+;	jp scrollup
+;
+;SwapKeys:
+;	ld de,Keys
+;	ld hl,P2Keys
+;;	ld bc,7
+;	ldir
+;	ret
+;	
+;	
+;
+;SendControl:
+;	call RetIfNotLink
+;	ld a,bob_Control
+;	call WaitSend
+;	ld de,P2Keys
+;	ld bc,7
+;	call RecBlock
+;	ret
+;
+;BobControl:
+;	ld a,$BB
+;;	call Sendbyte
+;	call ReadKeys
+;	ld de,Keys
+;	ld bc,7
+;	call SendBlock
+;	ret
+;
+;SendNewScore:
+;	call RetIfNotLink
+;	ld a,bob_Newscore
+;	call WaitSend
+;	ld de,Start_Of_Score_Block
+;	ld bc,ScoreRange
+;	call SendBlock
+;	ret
+;
+;BobNewScore:
+;	ld a,$BB
+;	call Sendbyte
+;	ld de,Start_Of_Score_Block
+;	ld bc,ScoreRange
+;	call RecBlock
+;	ld a,1
+;	ld (ScoreUpdateFlag),a
+;	ret
+;
+;
+;BobGameover:
+;	ret
+;BobSprites:
+;	ret
+;BobBigsprite:
+;	ret
+;BobRefresh:
+;	ret
+
+ResumeSync:
+	;Set up game, send the I AM PLAYER 2 byte...
+	call SendThis
+	.db -Linkver
+;	ld a,-Linkver
+;	call Sendbyte
+	call blackscreen
+
+	call DrawText
+	.dw tLink0
+#IFNDEF LESSTEXT
+	call DrawText
+	.dw tLink2b
+#ENDIF
+	
+	call ionfastcopy
+;	call WaitLink
+	jp LinkGameStarter
+	
+;	cp $C2
+;	jr z,ResumeSync2
+;	cp -Linkver
+;	jp nz,LinkErrorQuit
+ResumeSyncGame:
+;Prevent crash: check if you're resuming a SINGLE PLAYER game...
+	ld a,(linkgame)
+	or a
+	jp z,StartLinkGame
+
+	call SendThis
+	.db $c2
+;	ld a,$c2
+;	call Sendbyte
+ResumeSync2:
+;	call BlackScreen
+;	ld hl,0
+;	ld (pencol),hl
+;	ld hl,tPleaseWait
+;	vputs
+;	call ionfastcopy
+
+	ld de,Tile
+	ld bc,EndofVars-Tile
+
+	ld a,(linkgame)
+	dec a
+	push bc
+	push de
+	
+	jr z,BubResume
+
+BobResume:
+	call getbyte
+	push af
+	ld a,(linkgame)
+	call sendbyte
+	pop af
+	cp 1
+	jp nz,LinkErrorQuit
+	pop de
+	pop bc
+	
+	call GetBlock
+	;Restore player 2 byte
+	ld a,2
+	ld (linkgame),a
+	
+	call GetThis2
+	.db LinkVer
+;	call GetByte
+;	cp LinkVer
+;	jp nz,LinkErrorQuit
+	call SendThis
+	.db $BB
+;	ld a,$BB
+;	call SendByte
+	
+	call GetSeed
+#IFDEF SENDLEVELS
+	call GetThis2
+	.db 42
+#ENDIF
+
+	
+	jp ResumeSyncDone
+
+BubResume:
+	ld a,(linkgame)
+	call sendbyte
+	call GetThis2
+	.db 2
+;	call getbyte
+;	cp 2
+;	jp nz,LinkErrorQuit
+	
+	pop de
+	pop bc
+	call SendBlock
+
+	call SendThis
+	.db linkver
+;	ld a,linkver
+;	call SendByte
+	call GetThis2
+	.db $BB
+;	call GetByte
+;	cp $BB
+;	jp nz,LinkErrorQuit
+	
+	call SendSeed
+
+#IFDEF EXTERNAL
+	call ReloadWorld
+	jr nc, LinkReloadGood
+	call SendThis
+	.db $FB
+;	ld a,$FB
+;	call sendbyte
+	jp linkerrorquit
+#ENDIF
+#IFDEF SENDLEVELS
+LinkReloadGood
+	call SendThis
+	.db 42
+#ENDIF
+	
+	jp ResumeSyncDone
+
+#IFDEF SENDLEVELS
+ReceiveLevel:
+	call WaitLink
+	cp 69
+	jp nz,LinkErrorQuit
+	call SendThis
+	.db $BB
+	ld hl,Plotsscreen
+	push hl
+ReceiveLevelLoop:
+		push hl
+			call getbyte
+		pop hl
+		ld (hl),a
+		inc hl
+		cp $FF
+		jr nz,ReceiveLevelLoop
+	pop hl
+	ret
+
+SendLevel:
+	push hl
+		push hl
+			ld a,69
+			call WaitSend
+		pop hl
+SendLevelLoop:
+		push hl
+			ld a,(hl)
+			call sendbyte
+		pop hl
+		ld a,(hl)
+		inc hl
+		cp $FF
+		jr nz,SendLevelLoop
+	pop hl
+	ret
+#endif	
+
+#IFDEF LOUDSEED
+GetSpriteTableChecksum
+	ld de,SpriteTable
+	ld bc,SpriteTotal*8
+;	jp GetChecksum
+	
+
+
+GetCheckSum:
+	ld hl,0
+GetCheckSumLoop:
+	push bc
+	ld a,(de)
+	ld b,0
+	ld c,a
+	add hl,bc
+	pop bc
+	inc de
+	dec bc
+	ld a,b
+	or c
+	jr nz,GetCheckSumLoop
+	ret
+
+
+
+
+#ENDIF
+
+SendThis:
+	ex (sp),hl
+	ld a,(hl)
+	inc hl
+	ex (sp),hl
+	jp sendbyte
+GetThis2:
+	call GetByte
+	ex (sp),hl
+	cp (hl)
+	inc hl
+	ex (sp),hl
+	jp nz,LinkErrorQuit
+	ret
+;GetThis:
+;	call GetByte
+;	ex (sp),hl
+;	cp (hl)
+;	inc hl
+;	ex (sp),hl
+;	ret

@@ -1,0 +1,66 @@
+#DEFINE NOAPPHEADER
+#DEFINE TWOPAGE
+#DEFINE ICECLIMB
+
+#DEFINE disp(xxxx) ld hl,xxxx \ call AppPuts
+
+#define LINK 
+#define SOFTQUIT
+;#define HALTS
+
+#DEFINE HUNT
+
+#define HIGHSCORE
+LINKVER = 91
+
+#include "dwedit.inc"
+
+;============
+;  Equates!
+;============
+SpriteTotal = 64
+SpriteCount = SpriteTotal
+numSprite = SpriteTotal
+
+DefaultXSpriteHeight = 8
+
+#include "bub_appd.inc"
+
+;===============
+;  Game Code!
+;===============
+	jp PlayIceClimb
+	jp NewLevel
+	jp GetMapOnly
+;	jp Return
+;	jp Return
+;	jp Return
+;	jp Return
+
+Return:
+	ret
+
+#IFDEF ICECLIMB
+PlayIceClimb:
+#include "miniice.z80"
+#ENDIF
+
+#include "icemaps.h"
+	
+
+
+IonFastCopy:
+	bcall(_ionfastcopy)
+	ret
+CreateSprite:
+	bcall(_CreateSprite)
+	ret
+
+#include "bub_lev.z80"
+#include "bub_map.h"
+#include "bub_tabl.h"
+#include "bub_gfx.inc"
+
+
+_IonFastCopy = $0088+(3*3)
+_CreateSprite = $0088+(3*4)
