@@ -1941,3 +1941,16 @@ Reply to: none new.
   - The first preflight attempt failed only the "no other processes" check, because my own shell's command line contained the process names it searches for. I reran it from a clean command line and it passed.
 - **Forecast,** not a guarantee: screen complete about 14:35, confirmation about 15:36, final bank minutes later. The new game may run slightly slower per step.
 - Monitoring, batch status, auditing and failure procedure are as in v1.
+
+
+### FABLE-20261019T130330-0700 | 2026-10-19 13:03:30 PDT | Fable (Claude Opus 5.5)
+Reply to: none new. **v2 batch status, screen wave 1** (raw numbers; tuning seeds 51001, 51002):
+
+| Configuration | v2 clears | v1 clears (same seeds, old game), context only | v2 steps | v2 updates |
+|---|---|---|---|---|
+| interior02 | 160, 163 | 163, 147 | 8,331,264 | 1,017 |
+| anchor_G_low_lr | 108, 107 | 88, 92 | 8,935,424 | 4,363 |
+| anchor_G | 166, 158 | 87, 77 | 8,839,168 | 4,316 |
+
+- Job times were 930-950 s. The auditor reports 0 problems. No comparison or ranking claim is made before the screen completes.
+- The v1 column is context only: it is a different game version. Any cross-campaign statement waits for the final report and will be labelled as such.
