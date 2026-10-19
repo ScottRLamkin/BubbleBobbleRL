@@ -518,3 +518,21 @@ def test_falling_player_walks_on_odd_frames_only():
     for _ in range(8):
         g.step(Buttons(right=True))
     assert p.x == 48
+
+
+def test_wall_limit_stops_between_updates_and_writes_a_summary(tmp_path):
+    """--wall-minutes stops before an update projected to end past the budget
+    (here: after the first), and the run records steps/updates/seconds."""
+    import json
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from train_ppo import parse_args, train
+
+    train(parse_args(["--total-steps", "100000", "--num-envs", "2", "--rollout-len", "16", "--eval-every", "0",
+                      "--no-mlflow", "--no-tensorboard", "--quiet", "--wall-minutes", "0.0001",
+                      "--run-dir", str(tmp_path)]))
+    s = json.loads((tmp_path / "train_summary.json").read_text())
+    assert (s["updates"], s["steps"]) == (1, 32) and (tmp_path / "model.pt").exists()
+    assert not (tmp_path / "model.pt.tmp").exists()

@@ -60,6 +60,12 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--bootstrap-truncation", action="store_true",
                    help="treat the time limit as a cut-off, not an outcome: bootstrap V at truncation")
     p.add_argument("--max-minutes", type=float, default=0.0, help="stop after this much wall time")
+    p.add_argument("--wall-minutes", type=float, default=0.0,
+                   help="stop before starting an update projected (from the slowest update so far) "
+                        "to end past this much wall time, so the run never overshoots its budget")
+    p.add_argument("--wall-start", type=float, default=0.0,
+                   help="epoch seconds the --wall-minutes budget counts from (default: training start); "
+                        "a launcher passes its launch time so process startup is inside the budget")
     p.add_argument("--save-every", type=int, default=0,
                    help="also keep a numbered snapshot (ckpt_<steps>.pt) every N steps, for trajectory diagnostics")
     p.add_argument("--futility-steps", type=int, default=0,
@@ -551,7 +557,13 @@ def train(args) -> Path:
     pool_size = 0
     grace = args.grace_frames
     fails: dict[int, list[int]] = {lv: [] for lv in (levels or [])}  # recent outcomes per level
+    slowest_update = 0.0
     while global_step < args.total_steps:
+        if args.wall_minutes and time.time() - (args.wall_start or start) + slowest_update >= 60 * args.wall_minutes:
+            print(f"wall limit of {args.wall_minutes} min: stopping at step {global_step} "
+                  f"(next update projected to end past it)", flush=True)
+            break
+        update_t0 = time.time()
         if args.max_minutes and (time.time() - start) / 60 >= args.max_minutes:
             print(f"wall budget of {args.max_minutes} min reached at step {global_step}", flush=True)
             break
@@ -660,6 +672,13 @@ def train(args) -> Path:
                     stats["approx_kl"].append((b_logp[mb_t] - newlogp).mean().item())
                     stats["clipfrac"].append(((ratio - 1).abs() > args.clip).float().mean().item())
 
+        bad = [k for k, v in stats.items() if v and not np.all(np.isfinite(v))]
+        if bad or not all(torch.isfinite(q).all() for q in agent.parameters()):
+            # Stop before saving: a nonfinite update must not overwrite model.pt.
+            raise FloatingPointError(f"nonfinite PPO update at step {global_step}: {bad or 'parameters'}")
+        torch.save(agent.state_dict(), run_dir / "model.pt.tmp")  # atomic: never a half-written model.pt
+        os.replace(run_dir / "model.pt.tmp", run_dir / "model.pt")
+        slowest_update = max(slowest_update, time.time() - update_t0)
         sps = int(global_step / (time.time() - start))
         recent = np.mean(ep_returns[-20:]) if ep_returns else float("nan")
         window = ep_outcomes[-100:]
@@ -734,13 +753,16 @@ def train(args) -> Path:
                 "losses/clipfrac": np.mean(stats["clipfrac"]),
                 "losses/explained_variance": float("nan") if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y,
             }, global_step)
-        torch.save(agent.state_dict(), run_dir / "model.pt")
-        torch.save(optimizer.state_dict(), run_dir / "optimizer.pt")
+        torch.save(optimizer.state_dict(), run_dir / "optimizer.pt")  # model.pt was saved atomically above
         if args.save_every and global_step >= next_snapshot:
             next_snapshot += args.save_every
             torch.save(agent.state_dict(), run_dir / f"ckpt_{global_step:09d}.pt")
 
     envs.close()
+    (run_dir / "train_summary.json").write_text(json.dumps({
+        "steps": int(global_step), "updates": int(n_updates), "seconds": round(time.time() - start, 1),
+        "max_minutes": args.max_minutes, "wall_minutes": args.wall_minutes,
+        "slowest_update_seconds": round(slowest_update, 2), "total_steps": args.total_steps}, indent=1))
     if writer:
         writer.close()
     if tracker:
