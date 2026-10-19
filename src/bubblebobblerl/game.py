@@ -371,10 +371,14 @@ class Game:
 
     def _step_barons(self) -> None:
         """HandleSkel, every frame. Gone when no enemies remain, after touching
-        Bub (who dies), or once Bub is no longer alive. Otherwise it alternates a
-        vertical move phase toward Bub, a 24-frame pause, a horizontal move
-        phase and a pause, at 1 px per frame through walls; move phases last
-        40 - 4*(seq // 4) frames (floored at 0)."""
+        Bub (who dies), or once Bub is no longer alive. Otherwise SkelNextSequence
+        steps a sequence counter whenever the phase delay runs out: odd
+        sequences are pauses with delay 40 - 4*(seq // 4) (floored at 0, so the
+        pauses shrink over time), even ones are moves toward Bub at 1 px per
+        frame through walls with delay 24, alternating horizontal (seq & 3 == 2)
+        and vertical (seq & 3 == 0). From a fresh baron: a 41-frame pause, a
+        25-frame horizontal move, a 41-frame pause, a 25-frame vertical move,
+        a 37-frame pause, ..."""
         p = self.player
         for b in list(self.barons):
             if self.alive_enemies <= 0 or self._touch_player(b.x, b.y) or p.dead_ticks >= 0:
@@ -384,7 +388,8 @@ class Game:
             b.delay = (b.delay - 1) & 0xFF
             if a == 0:  # SkelNextSequence
                 b.seq = (b.seq + 1) & 0xFF
-                b.delay = 24 if b.seq & 1 else max(0, 40 - (b.seq & 0xFC))
+                # odd sequences (pauses) get the shrinking delay, even ones (moves) 24
+                b.delay = max(0, 40 - (b.seq & 0xFC)) if b.seq & 1 else 24
             phase = b.seq & 3
             if phase == 0:
                 b.y += 1 if b.y < p.y else -1

@@ -979,10 +979,14 @@ def test_hurry_up_angers_the_enemies_at_the_levels_time():
 
 
 def test_baron_appears_pauses_then_chases_through_walls():
-    """MakeBaron at frame 40 * 48 = 1920 creates him at (8, 8). HandleSkel: the
-    first sequence step is a 24-frame pause; then a 40-frame horizontal phase
-    toward Bub at 1 px per frame, ignoring walls."""
+    """MakeBaron at frame 40 * 48 = 1920 creates him at (8, 8). HandleSkel /
+    SkelNextSequence, traced by hand from delay 0, seq 0: first handled frame ->
+    seq 1 (odd: pause, delay 40 - 0), so 41 still frames; then seq 2 (even: move,
+    delay 24) = 25 frames of horizontal movement toward Bub, ignoring walls;
+    then seq 3 (pause, delay 40) = 41 still frames. Regression (2026-10-19): the
+    first implementation gave pauses 24 and moves the shrinking delay."""
     from bubblebobblerl.game import Buttons
+    from bubblebobblerl.levels import TILE_WALL
 
     g = _level1_game()
     for _ in range(1919):
@@ -990,18 +994,20 @@ def test_baron_appears_pauses_then_chases_through_walls():
     assert g.step(Buttons()).baron and len(g.barons) == 1
     b = g.barons[0]
     g.player.x, g.player.y = 70, 52
-    from bubblebobblerl.levels import TILE_WALL
-
     g.grid = g.grid.copy()
     g.grid[:, 6:8] = TILE_WALL  # a full-height wall at x 24-31 across his path
-    for _ in range(25):  # first handled next frame: seq 1, delay 24 -> 25 still frames
+    for _ in range(41):
         g.step(Buttons())
         assert (b.x, b.y) == (8, 8)
-    g.step(Buttons())  # seq 2: horizontal phase toward Bub
-    assert (b.x, b.y) == (9, 8)
-    for _ in range(39):
+    for i in range(25):
         g.step(Buttons())
-    assert b.x == 48  # 40 px in 40 frames, straight through the wall at x 24-31
+        assert (b.x, b.y) == (9 + i, 8)
+    assert b.x == 33  # through the wall at x 24-31
+    for _ in range(41):
+        g.step(Buttons())
+        assert (b.x, b.y) == (33, 8)
+    g.step(Buttons())  # seq 4: vertical move toward Bub (y 52)
+    assert (b.x, b.y) == (33, 9)
 
 
 def test_baron_kills_on_contact_then_vanishes_and_leaves_with_the_last_enemy():
