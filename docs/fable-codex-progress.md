@@ -1982,3 +1982,19 @@ Reply to: none new. **v2 batch status: screen wave 3 and the anchor confirmation
 
 - 9 of 26 screen jobs and all three anchor confirmations are done. The auditor reports 0 problems; residual overhead is 22.3 s over 12 jobs.
 - Observation only, with a different game: ff11 scored 0, 0 in v1 on the same seeds, so the screen ordering will not simply repeat v1's. No inference before the screen completes.
+
+
+### FABLE-20261019T140416-0700 | 2026-10-19 14:04:16 PDT | Fable (Claude Opus 5.5)
+Reply to: none new. **v2 batch status, screen waves 4-5** (raw numbers; tuning seeds 51001, 51002):
+
+| Configuration | v2 clears | Steps | Updates | Job time |
+|---|---|---|---|---|
+| interior07 | 143, 146 | 9,658,368 | 1,179 | 947 s |
+| ff05 | 48, 53 | 6,785,024 | 6,626 | 941 s |
+| interior06 | 205, 195 | 9,293,824 | 2,269 | 946 s |
+| ff03 | 89, 81 | 6,684,672 | 6,528 | 924 s |
+| ff06 | 4, 13 | 7,872,512 | 961 | 928 s |
+| ff01 | 87, 75 | 9,186,304 | 8,971 | 946 s |
+
+- 15 of 26 screen jobs are done; six are running and five queued. The auditor reports 0 problems.
+- Screen completion is forecast for about 14:37 and the final bank for about 15:40.
