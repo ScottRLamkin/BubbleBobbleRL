@@ -318,10 +318,35 @@ def audit(root: Path, manifest: dict | None = None, parse_args=None) -> dict:
         acct["train_seconds"] += j.get("train_seconds", 0)
         acct["eval_seconds"] += ev
         acct["other_seconds"] += j["elapsed_seconds"] - j.get("train_seconds", 0) - ev
-    return {"problems": problems, "warnings": warn, "ranked": [(jobs[j]["config"], mean(j, "cleared"),
+    result = {"problems": problems, "warnings": warn, "ranked": [(jobs[j]["config"], mean(j, "cleared"),
                                                                  mean(j, "kills")) for j in ranked],
             "chosen": chosen, "candidates": cand_table, "winner": winner, "final": final, "accounting": acct,
             "summaries": summaries, "status": st, "configs": configs}
+    result["effects"] = factorial_effects(result, manifest)
+    return result
+
+
+def factorial_effects(a: dict, manifest: dict) -> dict | None:
+    """Exploratory main-effect contrasts from the 16 fractional-factorial screen
+    runs: mean tuning-seed clears at the high level minus at the low level, per
+    factor. Main effects are aliased with three-factor interactions (resolution
+    IV); one training seed; a 15-minute budget. None until all 16 are done."""
+    jobs = a["status"]["jobs"]
+    ff = [c for c in manifest["configurations"] if c["kind"] == "fractional_factorial"]
+    clears = {}
+    for c in ff:
+        jid = f"screen/{c['id']}"
+        res = a["summaries"].get(jid, {}).get("results", {})
+        if len(res) != len(manifest["screen"]["evaluation_seeds"]):
+            return None
+        clears[c["id"]] = sum(v["cleared"] for v in res.values()) / len(res)
+    out = {}
+    for i, f in enumerate(manifest["design"]["factors"]):
+        hi = [clears[c["id"]] for c in ff if c["coded"][i] > 0]
+        lo = [clears[c["id"]] for c in ff if c["coded"][i] < 0]
+        out[f["name"]] = {"low": f["low"], "high": f["high"], "mean_high": sum(hi) / len(hi),
+                          "mean_low": sum(lo) / len(lo), "effect": sum(hi) / len(hi) - sum(lo) / len(lo)}
+    return out
 
 
 def render(a: dict) -> str:
@@ -347,6 +372,16 @@ def render(a: dict) -> str:
             "; ".join(f"{k}: {v['cleared']}/{v['died']}/{v['timeout']}" for k, v in res.items()),
             f"{sum(v['cleared'] for v in res.values()) / len(res):.1f}" if res else "",
             f"{sum(v['kills'] for v in res.values()) / len(res):.0f}" if res else ""]) + " |")
+    fx = a.get("effects")
+    if fx:
+        out += ["", "## Exploratory main-effect contrasts (16 factorial screen runs)", "",
+                "Mean tuning-seed clears at the high level minus the low level. Resolution IV: each main effect "
+                "is aliased with three-factor interactions. One training seed, 15 minutes: not a causal "
+                "decomposition and not a recommendation.", "",
+                "| factor | low | high | mean at low | mean at high | contrast |", "|---|---|---|---|---|---|"]
+        for name, e in fx.items():
+            out.append(f"| {name} | {e['low']:g} | {e['high']:g} | {e['mean_low']:.1f} | {e['mean_high']:.1f} | "
+                       f"{e['effect']:+.1f} |")
     out += ["", f"Recomputed selection: {a['chosen']}", f"Candidates: {json.dumps(a['candidates'])}",
             f"Recomputed winner: {a['winner']}", f"Final bank: {json.dumps(a['final'])}", "",
             "Accounting (single-thread seconds): " + json.dumps({k: (round(v, 1) if isinstance(v, float) else v)

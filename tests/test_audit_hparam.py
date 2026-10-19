@@ -353,3 +353,16 @@ def test_per_level_rows_come_from_validated_files(tmp_path):
     first = rows[0]  # screen/anchor_G (first in order), 100 clears spread over levels 1-10
     assert first[:5] == ["screen", "anchor_G", 4100, "51001", 1] and first[5:] == [10, 0, 0]
     assert all(r[5] + r[6] + r[7] == 10 for r in rows)
+
+
+def test_factorial_effects_follow_the_coded_design(tmp_path):
+    """Synthetic screen: clears = 100 + index in the recorded order, so each
+    contrast is the mean index difference between the +1 and -1 halves."""
+    a = run(build(tmp_path))
+    order = MANIFEST["screen"]["order"]
+    ff = [c for c in MANIFEST["configurations"] if c["kind"] == "fractional_factorial"]
+    clears = {c["id"]: 100 + order.index(c["id"]) for c in ff}
+    for i, f in enumerate(MANIFEST["design"]["factors"]):
+        hi = [clears[c["id"]] for c in ff if c["coded"][i] > 0]
+        lo = [clears[c["id"]] for c in ff if c["coded"][i] < 0]
+        assert a["effects"][f["name"]]["effect"] == pytest.approx(sum(hi) / 8 - sum(lo) / 8)
