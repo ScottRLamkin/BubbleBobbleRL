@@ -60,6 +60,8 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--bootstrap-truncation", action="store_true",
                    help="treat the time limit as a cut-off, not an outcome: bootstrap V at truncation")
     p.add_argument("--max-minutes", type=float, default=0.0, help="stop after this much wall time")
+    p.add_argument("--futility-steps", type=int, default=0,
+                   help="stop when the best standard-test score has not improved for this many steps")
     p.add_argument("--fresh-optimizer", action="store_true",
                    help="with --init-model: do not load the optimizer state saved next to it")
     p.add_argument("--capture-bonus", type=float, default=0.1)
@@ -360,8 +362,20 @@ def train(args) -> Path:
 
             # Local SQLite store in the repo root (gitignored); artifacts go to mlruns/.
             mlflow.set_tracking_uri(mlflow_tracking_uri())
-            mlflow.set_experiment(args.experiment)
-            active = mlflow.start_run(run_name=run_name)
+            import random as _random
+
+            for attempt in range(5):  # concurrent starts race on creating the experiment
+                try:
+                    exp = mlflow.set_experiment(args.experiment)
+                    if exp.name == args.experiment:
+                        break
+                except Exception:
+                    pass
+                time.sleep(0.5 + _random.random())
+            else:
+                raise RuntimeError(f"could not select MLflow experiment {args.experiment!r}")
+            active = mlflow.start_run(run_name=run_name, experiment_id=exp.experiment_id)
+            assert active.info.experiment_id == exp.experiment_id
             mlflow.log_params({k: v for k, v in vars(args).items() if k not in ("play", "greedy")})
             mlflow.set_tags(dict(t.split("=", 1) for t in args.mlflow_tag))
             (run_dir / "mlflow_run_id.txt").write_text(active.info.run_id)
@@ -414,7 +428,10 @@ def train(args) -> Path:
     optimizer = torch.optim.Adam(agent.parameters(), lr=args.lr, eps=1e-5)
     resumed_optimizer = False
     if args.init_model and not args.fresh_optimizer:
-        opt_path = Path(args.init_model).with_name("optimizer.pt")
+        init = Path(args.init_model)
+        opt_path = init.with_name("optimizer.pt")
+        if init.name == "best.pt":  # the state saved at the same step as best.pt
+            opt_path = init.with_name("best_optimizer.pt")
         if opt_path.exists():
             try:
                 optimizer.load_state_dict(torch.load(opt_path, map_location=device))
@@ -423,7 +440,7 @@ def train(args) -> Path:
                 resumed_optimizer = True
             except Exception as exc:  # shape mismatch (different architecture/inputs): start fresh
                 print(f"optimizer state not loaded ({exc}); fresh Adam", flush=True)
-    print(f"optimizer: {'resumed from ' + str(args.init_model) if resumed_optimizer else 'fresh Adam'}", flush=True)
+    print(f"optimizer: {'resumed from ' + str(opt_path) if resumed_optimizer else 'fresh Adam'}", flush=True)
 
     batch = args.num_envs * args.rollout_len
     obs_t = torch.zeros(
@@ -457,6 +474,9 @@ def train(args) -> Path:
     while global_step < args.total_steps:
         if args.max_minutes and (time.time() - start) / 60 >= args.max_minutes:
             print(f"wall budget of {args.max_minutes} min reached at step {global_step}", flush=True)
+            break
+        if args.futility_steps and best_step and global_step - best_step >= args.futility_steps:
+            print(f"futility: best unchanged since step {best_step} ({args.futility_steps:,} steps ago); stopping at {global_step}", flush=True)
             break
         if args.grace_frames and args.grace_anneal:
             frac = min(1.0, global_step / (args.grace_anneal * args.total_steps))

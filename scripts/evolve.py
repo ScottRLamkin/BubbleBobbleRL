@@ -275,8 +275,10 @@ def train_member(spec: dict) -> dict:
         (member_dir / "error.txt").write_text(traceback.format_exc())
         return {"id": spec["id"], "ok": False, "error": traceback.format_exc(limit=1)}
     seconds = round(time.time() - start)
-    if (member_dir / "best.pt").exists():  # the child's result is its best checkpoint
+    if (member_dir / "best.pt").exists():  # the child's result is its best checkpoint, with its optimizer
         shutil.copy(member_dir / "best.pt", member_dir / "model.pt")
+        if (member_dir / "best_optimizer.pt").exists():
+            shutil.copy(member_dir / "best_optimizer.pt", member_dir / "optimizer.pt")
     done.write_text(json.dumps({"seconds": seconds}))
     return {"id": spec["id"], "ok": True, "seconds": seconds}
 

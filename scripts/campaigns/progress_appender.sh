@@ -10,13 +10,15 @@ while true; do
     echo
     echo "### FABLE-$(date +%Y%m%dT%H%M%S%z) | $(date '+%Y-%m-%d %H:%M:%S %Z') | Fable (automated status)"
     echo "Checkout / revision: $(pwd) @ $(git rev-parse --short HEAD)"
-    echo "Runs (latest standard test = 99 levels x 10 episodes, seed 4242; best.pt = best such test so far):"
+    echo "Runs (latest periodic test on the run's own level pool x 10 episodes, seed 4242; denominators shown; best.pt = best such test so far; selection scores, not held-out):"
     alive=0
     for r in "$@"; do
-      last=$(grep 'eval @' runs/$r.log 2>/dev/null | tail -1 | sed -E 's/ +eval @ +([0-9]+): cleared ([0-9]+)\/990 .*levels cleared ([0-9]+)\/99.*/step \1: \2\/990, \3 levels/')
-      best=$(grep 'eval @' runs/$r.log 2>/dev/null | awk '{print $5}' | sed 's|/990||' | sort -n | tail -1)
+      last=$(grep 'eval @' runs/$r.log 2>/dev/null | tail -1 | sed -E 's/ +eval @ +([0-9]+): cleared ([0-9]+\/[0-9]+) .*levels cleared ([0-9]+\/[0-9]+).*/step \1: \2, \3 levels/')
+      denom=$(grep 'eval @' runs/$r.log 2>/dev/null | tail -1 | awk '{print $5}' | sed 's|^[0-9]*/||')
+      best=$(grep 'eval @' runs/$r.log 2>/dev/null | awk '{print $5}' | sed 's|/[0-9]*||' | sort -n | tail -1)
+      best="${best:-?}/${denom:-?}"
       line=$(grep '^step' runs/$r.log 2>/dev/null | tail -1 | sed -E 's/ +sps.*//')
-      echo "- $r: ${last:-no evaluation yet}; best ${best:-?}/990; train: ${line:-starting}"
+      echo "- $r: ${last:-no evaluation yet}; best $best; train: ${line:-starting}"
       pgrep -f "run-name $r" > /dev/null && alive=$((alive+1))
     done
     echo "Processes alive: $alive of $#. Memory watchdog: $(tail -1 runs/memwatch.log 2>/dev/null || echo quiet)."

@@ -169,7 +169,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("model")
     p.add_argument("--baseline", default=None, help="second model for the per-level comparison")
-    p.add_argument("--levels", default="1-100")
+    p.add_argument("--levels", default="1-99", help="level 100 is unclearable and excluded")
     p.add_argument("--episodes", type=int, default=5)
     p.add_argument("--max-steps", type=int, default=900)
     p.add_argument("--seed", type=int, default=7)
