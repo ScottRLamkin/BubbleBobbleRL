@@ -892,9 +892,9 @@ seeds 31337 and 2718 that nothing had been selected on:
 | 102 | 65.0 | 141.5 | +76.5 |
 | 103 | 54.5 | 163.0 | +108.5 |
 
-Mean paired difference +96.5 of 990 (criterion: more than 30), on every
-seed; kills 2.1-2.5 against 1.4-1.5; levels cleared at least once 30-37
-against 10-20. So: **one hour of one core, from scratch, now produces an
+Paired differences +104.5, +76.5 and +108.5 of 990 (mean +96.5; criterion:
+each more than 30); kills 2.1-2.5 against 1.4-1.5; levels cleared at least
+once 30-37 against 10-20. So: **one hour of one core, from scratch, now produces an
 agent that out-fights anything this project trained before**, and the gain
 came from the review's observation fix plus the egocentric view, not from
 reward shaping or search breadth. Navigation competence, in the sense of
@@ -924,30 +924,43 @@ stationary penalty of 0.02, seed-matched:
 | S3 line: clears | 242 / 255 | 241 / 241 | -7.5 |
 | S3 line: kills, x range, still, crossing | 2.8, 37 px, 49%, 97/297 | 2.9, 44 px, 29%, 116/297 | more movement |
 
-Movement and kills improve on both lineages; clears go +16 on one and -7.5
-on the other (inside the ~10-clear noise of a fixed policy, but negative).
-So the penalty reliably buys movement at no reliable cost or gain in clears;
-it is not the clean "both lineages gain" result the criterion asked for. The
-third hour itself added +22 and +41 over the second-hour parents, so these
-lineages have not saturated at three core-hours.
+**The pre-registered composite criterion failed**: it required no loss of
+clears or kills on both lineages, and the S3 line lost 7.5 clears. What did
+hold on both lineages: more movement (x range 21 -> 34 px and 37 -> 44 px;
+screen-crossing 14 -> 52 and 97 -> 116 of 297 profile episodes) and kills not
+lower (validation protocol, 990 episodes: 2.89 -> 3.05 and 2.83 -> 2.90;
+profile protocol, 297 episodes: 3.11 -> 3.12 and 2.81 -> 2.89). The clear-rate
+effect is mixed (+16, -7.5) and two lineages on two reused validation banks
+do not establish that it is zero. The third hour itself added +22 and +41
+over the second-hour parents, so these particular lineages had not saturated
+at three core-hours; that supports those extensions, not unlimited training.
 
 The best policies on the validation seeds are now T2 (258 / 252, 48 levels,
 3.1 kills) and S7 (259 / 256, 51 levels, 3.1 kills). The most mobile, T4,
-crosses the screen in 116 of 297 episodes and is still 29% of the time.
+crosses the screen in 116 of 297 profile episodes (39%) and is still 29% of
+the time; movement metrics are not by themselves evidence of purposeful
+navigation.
 
 ### Where this leaves the project (morning of 2026-10-19)
 
 - **Established, in order of evidence**: (1) pre-registered confirmation on
   untouched seeds that one hour of one core with the fixed recipe beats the
-  old recipe by +96.5 of 990 on every paired seed; (2) the control-state
+  old recipe on all three paired training seeds (+104.5, +76.5, +108.5 of
+  990; mean +96.5); (2) the control-state
   observation (+48 to +62 over A, three seeds) and the egocentric view (+47 to
   +53 over D, three seeds) are the two ingredients; (3) paired-optimizer
   continuation keeps paying through the third hour on independent lineages;
-  (4) a stationary penalty of 0.02 turns a competent fighter into a more
-  mobile one without costing kills.
-- **Not established**: level traversal as a habit; why checkpoints wander
-  under a constant learning rate (a decay contrast with equal endpoints is
-  the deferred next experiment).
+  (4) on two lineages, a stationary penalty of 0.02 produced more movement
+  with kills not lower; its pre-registered composite criterion failed on
+  clears (+16 on one lineage, -7.5 on the other).
+- **Not established**: level traversal as a habit; whether the movement
+  penalty costs clears; why checkpoints wander under a constant learning rate
+  (T7's final checkpoint scored 63.5 against its selected 110; a decay
+  contrast with equal endpoints is the deferred next experiment).
+- **Process failures preserved**: a campaign script edited while running
+  broke its own final check (artifacts verified separately); one
+  verification claim was written before its check had run. The amended
+  campaign wrapper has not yet been observed succeeding end to end.
 - **Compute**: 31 allocated single-thread core-hours of training across the
   four rounds (each run one core, 60-120 minutes, periodic standard tests
   included), plus about 1.5 hours of validation, profiles and galleries.
