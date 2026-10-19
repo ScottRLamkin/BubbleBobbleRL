@@ -425,15 +425,18 @@ class Game:
     # -------------------------------------------------------- prebubbles
 
     def _step_prebubbles(self) -> None:
-        for pb in self.prebubbles:
+        for pb in list(self.prebubbles):
             pb.age += 1
+            if pb.age >= PREBUBBLE_FRAMES:
+                # PrebubbleCounter: on its last frame it becomes a Bubble and
+                # ends its turn without moving (26 px of flight, not 27).
+                self.prebubbles.remove(pb)
+                self.bubbles.append(BubbleSprite(x=pb.x, y=pb.y, life=0))
+                continue
             # Stops at walls but keeps aging (becomes a bubble at the wall).
             probe_x = pb.x + 8 if pb.facing > 0 else pb.x - 1
             if not self.solid(probe_x, pb.y + 7):
                 pb.x += pb.facing
-        for pb in [p for p in self.prebubbles if p.age >= PREBUBBLE_FRAMES]:
-            self.prebubbles.remove(pb)
-            self.bubbles.append(BubbleSprite(x=pb.x, y=pb.y, life=0))
 
     # ----------------------------------------------------------- enemies
 

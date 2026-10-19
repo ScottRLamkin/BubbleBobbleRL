@@ -78,7 +78,9 @@ def test_shoot_creates_bubble_that_floats():
     assert not g.prebubbles
     assert len(g.bubbles) == 1
     bub = g.bubbles[0]
-    assert bub.x == 8 + 27
+    # Z80 PrebubbleCounter converts on the 27th frame and returns without moving:
+    # 26 px of flight (the port flew 27 until 2026-10-19).
+    assert bub.x == 8 + 26
     y_start = bub.y
     for _ in range(40):
         g.step(IDLE)

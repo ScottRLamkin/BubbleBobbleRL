@@ -766,3 +766,22 @@ def test_timed_out_bubble_pops_at_the_next_tick():
     for _ in range(4):
         g.step(Buttons())  # next tick: pops
     assert bub.breaking == "pop"
+
+
+def test_a_shot_flies_26_pixels_before_it_becomes_a_bubble():
+    """Regression (2026-10-19): Z80 PrebubbleCounter turns the prebubble into a
+    Bubble on its 27th frame and returns without moving it, so it moves on frames
+    1-26 only. The port also moved it on the 27th frame."""
+    from bubblebobblerl.game import PREBUBBLE_FRAMES, Buttons
+
+    env = BubbleBobbleEnv(obs_type="state", level=1)
+    env.reset(seed=1, options={"level": 1})
+    g = env.game
+    g.enemies, g.alive_enemies, g.grace_left = [], 2, 10**9
+    g.player.x, g.player.y, g.player.facing = 30, 52, 1  # open floor to the right
+    g.step(Buttons(shoot=True))
+    x0 = 30
+    for _ in range(PREBUBBLE_FRAMES - 1):
+        g.step(Buttons())
+    assert not g.prebubbles and len(g.bubbles) == 1
+    assert g.bubbles[0].x - x0 == 26
