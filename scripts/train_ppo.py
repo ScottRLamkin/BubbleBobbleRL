@@ -20,6 +20,7 @@ either off (evolve.py turns both off for its 30 children per generation).
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import time
@@ -66,6 +67,11 @@ def parse_args(argv: list[str] | None = None):
                    help="shrink --grace-frames linearly to 0 over this fraction of training")
     p.add_argument("--lives", type=int, default=1, help="lives per training episode")
     p.add_argument("--arch", choices=["mlp", "conv"], default="mlp", help="state-obs encoder")
+    p.add_argument("--hidden", type=int, default=256, help="MLP width")
+    p.add_argument("--layers", type=int, default=2, help="MLP depth")
+    p.add_argument("--act", choices=["tanh", "relu"], default="tanh", help="MLP activation")
+    p.add_argument("--level-sampling", choices=["uniform", "hard"], default="uniform",
+                   help="hard: draw levels in proportion to their recent failure rate")
     p.add_argument("--total-steps", type=int, default=2_000_000)
     p.add_argument("--num-envs", type=int, default=16)
     p.add_argument("--rollout-len", type=int, default=128)
@@ -199,9 +205,11 @@ class GridEncoder(nn.Module):
 
 
 class Agent(nn.Module):
-    def __init__(self, obs_space, n_actions: int, arch: str = "mlp"):
+    def __init__(self, obs_space, n_actions: int, arch: str = "mlp", hidden: int = 256,
+                 layers: int = 2, act: str = "tanh"):
         super().__init__()
         self.arch = arch
+        Act = nn.ReLU if act == "relu" else nn.Tanh
         if len(obs_space.shape) == 2:  # screen: 64x96 binary
             self.encoder = nn.Sequential(
                 layer_init(nn.Conv2d(1, 16, 8, stride=4)),
@@ -217,21 +225,28 @@ class Agent(nn.Module):
             self.encoder = GridEncoder(int(np.prod(obs_space.shape)))
             self._is_image = False
         else:
-            self.encoder = nn.Sequential(
-                layer_init(nn.Linear(int(np.prod(obs_space.shape)), 256)),
-                nn.Tanh(),
-                layer_init(nn.Linear(256, 256)),
-                nn.Tanh(),
-            )
+            mods, n_in = [], int(np.prod(obs_space.shape))
+            for _ in range(layers):
+                mods += [layer_init(nn.Linear(n_in, hidden)), Act()]
+                n_in = hidden
+            self.encoder = nn.Sequential(*mods)
             self._is_image = False
-        self.actor = layer_init(nn.Linear(256, n_actions), std=0.01)
-        self.critic = layer_init(nn.Linear(256, 1), std=1.0)
+        width = 256 if (len(obs_space.shape) == 2 or arch == "conv") else hidden
+        self.actor = layer_init(nn.Linear(width, n_actions), std=0.01)
+        self.critic = layer_init(nn.Linear(width, 1), std=1.0)
 
     @classmethod
     def load(cls, path: str, obs_space, n_actions: int, pad_to: int | None = None) -> "Agent":
         """Build the right architecture for a saved model.pt and load it."""
         state = torch.load(path, map_location="cpu")
         arch = "conv" if any(k.startswith("encoder.grid.") for k in state) else "mlp"
+        hidden, layers, act = 256, 2, "tanh"
+        if arch == "mlp" and "encoder.0.weight" in state:
+            hidden = state["encoder.0.weight"].shape[0]
+            layers = sum(1 for k in state if k.startswith("encoder.") and k.endswith(".weight"))
+            side = Path(path).with_name("arch.json")
+            if side.exists():
+                act = json.loads(side.read_text()).get("act", act)
         if len(obs_space.shape) == 1 and arch == "mlp" and pad_to:
             # Fine-tune a model trained on a shorter state vector: new inputs
             # start with zero weight, so the old policy is reproduced exactly.
@@ -253,7 +268,7 @@ class Agent(nn.Module):
                 from gymnasium import spaces
 
                 obs_space = spaces.Box(-1.0, 1.0, shape=(n_inputs,), dtype=np.float32)
-        agent = cls(obs_space, n_actions, arch)
+        agent = cls(obs_space, n_actions, arch, hidden, layers, act)
         agent.load_state_dict(state)
         agent.n_inputs = n_inputs
         agent.eval()
@@ -373,8 +388,10 @@ def train(args) -> Path:
         agent.train()
     else:
         agent = Agent(
-            envs.single_observation_space, envs.single_action_space.n, args.arch
+            envs.single_observation_space, envs.single_action_space.n, args.arch,
+            args.hidden, args.layers, args.act,
         ).to(device)
+    (run_dir / "arch.json").write_text(json.dumps({"act": args.act}))
     optimizer = torch.optim.Adam(agent.parameters(), lr=args.lr, eps=1e-5)
 
     batch = args.num_envs * args.rollout_len
@@ -403,6 +420,7 @@ def train(args) -> Path:
 
     pool_size = 0
     grace = args.grace_frames
+    fails: dict[int, list[int]] = {lv: [] for lv in (levels or [])}  # recent outcomes per level
     while global_step < args.total_steps:
         if args.grace_frames and args.grace_anneal:
             frac = min(1.0, global_step / (args.grace_anneal * args.total_steps))
@@ -416,6 +434,15 @@ def train(args) -> Path:
             if k != pool_size:
                 pool_size = k
                 envs.set_attr("level_pool", [levels[:k]] * args.num_envs)
+        if args.level_sampling == "hard" and levels and n_updates % 10 == 0:
+            # Weighted pool: a level appears as many times as its recent failure
+            # share suggests (floor 1), so the hardest levels are drawn most.
+            weighted = []
+            for lv in levels:
+                h = fails.get(lv, [])
+                rate = sum(h) / len(h) if h else 1.0
+                weighted += [lv] * (1 + int(round(9 * rate)))
+            envs.set_attr("level_pool", [weighted] * args.num_envs)
         if args.anneal_lr:
             frac = max(0.0, 1.0 - global_step / args.total_steps)
             optimizer.param_groups[0]["lr"] = frac * args.lr
@@ -442,6 +469,11 @@ def train(args) -> Path:
                     ep_returns.append(float(er))
                     ep_lengths.append(float(el))
                     ep_outcomes.append("clear" if ea == 0 else ("timeout" if tr else "death"))
+            if args.level_sampling == "hard" and levels and "level" in infos:
+                for lv, ea in zip(np.asarray(infos["level"])[mask], alive[mask]):
+                    hist = fails.setdefault(int(lv), [])
+                    hist.append(0 if ea == 0 else 1)
+                    del hist[:-20]
 
         # GAE
         with torch.no_grad():

@@ -78,8 +78,8 @@ def test_genome_has_at_least_ten_parameters_and_mutations_respect_types():
     g = Genome()
     for _ in range(300):
         g = mutate(g, rng)
-        assert isinstance(g.stationary_band, int) and 8 <= g.stationary_band <= 64
-        assert 0.95 <= g.gamma <= 0.997
+        assert all(isinstance(getattr(g, k), int) for k in ("stationary_band", "epochs", "num_envs", "rollout_len"))
+        assert 0.9 <= g.gamma <= 0.999 and 0.8 <= g.gae_lambda <= 0.99
         for gene, (lo, hi) in RANGES.items():
             assert lo <= getattr(g, gene) <= hi
 
@@ -91,3 +91,16 @@ def test_several_bases_share_the_first_generation():
     assert [c["parent"] for c in children[:4]] == ["base0", "base1", "base2", "base3"]
     assert all(c["genome"] == asdict(Genome()) for c in children[:4])  # unmutated controls
     assert all(sum(c["parent"] == b["id"] for c in children) == 6 for b in bases)
+
+
+def test_wide_mutation_changes_one_to_four_genes_within_ranges():
+    rng = random.Random(5)
+    g = Genome()
+    counts = []
+    for _ in range(200):
+        child = mutate(g, rng)
+        changed = [k for k in RANGES if getattr(child, k) != getattr(g, k)]
+        counts.append(len(changed))
+        for k, (lo, hi) in RANGES.items():
+            assert lo <= getattr(child, k) <= hi
+    assert min(counts) >= 1 and max(counts) <= 4 and max(counts) >= 3

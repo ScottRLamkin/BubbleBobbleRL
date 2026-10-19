@@ -215,3 +215,4 @@ runs/
 exports/
 mlruns/
 mlflow.db
+mlartifacts/

@@ -50,49 +50,68 @@ class Genome:
     stationary_penalty: float = 0.005
     stationary_band: int = 32
     death_penalty: float = 5.0
+    timeout_penalty: float = 4.0
     capture_bonus: float = 0.1
+    explore_bonus: float = 0.0
     reward_pops: bool = True
-    # PPO
+    # PPO optimisation
     lr: float = 2.5e-4
     ent_coef: float = 0.01
     clip: float = 0.1
     gamma: float = 0.99
+    gae_lambda: float = 0.95
     vf_coef: float = 0.5
+    epochs: int = 4
+    # PPO data collection
+    num_envs: int = 16
+    rollout_len: int = 128
 
 
 # (low, high) for the continuous genes. Mutation jitters on a log scale;
 # gamma is jittered as (1 - gamma), stationary_band is rounded to pixels.
 RANGES = {
-    "clear_bonus": (5.0, 200.0),
-    "time_penalty": (0.0, 0.05),
-    "stationary_penalty": (0.0, 0.05),
+    "clear_bonus": (2.0, 300.0),
+    "time_penalty": (0.0, 0.1),
+    "stationary_penalty": (0.0, 0.1),
     "stationary_band": (8, 64),
-    "death_penalty": (0.5, 20.0),
-    "capture_bonus": (0.0, 1.0),
-    "lr": (3e-5, 5e-4),
-    "ent_coef": (0.002, 0.03),
-    "clip": (0.05, 0.3),
-    "gamma": (0.95, 0.997),
-    "vf_coef": (0.25, 1.0),
+    "death_penalty": (0.25, 30.0),
+    "timeout_penalty": (0.0, 30.0),
+    "capture_bonus": (0.0, 3.0),
+    "explore_bonus": (0.0, 3.0),
+    "lr": (1e-5, 1e-3),
+    "ent_coef": (0.0005, 0.1),
+    "clip": (0.03, 0.5),
+    "gamma": (0.9, 0.999),
+    "gae_lambda": (0.8, 0.99),
+    "vf_coef": (0.1, 2.0),
+    "epochs": (1, 10),
+    "num_envs": (4, 64),
+    "rollout_len": (32, 1024),
 }
-FLOORS = {"time_penalty": 0.001, "stationary_penalty": 0.001, "capture_bonus": 0.01}
+FLOORS = {"time_penalty": 0.001, "stationary_penalty": 0.001, "timeout_penalty": 0.1,
+          "capture_bonus": 0.01, "explore_bonus": 0.05}
+INT_GENES = {"stationary_band", "epochs", "num_envs", "rollout_len"}
+ONE_MINUS = {"gamma", "gae_lambda"}  # jittered as (1 - value)
 STATIONARY_WINDOW = 120  # steps (8 s); fixed, the band is the gene
 POP_FLIP_PROB = 0.1
+MUTATION_GENES = (1, 4)  # how many genes a child changes (uniform in this range)
+MUTATION_SCALE = 3.0  # each changed gene is multiplied by a factor in [1/scale, scale]
 
 
-def mutate(genome: Genome, rng: random.Random) -> Genome:
-    """Jitter one to three continuous genes by x0.5-2, and maybe flip reward_pops."""
+def mutate(genome: Genome, rng: random.Random, n_genes=MUTATION_GENES, scale=MUTATION_SCALE) -> Genome:
+    """Jitter some genes on a log scale, and maybe flip reward_pops."""
     changes: dict = {}
-    for gene in rng.sample(sorted(RANGES), rng.choice((1, 2, 3))):
+    k = rng.randint(n_genes[0], min(n_genes[1], len(RANGES)))
+    for gene in rng.sample(sorted(RANGES), k):
         lo, hi = RANGES[gene]
         value = getattr(genome, gene)
-        factor = math.exp(rng.uniform(math.log(0.5), math.log(2.0)))
-        if gene == "gamma":
+        factor = math.exp(rng.uniform(-math.log(scale), math.log(scale)))
+        if gene in ONE_MINUS:
             value = 1.0 - (1.0 - value) * factor
         else:
             value = max(value, FLOORS.get(gene, 0.0)) * factor
         value = min(max(value, lo), hi)
-        changes[gene] = int(round(value)) if gene == "stationary_band" else value
+        changes[gene] = int(round(value)) if gene in INT_GENES else value
     if rng.random() < POP_FLIP_PROB:
         changes["reward_pops"] = not genome.reward_pops
     return replace(genome, **changes)
@@ -134,7 +153,7 @@ def plan_generation(
     """Decide every child of a generation up front (so a resume repeats it exactly)."""
     if gen == 1 and len(parents) == 1:
         base = parents[0]
-        genomes = seed_variants(Genome(**base["genome"]))[:population]
+        genomes = seed_variants(Genome(**{**asdict(Genome()), **base["genome"]}))[:population]
         while len(genomes) < population:
             genomes.append(mutate(rng.choice(genomes[:14]), rng))
         pairs = [(base, g) for g in genomes]
@@ -142,7 +161,7 @@ def plan_generation(
         pairs = []
         for i in range(population):
             parent = parents[i % len(parents)]
-            genome = Genome(**parent["genome"])
+            genome = Genome(**{**asdict(Genome()), **parent["genome"]})
             # Each parent's first child continues unmutated, as a control.
             pairs.append((parent, genome if i < len(parents) else mutate(genome, rng)))
     return [
@@ -191,6 +210,11 @@ def train_member(spec: dict) -> dict:
             "--lr", str(g["lr"]),
             "--ent-coef", str(g["ent_coef"]),
             "--clip", str(g["clip"]),
+            "--gae-lambda", str(g["gae_lambda"]),
+            "--epochs", str(g["epochs"]),
+            "--num-envs", str(g["num_envs"]),
+            "--rollout-len", str(g["rollout_len"]),
+            "--explore-bonus", str(g["explore_bonus"]),
             "--gamma", str(g["gamma"]),
             "--vf-coef", str(g["vf_coef"]),
             "--time-penalty", str(g["time_penalty"]),
@@ -199,7 +223,7 @@ def train_member(spec: dict) -> dict:
             "--stationary-window", str(STATIONARY_WINDOW),
             "--clear-bonus", str(g["clear_bonus"]),
             "--death-penalty", str(g["death_penalty"]),
-            "--timeout-penalty", str(spec.get("timeout_penalty", 0.0)),
+            "--timeout-penalty", str(g.get("timeout_penalty", spec.get("timeout_penalty", 0.0))),
             "--capture-bonus", str(g["capture_bonus"]),
             "--no-tensorboard",
             "--quiet",
@@ -316,7 +340,7 @@ class Run:
                 "id": bid,
                 "lineage": [],
                 "model": str(base_dir / "model.pt"),
-                "genome": asdict(Genome()),
+                "genome": asdict(Genome(timeout_penalty=self.args.timeout_penalty)),
             })
         state = {"generation": 0, "base": bases[0], "survivors": bases, "history": []}
         self.save_state(state)
