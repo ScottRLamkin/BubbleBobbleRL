@@ -39,6 +39,9 @@ campaign's 18 core-hour cap. Spent so far: see the ledger at the end.
 | 24 | A clear is completed 256 frames after the last kill | `game._enemy_died`, `clear_countdown` | Z80 `NoMoreEnemies` resets the 16-bit timer; `CheckEnd` advances when its high byte reaches 1 | Read side by side; countdown tests already exist | Clean. Minor deviation: the port explodes leftover empty bubbles at the last kill, where the original leaves them or turns them into fruit, which affects score only | In snapshot | — |
 | 25 | Evaluation episodes are seeded distinctly, and the tuning and final banks cannot overlap | `evaluate._evaluate` | Seed = bank x 100,003 + level x 101 + episode | Arithmetic: the level and episode terms are at most 9,907, below 100,003, so no two (bank, level, episode) triples share a seed | Clean | In snapshot | — |
 | 26 | The ego window reads off-screen columns as wall and wraps rows | `env._local_window` | Docstring and the encoding comment: 0 = wall | Read: the window starts at zeros, off-screen columns stay 0 (wall), and rows wrap modulo the grid | Clean | In snapshot | — |
+| 27 | Floating bubbles push each other apart | `game._step_bubbles` | Z80 `BubbleHitBubble`: within 7 px in both axes and at least 4 px apart on an axis, flag a one-pixel move apart on it; `DoBubbleFlags` applies it next tick | `test_overlapping_bubbles_drift_apart_and_stacked_ones_stay`: 5 px apart becomes 7, 2 px apart stays stacked | Mechanic missing from the port, and not listed among its omissions | **Not in snapshot** | Fix in the live repo, commit after `4786654`; not deployed |
+| 28 | Horizontal bubble moves probe the right tile | `game._step_bubbles` | Z80 `_MoveRight`/`_MoveLeft`: x+8 / x-1 at y+7 | Read: the port probed y+4 | Deviation | **Not in snapshot** | Fixed with row 27 |
+| 29 | A timed-out bubble pops at the next tick | `game._step_bubbles` | Z80 `HandleBubble`: counter at 0 sets bits 5 and 7; `DoBubbleFlags` pops next tick | `test_timed_out_bubble_pops_at_the_next_tick` | Deviation of one tick (4 frames) | **Not in snapshot** | Fixed with row 27 |
 
 ## Decision note: the bubble-contact mismatch and what the campaign can answer
 
@@ -58,7 +61,11 @@ second of compute):
 
 Smaller differences: the corrected game explodes a bubble up to three frames
 later (at the next 4-frame tick), and a bubble whose death counter reads 0 is
-not pushed on that tick. Kill and pop scoring and explosion chains are
+not pushed on that tick. Rows 27-29, found later, add three more bubble
+mechanics the snapshot lacks: bubbles pushing each other apart, the wall probe
+row for horizontal bubble moves, and the one-tick delay of a timed-out pop.
+They also change where captured enemies float and which explosions chain, so
+the applicability limit above covers them too. Kill and pop scoring and explosion chains are
 unchanged. The original four regression cases used empty bubbles; the
 captured-enemy cases above are now covered by a regression test.
 
@@ -111,5 +118,5 @@ if runner PID 33901 exits.
 | Real preflight | 5.4 | Measured |
 | Pre-launch dry run, including interrupted attempts | about 508 | Mixed: 447.5 measured for completed attempts and 5.4 for the dry preflight; about 55 estimated for the interrupted attempts from their loop times plus startup |
 | Validator and runner overhead, production | about 77 forecast (2.2 per training job x 35) | Measured 6.5 s over the first three production jobs; outside reservations, so added here. Forecast, not a 60 s worst-case reservation |
-| This audit's test execution | about 34 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
+| This audit's test execution | about 40 of 120 | pytest during the bubble fix (about 12), auditor tests 1.8, dry-run audit 0.8, rollout test 2.3, mutant 1.2, explained variance 1.8, reward and convention tests 2.2, plus reruns |
 | Total | about 64,322 of 64,800 (about 478 s reserve) | Reservations + preflight + dry run + forecast overhead + this audit |
