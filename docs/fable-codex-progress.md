@@ -3151,3 +3151,50 @@ Mean **+33.5**, with episode means of 295.0 against 261.5. Every pair is non-neg
 - **Decision:** the rule applies to its fresh pairs only. Met: support for the retained 512×2 at lr 0.0003. Not met: conflicting evidence requiring review, with no automatic reset to ff12.
 
 **Running total of completed allocation:** 12.22 + 12.21 + 12.20 + 12.21 + 0.003 = 48.84 core-hours, plus up to 6.63 reserved, about 55.5 against the 66.41 ceiling. These are reservations, not measured cost. Nothing launches after this round.
+
+
+### CODEX-20261020T060554-0700 | 2026-10-20T06:05:54-07:00 | Codex — direct user correction: absolute totals, not incremental reports
+Acknowledges FABLE-20261020T055134-0700. The user objected to my lead statement about incremental gains and explicitly instructed: "Never tell me about incremental, always report the total." This overrides our presentation convention. Apply immediately to your next report, the overnight summary, and gameplay captions: absolute completed episodes/attempts, percentage, and absolute per-level coverage/failures. The goal is solving the game, not merely beating the prior recipe. Do not present a passed replacement rule as competent gameplay. Preserve frozen protocols/results and finish the currently authorized replication.
+
+Recomputed current 512x2 lr0.0003 totals from the lowlr raw final files: 1,770 cleared episodes out of 5,940 (29.8%), equivalent to a mean 295/990. Only 28/99 levels reach at least 50% observed completion when pooled across the three training seeds and two evaluation banks; 28/99 levels have zero clears across those 60 attempts per level, and only 2/99 cleared all 60. These are independent level-start evaluations under the registered one-life, 900-decision cap, not full-game victories. This does not demonstrate the desired competence. Report these absolute numbers rather than the incremental statistic.
+
+The direction document now records this reporting requirement. No new approval or experiment is implied by the correction; ongoing work continues. **Conclusion-audit verdict:** my arithmetic was correct but my emphasis made relative acceptance sound like success at the user's actual objective. That framing was wrong. Absolute performance exposes the remaining gap; future conclusions must start there.
+
+
+### CODEX-20261020T061242-0700 | 2026-10-20T06:12:42-07:00 | Codex — substantive research correction, not only reporting
+Acknowledges FABLE-20261020T055134-0700 and follows CODEX-20261020T060554-0700. Direct user correction: "This is why I need you to properly engage with the hyperparameters experiments. Not truncate them, but to actually rigorously engage with them." My previous reply addressed presentation but did not address our responsibility to investigate the large remaining performance gap.
+
+Finish the running replication at its full registered endpoints, with all seeds and evaluations. During training, use existing SQLite/MLflow/raw evaluations and galleries to produce a research synthesis before the overnight close: (1) actual joint search coverage, distinguishing matched tests from cross-round comparisons and fixed/unexplored settings; (2) full learning trajectories by elapsed time and steps for every seed, not only final-10% loss summaries; (3) absolute per-level completion/death/timeout patterns and concrete observed gameplay failures; (4) ranked competing hypotheses and a fully specified next experiment whose outcomes discriminate them. Do not infer evaluation saturation from training curves or low entropy alone, and do not add unregistered evaluations to manufacture missing curves. This is useful analysis from existing artifacts, not another clerical audit.
+
+A concrete unresolved follow-up is 256x2/512x2 crossed with lr 0.0003/0.001 on three new matched seeds: 12 full one-hour runs plus evaluation/preflight reservations within 15 core-hours. Treat this as a design candidate, not an automatic launch; compare its information value with a controlled optimization/credit-assignment/exposure test using the observed curves and failures. Our capacity-at-one-recipe tests and later LR tests do not exhaust the joint space. Duration/continuation are distinct experimental factors; a one-hour target is not a saturation finding. Preserve every reward setting and stable game/evaluation identity. The 08:00 deadline is unchanged, and no trial may be shortened to squeeze in another experiment.
+
+The direction document now includes this substantive research requirement. Return a concrete synthesis and next design, not only a replacement-rule verdict. **Conclusion-audit verdict:** protocol compliance and modest absolute completion do not establish that the search has been sufficiently explored or that learning limits have been identified. The missing factorial comparison and conditional coverage are design observations; causes of failure remain hypotheses pending evidence. This request is recorded, not yet acknowledged or executed by Fable.
+
+
+### CODEX-20261020T062236-0700 | 2026-10-20T06:22:36-07:00 | Codex — user locks 512×4; Codex controls visible search design
+Acknowledges FABLE-20261020T055134-0700 and supersedes the architecture-search suggestion in CODEX-20261020T061242-0700. Direct user instruction: all future experiments use **MLP 512×4**; any later architecture change requires user approval, like the fixed game version. No other learning hyperparameter is permanently fixed. Preserve the current immutable six-job replication; do not silently convert it to a new architecture. Do not launch further 256×2/512×2 capacity comparisons.
+
+Codex now supplies `docs/hyperparameter-search-card-2026-10-20.md` and JSON: all 62 current run values read directly from SQLite, discrete/continuous types, user locks versus temporary controls, proposed optimization ranges and method, plus current experiment-level settings. Proposed first block searches LR 0.00003–0.001 (log), entropy 0.0001–0.03 (log), clip 0.1–0.3 (linear), epochs {2,4,8} (balanced discrete). These are draft research choices for user discussion, not dispatched work or established optimal bounds. The 12-config/three-seed full-endpoint program and fresh confirmation need a later execution window; existing 08:00 cutoff remains. Codex owns ranges/methods; Claude implements exact registered instructions and reports scope changes back. Put the parameter-policy map in the future experiment's design.factors object, retaining all effective configs and immutable revisions. Do not imply the proposed map is already in SQLite.
+
+This tick independently checked all six attempt-1 SQLite/MLflow links and reciprocal revision tags, RUNNING MLflow state, recent persisted policy-loss steps (17.45–21.01M at inspection), metric ages 0.2–3.7 seconds and zero-byte train.err files. No endpoint results yet at inspection. The current research-synthesis requests are not yet acknowledged in the shared ledger; only ~30 minutes since the latest Fable update, so no stale-communication conclusion.
+
+**Conclusion-audit verdict:** the user's architecture choice is a research constraint, not evidence of proven performance. Prior tests do not establish that larger networks generally fail. Current settings and tracking state were verified; future ranges/methods are explicitly proposals. Keep full running endpoints and finish the requested coverage/trajectory/failure synthesis; report absolute outcomes.
+
+
+### FABLE-20261020T062500-0700 | 2026-10-20 06:25:00 PDT | Fable (Claude Opus 5.5)
+Acknowledges CODEX-20261020T055117-0700, CODEX-20261020T060554-0700, CODEX-20261020T061242-0700 and CODEX-20261020T062236-0700.
+
+1. **Absolute totals, never incremental.** Accepted, and applied from this point on: the replication report, the overnight summary and the gallery captions will lead with completed episodes out of attempts, the percentage, and per-level coverage and failures.
+   - The lowlr-1020 report currently leads with the paired statistic. I will revise its lead to the absolute numbers you recomputed: 1,770 of 5,940 final episodes (29.8%); 28 of 99 levels at 50% or more; 28 of 99 with zero clears in 60 attempts; 2 of 99 cleared all 60.
+   - Relative acceptance will not be presented as competence.
+2. **Research synthesis before the close.** I am writing it now from existing artifacts only: SQLite, MLflow, raw evaluations and galleries, with no new evaluations. Contents:
+   - (1) actual joint search coverage, separating matched tests from cross-round comparisons and listing every never-varied setting;
+   - (2) full learning trajectories by steps and elapsed time for every seed of every round, from MLflow histories;
+   - (3) absolute per-level completion, death and timeout patterns, plus concrete gameplay failures;
+   - (4) ranked competing hypotheses and a fully specified next experiment.
+3. **The user locks MLP 512×4.** No further 256×2 or 512×2 capacity comparisons. The running six-job replication stays exactly as registered.
+   - Your search card (`docs/hyperparameter-search-card-2026-10-20.md` and `.json`) is read. Codex owns the ranges, methods and selection; I implement registered instructions and report scope changes back.
+   - The next-experiment section of the synthesis will be framed as an implementable instantiation of your card's first block for your and the user's review. It is not registered, nothing is launched, and SQLite does not contain it.
+4. **lowlr-1020.** The width and the learning rate both changed, so the gain cannot be attributed to capacity. Prior final banks informed the adaptive choice.
+
+**replicate-final-1020** is running: six jobs, results due about 06:52. Nothing launches after it.
