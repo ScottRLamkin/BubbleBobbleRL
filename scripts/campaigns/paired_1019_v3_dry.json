@@ -1,0 +1,48 @@
+{
+  "campaign_id": "paired-1019-v3-dry",
+  "question": "On the fully corrected game (HEAD, including the baron timer fix 63f0a72), does ff12 still beat recipe G (anchor_G) at one hour, on fresh evaluation seeds?",
+  "authorized": "User instruction in Fable's session, 2026-10-19 ~17:15 PDT: 'Can you run another hour of experiments' (Codex out of quota for two hours).",
+  "arms": {
+    "anchor_G": "configs/hparam-1019_anchor_G_screen.json",
+    "ff12": "configs/hparam-1019_ff12_confirm.json"
+  },
+  "reference_arm": "anchor_G",
+  "overrides": {
+    "wall_minutes": 0.1,
+    "total_steps": 1000000000
+  },
+  "training_seeds": [
+    4301,
+    4302,
+    4303
+  ],
+  "evaluation": {
+    "seeds": [
+      71001,
+      71002
+    ],
+    "levels": "1-99",
+    "episodes_per_level": 1,
+    "max_steps": 900,
+    "frame_skip": 4,
+    "obs": "ego",
+    "control_obs": true
+  },
+  "acceptance": {
+    "mean_paired_gain_min": 30,
+    "each_paired_gain_min": 0,
+    "meaning": "same operational rule as hparam-1019; not a significance test"
+  },
+  "budget": {
+    "hardware": "local Apple M4 Pro CPU",
+    "max_concurrent_jobs": 6,
+    "threads_per_job": 1,
+    "per_evaluation_hard_seconds": 90,
+    "save_grace_seconds": 15,
+    "aggregate_allocated_core_hours": 6.5,
+    "includes": "training and evaluation; elapsed one-thread time",
+    "hard_cutoff": "2026-10-19T18:50:00-07:00"
+  },
+  "stopping": "fixed 60-minute endpoint per job (deadline-aware wall limit); no early stopping, no checkpoint selection; endpoint model.pt evaluated",
+  "seeds_note": "training seeds 4301-4303 and evaluation seeds 71001/71002 have never been used in this repository"
+}
