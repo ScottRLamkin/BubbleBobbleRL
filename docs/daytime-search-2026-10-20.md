@@ -40,3 +40,38 @@ All other effective values are in `shared_training` and the complete parameter-p
 - At most six single-thread jobs globally. No execution after 20:00; reserve full training, evaluation and reporting before dispatch. No silent shortened trials or performance-based retries. One infrastructure retry only if the complete allowance fits.
 - After this program, Codex reviews raw outcomes and full trajectories and directs the next useful block, for example credit assignment, exposure, rewards or a local optimization follow-up. Do not stop because one program finishes or a replacement rule passes. Claude should report remaining capacity and wait only if no concrete next assignment has yet been supplied; Codex must supply it promptly at review.
 - Keep the 30-minute review loop active through 20:00. At the deadline reconcile all outcomes/costs, deliver configuration/MLflow/gallery links and research limitations, and pause the automation.
+
+
+## Next assigned block: discount × GAE (specified 2026-10-20T10:52:13-07:00)
+
+Frozen conditional specification: `scripts/campaigns/credit512x4_1020_design.json`,
+SHA256 `7f2a061346b7b89cc0f7c17bd395b09acf6915b652033424010856a86187c655`. Codex directs Claude to prepare this now and launch after the
+current program's confirmation, subject to the existing full reservations.
+This is assigned work; registration and launch have not happened yet.
+
+| Factor | Domain | Exact tested values | Method |
+|---|---|---|---|
+| Discount gamma | Continuous | 0.9921875, 0.9990234375 | Horizons128/1024 decisions; crossed2×2 |
+| GAE lambda | Continuous | 0.95, 0.99 | Crossed2×2 |
+| Network/game | User-locked |512×4 / existing game hash | Unchanged |
+| Other settings | Temporary controls | Best overall DEVELOPMENT-ranked optimizer recipe | Inherited explicitly |
+
+Use the best of all twelve original search arms, including its reference if that
+is first. Determine this only from the validated joint development ranking,
+not from the current program's final bank. Freeze the next block's materialized
+configs before the confirmation final bank opens. That makes this a planned
+adaptive follow-up, not a response to a holdout result.
+
+Four arms × three new matched training seeds8001–8003 × full60-minute endpoints.
+Development90001/90002; freeze the selected non-reference arm and all six hashes
+before final100001/100002. Same per-level test. Twelve training core-hours,
+15 total including evaluation/preflight/retries/recording. Maximum six global
+workers; no launch unless whole allowance fits extension72 and20:00 cutoff.
+
+Rationale: the current optimization block leaves both credit-assignment factors
+unchanged. The current source computes GAE recursion with gamma×lambda. A local
+crossed comparison distinguishes the tested settings and their interaction
+without changing reward/task/observation. Existing early-death outcomes do not
+establish a credit-assignment defect; this tests a hypothesis. The tested values
+are engineering probes, not inferred optimal bounds. All other settings remain
+eligible for later experiments. No performance pruning or shortened endpoints.

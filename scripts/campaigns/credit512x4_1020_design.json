@@ -1,0 +1,128 @@
+{
+  "campaign_id": "credit512x4-1020",
+  "status": "authorized_conditional_design_not_registered_or_launched",
+  "specified_at": "2026-10-20T10:52:13-07:00",
+  "question": "On the user-fixed 512x4 network, how do discount horizon and GAE lambda jointly affect absolute one-hour completion under the best optimizer recipe from the predeclared twelve-arm development search?",
+  "source_program": "opt512x4-1020",
+  "source_design_sha256": "0d378836cb6aba99531aff0ea74d5f1ab87fc2b65bd82fb81f808834830679b6",
+  "source_recipe_rule": "Use ranking.order[0] across ALL twelve arms, including reference_512x4 if first. Validate full ranking before materialization. Inherit the corresponding complete effective config from the original frozen design; do not use confirmation outcomes or final banks to choose this recipe.",
+  "freeze_rule": "Materialize all four complete configs, exact source arm/hash, seed allocation, ranking/evaluation and policy map in SQLite before opening opt512x4 confirmation final bank 98001/98002. New source snapshot frozen before launch.",
+  "launch_rule": "After opt512x4 confirmation has finished, automatically start if full job/evaluation/reporting reservations fit <=15 round core-hours, <=72 extension core-hours and the 20:00 cutoff. No further approval/tick needed. No concurrent competing runner.",
+  "user_locked": {
+    "network.arch": "mlp",
+    "network.mlp.hidden": 512,
+    "network.mlp.layers": 4,
+    "game.source_hash": "67eaeefeb54af78652aa90ca7fe41046c987a69b5604512411b984cc786107af"
+  },
+  "game": {
+    "game.name": "2aa2548-baron-timer",
+    "game.source_commit": "2aa25480f32c003bc4b2d64167eb241c7f55d677",
+    "game.source_hash": "67eaeefeb54af78652aa90ca7fe41046c987a69b5604512411b984cc786107af"
+  },
+  "factors": {
+    "gamma": {
+      "type": "continuous",
+      "tested_discount_horizons_decisions": [
+        128,
+        1024
+      ],
+      "tested_values": [
+        0.9921875,
+        0.9990234375
+      ],
+      "method": "two-level crossed comparison; gamma = 1 - 1/horizon"
+    },
+    "gae_lambda": {
+      "type": "continuous",
+      "tested_values": [
+        0.95,
+        0.99
+      ],
+      "method": "two-level crossed comparison"
+    }
+  },
+  "arms": {
+    "reference_h1024_l095": {
+      "gamma": 0.9990234375,
+      "gae_lambda": 0.95
+    },
+    "h128_l095": {
+      "gamma": 0.9921875,
+      "gae_lambda": 0.95
+    },
+    "h1024_l099": {
+      "gamma": 0.9990234375,
+      "gae_lambda": 0.99
+    },
+    "h128_l099": {
+      "gamma": 0.9921875,
+      "gae_lambda": 0.99
+    }
+  },
+  "dispatch_order": [
+    "reference_h1024_l095",
+    "h128_l099",
+    "h1024_l099",
+    "h128_l095"
+  ],
+  "temporary_controls": "Every other effective source recipe parameter, with fresh seeds, fresh weights/optimizer and full 60-minute endpoints. Preserve all reward gates, observation, PPO, optimizer, task semantics and evaluation; list values explicitly.",
+  "training_seeds": [
+    8001,
+    8002,
+    8003
+  ],
+  "training_minutes": 60,
+  "evaluation": {
+    "evaluation.action_selection": "sampled",
+    "evaluation.cap_frames": 3600,
+    "evaluation.checkpoint": "endpoint model.pt (eval_every 0: no periodic test, no checkpoint selection)",
+    "evaluation.completion_definition": "the game's level-complete event fired during the episode (evaluate.classify_outcome 'clear'); deaths or timeouts in the countdown after the last kill are not clears",
+    "evaluation.episodes_per_level": 10,
+    "evaluation.frame_skip": 4,
+    "evaluation.levels": "1-99",
+    "evaluation.lives": 1,
+    "evaluation.max_steps": 900,
+    "evaluation.metric": "completed clears per 990 episodes (99 levels x 10 episodes)",
+    "evaluation.metric_version": "clear-v2-2026-10-19 (level_complete event)"
+  },
+  "development_banks": [
+    90001,
+    90002
+  ],
+  "final_banks": [
+    100001,
+    100002
+  ],
+  "reference_arm": "reference_h1024_l095",
+  "ranking": [
+    "mean absolute completed fraction on development bank descending",
+    "minimum training-seed completed fraction descending",
+    "arm id ascending"
+  ],
+  "selection": "After all twelve full endpoints and all development evaluations, freeze highest-ranked non-reference configuration and its three endpoint hashes plus reference hashes before opening final banks. Reference remains visible even if it ranks first.",
+  "interpretation": "Absolute outcomes and all policy-seed/per-level results. Local matched 2x2 evidence, not global optimum or a calibrated significance claim. No fixed +30 replacement threshold. Three independently trained policies per arm; evaluation episodes are not additional training replicas. Final-bank result is not used to switch candidates.",
+  "budget": {
+    "round_allocated_core_hours": 15,
+    "training_core_hours": 12,
+    "preflight_max_core_seconds": 600,
+    "per_evaluation_hard_seconds": 90,
+    "save_grace_seconds": 15,
+    "global_max_concurrent_jobs": 6,
+    "threads_per_job": 1,
+    "includes_evaluation_retries_recording": true,
+    "retry": "at most one infrastructure retry if the full remaining budget/deadline reservation fits; never performance-based",
+    "extension_cap_core_hours": 72,
+    "extension_started_at": "2026-10-20T06:48:25-07:00",
+    "hard_cutoff": "2026-10-20T20:00:00-07:00"
+  },
+  "required_prelaunch_checks": [
+    "source ranking validation passed and source recipe deterministically matches ranking.order[0]",
+    "all four arms differ only in gamma and gae_lambda plus matched seed",
+    "game source hash and 512x4 unchanged",
+    "complete configs and both factor domain types/tested value sets stored in SQLite, reciprocal MLflow links ready",
+    "new seeds have no collision with existing runs/evaluation records/pending reservations",
+    "full program-extension and deadline budget fits including preflight abandoned-root allocation",
+    "current implemented GAE accepts exact gamma/lambda values without changing finite-horizon termination semantics"
+  ],
+  "seed_check": "At specification time none of 8001\u20138003 occur as SQLite training seeds and none of 90001/90002/100001/100002 occur as registered evaluation seeds. Recheck pending reservations before registering."
+}
