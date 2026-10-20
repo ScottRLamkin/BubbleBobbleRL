@@ -1,0 +1,1068 @@
+{
+  "program_id": "opt512x4-1020",
+  "status": "authorized_design_pending_Claude_registration_and_execution",
+  "authorized_at": "2026-10-20T06:48:25-07:00",
+  "hard_cutoff": "2026-10-20T20:00:00-07:00",
+  "extension_budget": {
+    "allocated_core_hours": 72,
+    "basis": "All allocated single-thread job durations after authorized_at including remaining old replication tail, preflight, evaluations, retries and galleries; prior allocation reported separately.",
+    "physical_six_worker_wall_ceiling_hours": 79.15796783833333,
+    "max_concurrent_jobs": 6,
+    "threads_per_job": 1
+  },
+  "game": {
+    "game.name": "2aa2548-baron-timer",
+    "game.source_commit": "2aa25480f32c003bc4b2d64167eb241c7f55d677",
+    "game.source_hash": "67eaeefeb54af78652aa90ca7fe41046c987a69b5604512411b984cc786107af"
+  },
+  "user_locked": {
+    "network.arch": "mlp",
+    "network.mlp.hidden": 512,
+    "network.mlp.layers": 4,
+    "game.source_hash": "67eaeefeb54af78652aa90ca7fe41046c987a69b5604512411b984cc786107af"
+  },
+  "question": "What absolute completion performance does full-duration joint PPO optimization achieve on the user-fixed 512x4 network and game?",
+  "shared_training": {
+    "act": "tanh",
+    "adam_beta1": 0.9,
+    "adam_beta2": 0.999,
+    "adam_eps": 1e-05,
+    "anneal_lr": false,
+    "arch": "mlp",
+    "bootstrap_truncation": false,
+    "capture_bonus": 0.1,
+    "clear_bonus": 10.0,
+    "clip": 0.1,
+    "control_obs": true,
+    "curriculum": 0.0,
+    "death_penalty": 5.0,
+    "ent_coef": 0.0003,
+    "epochs": 2,
+    "eval_episodes": 10,
+    "eval_every": 0,
+    "explore_band": 8,
+    "explore_bonus": 0.0,
+    "frame_skip": 4,
+    "fresh_optimizer": false,
+    "futility_steps": 0,
+    "gae_lambda": 0.95,
+    "gamma": 0.9990234375,
+    "grace_anneal": 0.0,
+    "grace_frames": 0,
+    "hard_sampling_weight": 9.0,
+    "hard_sampling_window": 20,
+    "hidden": 512,
+    "init_actor_gain": 0.01,
+    "init_critic_gain": 1.0,
+    "init_hidden_gain": 1.4142135623730951,
+    "init_model": null,
+    "kill_bonus": 2.0,
+    "layers": 4,
+    "level_sampling": "uniform",
+    "levels": "1-99",
+    "lives": 1,
+    "lr": 0.0003,
+    "max_episode_frames": 3600,
+    "max_grad_norm": 0.5,
+    "max_minutes": 0.0,
+    "minibatches": 4,
+    "nearest_first": false,
+    "norm_adv": true,
+    "num_envs": 16,
+    "obs": "ego",
+    "pop_reward": true,
+    "random_start": false,
+    "rollout_len": 512,
+    "save_every": 0,
+    "score_reward": false,
+    "score_scale": 0.01,
+    "seed": 7801,
+    "stationary_band": 32,
+    "stationary_penalty": 0.005,
+    "stationary_window": 120,
+    "time_penalty": 0.01,
+    "timeout_penalty": 4.0,
+    "total_steps": 1000000000,
+    "vf_coef": 0.5,
+    "wall_minutes": 60.0
+  },
+  "parameter_policy": [
+    {
+      "trainer_key": "levels",
+      "sqlite_key": "exposure.levels",
+      "type": "discrete categorical",
+      "current_sqlite_value": "1-99",
+      "proposed_value": "1-99",
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold exposure/task constant in optimization block; design exposure/credit-assignment block separately."
+    },
+    {
+      "trainer_key": "level_sampling",
+      "sqlite_key": "exposure.level_sampling",
+      "type": "discrete categorical",
+      "current_sqlite_value": "uniform",
+      "proposed_value": "uniform",
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": [
+        "uniform",
+        "hard"
+      ],
+      "method_or_reason": "Hold exposure/task constant in optimization block; design exposure/credit-assignment block separately."
+    },
+    {
+      "trainer_key": "hard_sampling_weight",
+      "sqlite_key": "exposure.hard_sampling_weight",
+      "type": "continuous",
+      "current_sqlite_value": 9.0,
+      "proposed_value": 9.0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold exposure/task constant in optimization block; design exposure/credit-assignment block separately."
+    },
+    {
+      "trainer_key": "hard_sampling_window",
+      "sqlite_key": "exposure.hard_sampling_window",
+      "type": "discrete integer",
+      "current_sqlite_value": 20,
+      "proposed_value": 20,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold exposure/task constant in optimization block; design exposure/credit-assignment block separately."
+    },
+    {
+      "trainer_key": "curriculum",
+      "sqlite_key": "exposure.curriculum",
+      "type": "continuous",
+      "current_sqlite_value": 0.0,
+      "proposed_value": 0.0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold exposure/task constant in optimization block; design exposure/credit-assignment block separately."
+    },
+    {
+      "trainer_key": "max_episode_frames",
+      "sqlite_key": "task.max_episode_frames",
+      "type": "discrete integer",
+      "current_sqlite_value": 3600,
+      "proposed_value": 3600,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold exposure/task constant in optimization block; design exposure/credit-assignment block separately."
+    },
+    {
+      "trainer_key": "frame_skip",
+      "sqlite_key": "task.frame_skip",
+      "type": "discrete integer",
+      "current_sqlite_value": 4,
+      "proposed_value": 4,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold exposure/task constant in optimization block; design exposure/credit-assignment block separately."
+    },
+    {
+      "trainer_key": "lives",
+      "sqlite_key": "task.lives",
+      "type": "discrete integer",
+      "current_sqlite_value": 1,
+      "proposed_value": 1,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold exposure/task constant in optimization block; design exposure/credit-assignment block separately."
+    },
+    {
+      "trainer_key": "random_start",
+      "sqlite_key": "exposure.random_start",
+      "type": "discrete categorical",
+      "current_sqlite_value": false,
+      "proposed_value": false,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": [
+        false,
+        true
+      ],
+      "method_or_reason": "Hold exposure/task constant in optimization block; design exposure/credit-assignment block separately."
+    },
+    {
+      "trainer_key": "grace_frames",
+      "sqlite_key": "exposure.grace_frames",
+      "type": "discrete integer",
+      "current_sqlite_value": 0,
+      "proposed_value": 0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold exposure/task constant in optimization block; design exposure/credit-assignment block separately."
+    },
+    {
+      "trainer_key": "grace_anneal",
+      "sqlite_key": "exposure.grace_anneal",
+      "type": "continuous",
+      "current_sqlite_value": 0.0,
+      "proposed_value": 0.0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold exposure/task constant in optimization block; design exposure/credit-assignment block separately."
+    },
+    {
+      "trainer_key": "score_reward",
+      "sqlite_key": "reward.score_reward",
+      "type": "discrete categorical",
+      "current_sqlite_value": false,
+      "proposed_value": false,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": [
+        false,
+        true
+      ],
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "score_scale",
+      "sqlite_key": "reward.score_scale",
+      "type": "continuous",
+      "current_sqlite_value": 0.01,
+      "proposed_value": 0.01,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "pop_reward",
+      "sqlite_key": "reward.pop_reward",
+      "type": "discrete categorical",
+      "current_sqlite_value": true,
+      "proposed_value": true,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": [
+        false,
+        true
+      ],
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "clear_bonus",
+      "sqlite_key": "reward.clear_bonus",
+      "type": "continuous",
+      "current_sqlite_value": 10.0,
+      "proposed_value": 10.0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "kill_bonus",
+      "sqlite_key": "reward.kill_bonus",
+      "type": "continuous",
+      "current_sqlite_value": 2.0,
+      "proposed_value": 2.0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "capture_bonus",
+      "sqlite_key": "reward.capture_bonus",
+      "type": "continuous",
+      "current_sqlite_value": 0.1,
+      "proposed_value": 0.1,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "death_penalty",
+      "sqlite_key": "reward.death_penalty",
+      "type": "continuous",
+      "current_sqlite_value": 5.0,
+      "proposed_value": 5.0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "timeout_penalty",
+      "sqlite_key": "reward.timeout_penalty",
+      "type": "continuous",
+      "current_sqlite_value": 4.0,
+      "proposed_value": 4.0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "time_penalty",
+      "sqlite_key": "reward.time_penalty",
+      "type": "continuous",
+      "current_sqlite_value": 0.01,
+      "proposed_value": 0.01,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "stationary_penalty",
+      "sqlite_key": "reward.stationary_penalty",
+      "type": "continuous",
+      "current_sqlite_value": 0.005,
+      "proposed_value": 0.005,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "stationary_window",
+      "sqlite_key": "reward.stationary_window",
+      "type": "discrete integer",
+      "current_sqlite_value": 120,
+      "proposed_value": 120,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "stationary_band",
+      "sqlite_key": "reward.stationary_band",
+      "type": "discrete integer",
+      "current_sqlite_value": 32,
+      "proposed_value": 32,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "explore_bonus",
+      "sqlite_key": "reward.explore_bonus",
+      "type": "continuous",
+      "current_sqlite_value": 0.0,
+      "proposed_value": 0.0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "explore_band",
+      "sqlite_key": "reward.explore_band",
+      "type": "discrete integer",
+      "current_sqlite_value": 8,
+      "proposed_value": 8,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold all components and gates at inherited values to isolate optimization; reward block remains eligible."
+    },
+    {
+      "trainer_key": "obs",
+      "sqlite_key": "observation.type",
+      "type": "discrete categorical",
+      "current_sqlite_value": "ego",
+      "proposed_value": "ego",
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": [
+        "state",
+        "screen",
+        "ego"
+      ],
+      "method_or_reason": "Hold encoding constant in optimization block; observation alternatives remain eligible within the locked MLP."
+    },
+    {
+      "trainer_key": "control_obs",
+      "sqlite_key": "observation.control_state",
+      "type": "discrete categorical",
+      "current_sqlite_value": true,
+      "proposed_value": true,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": [
+        false,
+        true
+      ],
+      "method_or_reason": "Hold encoding constant in optimization block; observation alternatives remain eligible within the locked MLP."
+    },
+    {
+      "trainer_key": "nearest_first",
+      "sqlite_key": "observation.nearest_first",
+      "type": "discrete categorical",
+      "current_sqlite_value": false,
+      "proposed_value": false,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": [
+        false,
+        true
+      ],
+      "method_or_reason": "Hold encoding constant in optimization block; observation alternatives remain eligible within the locked MLP."
+    },
+    {
+      "trainer_key": "gamma",
+      "sqlite_key": "return.gamma",
+      "type": "continuous",
+      "current_sqlite_value": 0.9990234375,
+      "proposed_value": 0.9990234375,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold credit assignment constant in optimization block; joint gamma/lambda/rollout block remains eligible."
+    },
+    {
+      "trainer_key": "gae_lambda",
+      "sqlite_key": "return.gae_lambda",
+      "type": "continuous",
+      "current_sqlite_value": 0.95,
+      "proposed_value": 0.95,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold credit assignment constant in optimization block; joint gamma/lambda/rollout block remains eligible."
+    },
+    {
+      "trainer_key": "bootstrap_truncation",
+      "sqlite_key": "return.bootstrap_truncation",
+      "type": "discrete categorical",
+      "current_sqlite_value": false,
+      "proposed_value": false,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": [
+        false,
+        true
+      ],
+      "method_or_reason": "Hold credit assignment constant in optimization block; joint gamma/lambda/rollout block remains eligible."
+    },
+    {
+      "trainer_key": "num_envs",
+      "sqlite_key": "ppo.num_envs",
+      "type": "discrete integer",
+      "current_sqlite_value": 16,
+      "proposed_value": 16,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold other update/numerical controls to limit this block to four factors; eligible in later blocks."
+    },
+    {
+      "trainer_key": "rollout_len",
+      "sqlite_key": "ppo.rollout_len",
+      "type": "discrete integer",
+      "current_sqlite_value": 512,
+      "proposed_value": 512,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold other update/numerical controls to limit this block to four factors; eligible in later blocks."
+    },
+    {
+      "trainer_key": "epochs",
+      "sqlite_key": "ppo.epochs",
+      "type": "discrete integer",
+      "current_sqlite_value": 2,
+      "proposed_value": 2,
+      "status": "search_this_block",
+      "proposed_range": "{2, 4, 8}",
+      "supported_choices": null,
+      "method_or_reason": "balanced discrete allocation"
+    },
+    {
+      "trainer_key": "minibatches",
+      "sqlite_key": "ppo.minibatches",
+      "type": "discrete integer",
+      "current_sqlite_value": 4,
+      "proposed_value": 4,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold other update/numerical controls to limit this block to four factors; eligible in later blocks."
+    },
+    {
+      "trainer_key": "clip",
+      "sqlite_key": "ppo.clip",
+      "type": "continuous",
+      "current_sqlite_value": 0.1,
+      "proposed_value": 0.1,
+      "status": "search_this_block",
+      "proposed_range": "0.1\u20130.3",
+      "supported_choices": null,
+      "method_or_reason": "linear scale"
+    },
+    {
+      "trainer_key": "ent_coef",
+      "sqlite_key": "ppo.ent_coef",
+      "type": "continuous",
+      "current_sqlite_value": 0.0003000000000000001,
+      "proposed_value": 0.0003,
+      "status": "search_this_block",
+      "proposed_range": "0.0001\u20130.03",
+      "supported_choices": null,
+      "method_or_reason": "log scale"
+    },
+    {
+      "trainer_key": "vf_coef",
+      "sqlite_key": "ppo.vf_coef",
+      "type": "continuous",
+      "current_sqlite_value": 0.5,
+      "proposed_value": 0.5,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold other update/numerical controls to limit this block to four factors; eligible in later blocks."
+    },
+    {
+      "trainer_key": "norm_adv",
+      "sqlite_key": "ppo.norm_adv",
+      "type": "discrete categorical",
+      "current_sqlite_value": true,
+      "proposed_value": true,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": [
+        false,
+        true
+      ],
+      "method_or_reason": "Hold other update/numerical controls to limit this block to four factors; eligible in later blocks."
+    },
+    {
+      "trainer_key": "max_grad_norm",
+      "sqlite_key": "ppo.max_grad_norm",
+      "type": "continuous",
+      "current_sqlite_value": 0.5,
+      "proposed_value": 0.5,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold other update/numerical controls to limit this block to four factors; eligible in later blocks."
+    },
+    {
+      "trainer_key": "lr",
+      "sqlite_key": "optimizer.lr",
+      "type": "continuous",
+      "current_sqlite_value": 0.0003,
+      "proposed_value": 0.0003,
+      "status": "search_this_block",
+      "proposed_range": "0.00003\u20130.001",
+      "supported_choices": null,
+      "method_or_reason": "log scale"
+    },
+    {
+      "trainer_key": "anneal_lr",
+      "sqlite_key": "optimizer.anneal_lr",
+      "type": "discrete categorical",
+      "current_sqlite_value": false,
+      "proposed_value": false,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": [
+        false,
+        true
+      ],
+      "method_or_reason": "Hold other update/numerical controls to limit this block to four factors; eligible in later blocks."
+    },
+    {
+      "trainer_key": "adam_eps",
+      "sqlite_key": "optimizer.adam_eps",
+      "type": "continuous",
+      "current_sqlite_value": 1e-05,
+      "proposed_value": 1e-05,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold other update/numerical controls to limit this block to four factors; eligible in later blocks."
+    },
+    {
+      "trainer_key": "adam_beta1",
+      "sqlite_key": "optimizer.adam_beta1",
+      "type": "continuous",
+      "current_sqlite_value": 0.9,
+      "proposed_value": 0.9,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold other update/numerical controls to limit this block to four factors; eligible in later blocks."
+    },
+    {
+      "trainer_key": "adam_beta2",
+      "sqlite_key": "optimizer.adam_beta2",
+      "type": "continuous",
+      "current_sqlite_value": 0.999,
+      "proposed_value": 0.999,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold other update/numerical controls to limit this block to four factors; eligible in later blocks."
+    },
+    {
+      "trainer_key": "arch",
+      "sqlite_key": "network.arch",
+      "type": "discrete categorical",
+      "current_sqlite_value": "mlp",
+      "proposed_value": "mlp",
+      "status": "user_locked",
+      "proposed_range": null,
+      "supported_choices": [
+        "mlp",
+        "conv"
+      ],
+      "method_or_reason": "user approval required to change"
+    },
+    {
+      "trainer_key": "hidden",
+      "sqlite_key": "network.mlp.hidden",
+      "type": "discrete integer",
+      "current_sqlite_value": 512,
+      "proposed_value": 512,
+      "status": "user_locked",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "user approval required to change"
+    },
+    {
+      "trainer_key": "layers",
+      "sqlite_key": "network.mlp.layers",
+      "type": "discrete integer",
+      "current_sqlite_value": 2,
+      "proposed_value": 4,
+      "status": "user_locked",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "user approval required to change"
+    },
+    {
+      "trainer_key": "act",
+      "sqlite_key": "network.mlp.act",
+      "type": "discrete categorical",
+      "current_sqlite_value": "tanh",
+      "proposed_value": "tanh",
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": [
+        "tanh",
+        "relu"
+      ],
+      "method_or_reason": "Hold activation/initialization for this block; these are not user-locked."
+    },
+    {
+      "trainer_key": "init_hidden_gain",
+      "sqlite_key": "init.hidden_gain",
+      "type": "continuous",
+      "current_sqlite_value": 1.4142135623730951,
+      "proposed_value": 1.4142135623730951,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold activation/initialization for this block; these are not user-locked."
+    },
+    {
+      "trainer_key": "init_actor_gain",
+      "sqlite_key": "init.actor_gain",
+      "type": "continuous",
+      "current_sqlite_value": 0.01,
+      "proposed_value": 0.01,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold activation/initialization for this block; these are not user-locked."
+    },
+    {
+      "trainer_key": "init_critic_gain",
+      "sqlite_key": "init.critic_gain",
+      "type": "continuous",
+      "current_sqlite_value": 1.0,
+      "proposed_value": 1.0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Hold activation/initialization for this block; these are not user-locked."
+    },
+    {
+      "trainer_key": "seed",
+      "sqlite_key": "init.seed",
+      "type": "discrete integer",
+      "current_sqlite_value": 7701,
+      "proposed_value": 7801,
+      "status": "replicate",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "matched fresh seeds, frozen before launch"
+    },
+    {
+      "trainer_key": "init_model",
+      "sqlite_key": "init.checkpoint",
+      "type": "discrete categorical",
+      "current_sqlite_value": null,
+      "proposed_value": null,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Fresh starts and matched replicate seeds in this block; continuation is a separate question."
+    },
+    {
+      "trainer_key": "fresh_optimizer",
+      "sqlite_key": "init.fresh_optimizer",
+      "type": "discrete categorical",
+      "current_sqlite_value": false,
+      "proposed_value": false,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": [
+        false,
+        true
+      ],
+      "method_or_reason": "Fresh starts and matched replicate seeds in this block; continuation is a separate question."
+    },
+    {
+      "trainer_key": "total_steps",
+      "sqlite_key": "budget.total_steps",
+      "type": "discrete integer",
+      "current_sqlite_value": 1000000000,
+      "proposed_value": 1000000000,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Full 60-minute endpoints in this block; longer duration remains a separate eligible experiment."
+    },
+    {
+      "trainer_key": "max_minutes",
+      "sqlite_key": "budget.max_minutes",
+      "type": "continuous",
+      "current_sqlite_value": 0.0,
+      "proposed_value": 0.0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Full 60-minute endpoints in this block; longer duration remains a separate eligible experiment."
+    },
+    {
+      "trainer_key": "wall_minutes",
+      "sqlite_key": "budget.wall_minutes",
+      "type": "continuous",
+      "current_sqlite_value": 60.0,
+      "proposed_value": 60.0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Full 60-minute endpoints in this block; longer duration remains a separate eligible experiment."
+    },
+    {
+      "trainer_key": "eval_every",
+      "sqlite_key": "checkpoint.eval_every",
+      "type": "discrete integer",
+      "current_sqlite_value": 0,
+      "proposed_value": 0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Endpoint-only ranking avoids checkpoint-selection confounding in this block; trajectory evaluation needs separately budgeted design."
+    },
+    {
+      "trainer_key": "eval_episodes",
+      "sqlite_key": "checkpoint.eval_episodes",
+      "type": "discrete integer",
+      "current_sqlite_value": 10,
+      "proposed_value": 10,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Endpoint-only ranking avoids checkpoint-selection confounding in this block; trajectory evaluation needs separately budgeted design."
+    },
+    {
+      "trainer_key": "futility_steps",
+      "sqlite_key": "checkpoint.futility_steps",
+      "type": "discrete integer",
+      "current_sqlite_value": 0,
+      "proposed_value": 0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Endpoint-only ranking avoids checkpoint-selection confounding in this block; trajectory evaluation needs separately budgeted design."
+    },
+    {
+      "trainer_key": "save_every",
+      "sqlite_key": "checkpoint.save_every",
+      "type": "discrete integer",
+      "current_sqlite_value": 0,
+      "proposed_value": 0,
+      "status": "temporary_control",
+      "proposed_range": null,
+      "supported_choices": null,
+      "method_or_reason": "Endpoint-only ranking avoids checkpoint-selection confounding in this block; trajectory evaluation needs separately budgeted design."
+    }
+  ],
+  "design": {
+    "method": "one reference plus eleven midpoint Latin-hypercube points in three continuous dimensions, shuffled with Python random.Random(20261020); epochs balanced over all twelve configurations",
+    "seed": 20261020,
+    "factors": {
+      "lr": {
+        "domain": "continuous",
+        "bounds": [
+          3e-05,
+          0.001
+        ],
+        "scale": "log"
+      },
+      "ent_coef": {
+        "domain": "continuous",
+        "bounds": [
+          0.0001,
+          0.03
+        ],
+        "scale": "log"
+      },
+      "clip": {
+        "domain": "continuous",
+        "bounds": [
+          0.1,
+          0.3
+        ],
+        "scale": "linear"
+      },
+      "epochs": {
+        "domain": "discrete",
+        "values": [
+          2,
+          4,
+          8
+        ],
+        "allocation": "four of each including reference"
+      }
+    },
+    "arms": [
+      {
+        "id": "reference_512x4",
+        "overrides": {}
+      },
+      {
+        "id": "opt01",
+        "overrides": {
+          "lr": 4.839344485e-05,
+          "ent_coef": 0.02314860552,
+          "clip": 0.2181818182,
+          "epochs": 8
+        }
+      },
+      {
+        "id": "opt02",
+        "overrides": {
+          "lr": 6.656256672e-05,
+          "ent_coef": 0.001031259081,
+          "clip": 0.1818181818,
+          "epochs": 8
+        }
+      },
+      {
+        "id": "opt03",
+        "overrides": {
+          "lr": 0.000125926492,
+          "ent_coef": 0.0003655797263,
+          "clip": 0.1272727273,
+          "epochs": 2
+        }
+      },
+      {
+        "id": "opt04",
+        "overrides": {
+          "lr": 0.0002382342232,
+          "ent_coef": 0.002909065291,
+          "clip": 0.1636363636,
+          "epochs": 4
+        }
+      },
+      {
+        "id": "opt05",
+        "overrides": {
+          "lr": 0.0004507037736,
+          "ent_coef": 0.0001295974394,
+          "clip": 0.2363636364,
+          "epochs": 2
+        }
+      },
+      {
+        "id": "opt06",
+        "overrides": {
+          "lr": 0.0006199186706,
+          "ent_coef": 0.01378262667,
+          "clip": 0.2,
+          "epochs": 8
+        }
+      },
+      {
+        "id": "opt07",
+        "overrides": {
+          "lr": 3.518382208e-05,
+          "ent_coef": 0.004885919531,
+          "clip": 0.2545454545,
+          "epochs": 4
+        }
+      },
+      {
+        "id": "opt08",
+        "overrides": {
+          "lr": 0.0008526646119,
+          "ent_coef": 0.0002176653312,
+          "clip": 0.2909090909,
+          "epochs": 4
+        }
+      },
+      {
+        "id": "opt09",
+        "overrides": {
+          "lr": 9.155321144e-05,
+          "ent_coef": 0.0006140092937,
+          "clip": 0.2727272727,
+          "epochs": 2
+        }
+      },
+      {
+        "id": "opt10",
+        "overrides": {
+          "lr": 0.0001732050808,
+          "ent_coef": 0.008206144335,
+          "clip": 0.1090909091,
+          "epochs": 8
+        }
+      },
+      {
+        "id": "opt11",
+        "overrides": {
+          "lr": 0.0003276782925,
+          "ent_coef": 0.001732050808,
+          "clip": 0.1454545455,
+          "epochs": 4
+        }
+      }
+    ],
+    "dispatch_order": [
+      "reference_512x4",
+      "opt10",
+      "opt09",
+      "opt01",
+      "opt07",
+      "opt05",
+      "opt03",
+      "opt02",
+      "opt06",
+      "opt11",
+      "opt04",
+      "opt08"
+    ],
+    "batches": [
+      {
+        "id": "opt512x4-1020-b1",
+        "arms": [
+          "reference_512x4",
+          "opt10",
+          "opt09",
+          "opt01"
+        ],
+        "cap_allocated_core_hours": 15
+      },
+      {
+        "id": "opt512x4-1020-b2",
+        "arms": [
+          "opt07",
+          "opt05",
+          "opt03",
+          "opt02"
+        ],
+        "cap_allocated_core_hours": 15
+      },
+      {
+        "id": "opt512x4-1020-b3",
+        "arms": [
+          "opt06",
+          "opt11",
+          "opt04",
+          "opt08"
+        ],
+        "cap_allocated_core_hours": 15
+      }
+    ],
+    "training_seeds": [
+      7801,
+      7802,
+      7803
+    ],
+    "training_minutes": 60,
+    "no_performance_pruning": true
+  },
+  "evaluation": {
+    "evaluation.action_selection": "sampled",
+    "evaluation.cap_frames": 3600,
+    "evaluation.checkpoint": "endpoint model.pt (eval_every 0: no periodic test, no checkpoint selection)",
+    "evaluation.completion_definition": "the game's level-complete event fired during the episode (evaluate.classify_outcome 'clear'); deaths or timeouts in the countdown after the last kill are not clears",
+    "evaluation.episodes_per_level": 10,
+    "evaluation.frame_skip": 4,
+    "evaluation.levels": "1-99",
+    "evaluation.lives": 1,
+    "evaluation.max_steps": 900,
+    "evaluation.metric": "completed clears per 990 episodes (99 levels x 10 episodes)",
+    "evaluation.metric_version": "clear-v2-2026-10-19 (level_complete event)"
+  },
+  "development": {
+    "banks": [
+      88001,
+      88002
+    ],
+    "used_for": "joint ranking only, after all 36 full-duration jobs and their endpoint evaluations complete",
+    "aggregation": "absolute completed episodes / attempted episodes across three policy seeds and two banks; also each policy seed and per-level clears/deaths/timeouts",
+    "ranking": [
+      "mean completed episode fraction descending",
+      "minimum training-seed completed fraction descending",
+      "arm id ascending"
+    ],
+    "reference": "reference_512x4",
+    "select": "highest-ranked non-reference arm; retain reference in all reporting even if it ranks first",
+    "failure_policy": "show failed seeds and resolve infrastructure failure within one retry/full reservation; if any seed remains incomplete do not declare complete ranking or confirmation readiness"
+  },
+  "confirmation": {
+    "cap_allocated_core_hours": 8,
+    "arms": "selected non-reference arm and reference_512x4 with identical effective settings except fresh seeds",
+    "training_seeds": [
+      7901,
+      7902,
+      7903
+    ],
+    "training_minutes": 60,
+    "development_banks": [
+      89001,
+      89002
+    ],
+    "final_banks": [
+      98001,
+      98002
+    ],
+    "freeze": "freeze selected config before fresh training, then all six endpoint hashes before opening final banks",
+    "decision": "report absolute clear totals/fractions, every training seed, per-level coverage and deaths/timeouts; Codex chooses provisional retained recipe from observed absolute final performance and seed consistency without declaring competence or statistical significance; no old +30 threshold",
+    "no_candidate_switching_on_final": true
+  },
+  "reservation": {
+    "training_search_core_hours": 36,
+    "search_batches_total_cap": 45,
+    "confirmation_cap": 8,
+    "program_cap": 53,
+    "remaining_extension_allocation_for_followups": "72 minus actual program costs and other post-authorization allocation; reserve before launch"
+  },
+  "seed_check": "No proposed training seeds in registered runs and no proposed eval seed integers in registered evaluation protocols at design time; campaign JSON text search also had no matches. Claude checks pending/unregistered reservations before materialization."
+}
