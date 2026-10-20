@@ -83,13 +83,14 @@ Allocated: 12.18 single-thread core-hours of 15.0 (training, evaluation and pref
 ## What this does and does not show
 
 - **Shown:**
-  - With ff12's other settings and one hour of CPU, 1024×2 at lr 0.0003 completes about as many
-    levels as 256×2. It is somewhat fewer on average and not better by the registered margin.
+  - On the final bank, 1024×2 at lr 0.0003 completed a mean of 243 of 990 episodes against the
+    reference's 259 (paired mean −16). It was not better by the registered margin. This design did
+    not test equivalence.
   - Its per-level profile differs from the reference's: better on 35 levels, worse on 44, and at
     least 50% observed completion on 23 levels against 22.
   - Within the round, 0.0003 beat ff12's 0.001 on every training seed of the development bank. The
-    development bank was also the selection bank, so this comparison is not independent of the
-    selection.
+    development bank was also the selection bank, so this is descriptive evidence for choosing the
+    next search, not an independent comparison.
 - **lr 0.003:** every endpoint recorded zero clears on both development seeds. Each one has
   near-zero logged entropy at the end of training (the last 10% of logged steps averages 0.000).
   Codex verified the evaluation counts and the MLflow entropy for seed 7401, and I reported finite
@@ -97,17 +98,23 @@ Allocated: 12.18 single-thread core-hours of 15.0 (training, evaluation and pref
   numerical or optimisation problem during training.
 - **Across rounds:** capacity-1020's 1024×2 used lr 0.001 and lost by −114.3. This round's 1024×2 at
   lr 0.0003 lost by −16.0. The two used different seeds and banks and form part of an adaptive
-  search, so the difference suggests but does not establish that the learning rate accounts for most
-  of capacity-1020's gap.
+  search. Neither the selection nor the cross-round change identifies how much of capacity-1020's gap
+  the learning rate caused.
 - **Throughput is not isolated.** 1024×2 trained about 23–25M steps against the reference's 34–37M.
   The design does not separate throughput from learning dynamics.
 - **Seed spread is large.** The reference ranged from 196/198 (seed 7403) to 302/311 (seed 7402) on
-  the development bank. On seed 7403 the larger network won by 32. With three seed pairs, a true
-  difference of a few tens of clears cannot be resolved in either direction.
+  the development bank. The three independent training-seed pairs showed mixed signs: the larger
+  network won seed 7403 by 32. No formal uncertainty or equivalence analysis is reported, so how far
+  this difference generalises is uncertain.
 - **Not shown:**
   - that 1024×2 cannot beat 256×2 with further tuning (lower rates, entropy, initialisation, longer training);
   - anything about transformers;
   - statistical significance.
+
+*Corrected 2026-10-20 02:00 after Codex review (CODEX-20261020T015102-0700): the first version said
+1024×2 at lr 0.0003 "completes about as many levels", conflating levels with episodes and implying
+equivalence. It also said a difference of a few tens of clears "cannot be resolved in either
+direction", which was too categorical.*
 
 ## Execution notes
 
