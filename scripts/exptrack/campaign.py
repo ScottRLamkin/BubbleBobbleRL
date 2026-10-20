@@ -74,10 +74,17 @@ def process_start(pid: int) -> str | None:
 
 
 def live_processes_mentioning(path: Path) -> list[int]:
-    """Pids of running processes whose command line contains `path` (a run
-    directory): the fallback identity when no child was recorded."""
-    out = subprocess.run(["pgrep", "-f", str(path)], capture_output=True, text=True).stdout.split()
-    return [int(x) for x in out if int(x) != os.getpid()]
+    """Pids of running processes with a command-line argument that is `path`
+    (a run directory) or a file under it: the fallback identity when no child
+    was recorded. Whole-token matching, so runs/x/a_s1 does not match a_s1_a2."""
+    p = str(path).rstrip("/")
+    out = subprocess.run(["ps", "-axo", "pid=,command="], capture_output=True, text=True).stdout
+    pids = []
+    for line in out.splitlines():
+        pid, _, cmd = line.strip().partition(" ")
+        if int(pid) != os.getpid() and any(t == p or t.startswith(p + "/") for t in cmd.split()):
+            pids.append(int(pid))
+    return pids
 
 
 class Campaign:
@@ -234,6 +241,7 @@ class Campaign:
         if self.status.get("final_state") != "done":
             used = sum(p.get("elapsed_seconds", 0.0) for k, p in self.status["parts"].items() if "/eval/final/" in k)
             total += max(0.0, self.final_reservation() - used)
+        total += sum(self.status.get("retry_reservations", {}).values())  # evaluation retries in flight
         return total
 
     def fits(self, seconds: float, committed: float) -> str | None:
@@ -265,10 +273,7 @@ class Campaign:
             if j["state"] == "not_run" and j["attempts"] == 0:
                 store.add_event(self.con(), "requeued", {"previous_reason": j.get("error")}, run_id=j["run_id"])
                 j.update(state="queued", requeued_from=j.pop("error", None))
-        for jid, j in self.status["jobs"].items():  # a previous runner stopped mid-job
-            if j["state"] in ("running", "evaluating"):
-                self.reconcile(jid, j)
-        self.save()
+        self.reconcile_all()
         total = self.committed()
         if total > self.cap_seconds:
             raise SystemExit(f"plan needs {total / 3600:.2f} reserved core-hours, cap "
@@ -296,6 +301,59 @@ class Campaign:
             return
         self.select_and_finalize()
 
+    def reconcile_all(self) -> None:
+        """After a previous runner stopped: reconcile every job (running or
+        evaluating ones fully; any other job's leftover child identity, such as
+        a final-bank evaluator on a done job), then drop retry reservations,
+        whose children have just been reconciled."""
+        for jid, j in self.status["jobs"].items():
+            if j["state"] in ("running", "evaluating"):
+                self.reconcile(jid, j)
+            else:
+                self.reconcile_stray_child(jid, j)
+        stale = self.status.pop("retry_reservations", {})
+        if stale:
+            store.add_event(self.con(), "retry_reservations_released", {"keys": sorted(stale)},
+                            experiment_id=self.status.get("experiment_id"))
+        self.save()
+
+    def live_children(self, j: dict) -> list[int]:
+        """Live processes belonging to this job: its recorded child (same pid and
+        start time) or any process naming its run directory."""
+        child, alive = j.get("child"), []
+        if child and child.get("start") and process_start(child["pid"]) == child["start"]:
+            alive.append(child["pid"])
+        if j.get("dir"):
+            alive += [p for p in live_processes_mentioning(Path(j["dir"])) if p not in alive]
+        return alive
+
+    def charge_dead_child(self, j: dict) -> None:
+        """A recorded child that is gone without its cost recorded: charge from
+        its recorded start (capped at its allowance) and clear the record."""
+        child = j.pop("child", None)
+        if not child:
+            return
+        cap = self.train_reservation(j["phase"]) if child["kind"] == "train" else self.eval_hard
+        charged = round(min(max(0.0, time.time() - child["since"]), cap), 1)
+        self.status["parts"][f"{j.get('attempt_id')}/{child['kind']}/interrupted-{int(child['since'])}"] = {
+            "elapsed_seconds": charged, "estimated": "from the recorded child start; the child is gone"}
+
+    def reconcile_stray_child(self, jid: str, j: dict) -> None:
+        """A job that is not running or evaluating but may still own a process
+        (e.g. a final-bank evaluator on a done job). A live one blocks final
+        dispatch (orphan_child); a dead one is charged and cleared. Training
+        state and the frozen selection are left alone."""
+        alive = self.live_children(j) if (j.get("child") or j.get("dir")) else []
+        if alive:
+            j["orphan_child"] = {"pids": alive, "child": j.get("child")}
+            store.add_event(self.con(), "orphan_detected", {"pids": alive, "child": j.get("child"),
+                                                            "state": j["state"]},
+                            run_id=j["run_id"], attempt_id=j.get("attempt_id"))
+            self.log(f"ORPHAN {jid}: live processes {alive} from a previous runner; final dispatch blocked")
+        else:
+            self.charge_dead_child(j)
+            j.pop("orphan_child", None)
+
     def reconcile(self, jid: str, j: dict) -> None:
         """A job a previous runner left running or evaluating. A child that is
         still alive (recorded pid and start time, or any process naming the run
@@ -306,11 +364,7 @@ class Campaign:
         of retraining; otherwise the attempt counts as an infrastructure failure."""
         con = self.con()
         child = j.get("child")
-        alive = []
-        if child and child.get("start") and process_start(child["pid"]) == child["start"]:
-            alive.append(child["pid"])
-        if j.get("dir"):
-            alive += [p for p in live_processes_mentioning(Path(j["dir"])) if p not in alive]
+        alive = self.live_children(j)
         if alive:
             j.update(state="orphaned", error=f"processes {alive} from a previous runner are still alive; "
                                              "not dispatched again")
@@ -319,12 +373,17 @@ class Campaign:
             self.log(f"ORPHAN {jid}: live processes {alive}; not dispatched again, reservation kept")
             return
         if child:
-            phase = j["phase"]
-            cap = self.train_reservation(phase) if child["kind"] == "train" else self.eval_hard
-            charged = round(min(max(0.0, time.time() - child["since"]), cap), 1)
-            self.status["parts"][f"{j['attempt_id']}/{child['kind']}/interrupted-{int(child['since'])}"] = {
-                "elapsed_seconds": charged, "estimated": "from the recorded child start; the child is gone"}
-            j.pop("child", None)
+            self.charge_dead_child(j)
+        elif j["state"] == "running" and j.get("attempt_id"):
+            launched = con.execute("SELECT 1 FROM events WHERE attempt_id = ? AND event = 'training_started'",
+                                   (j["attempt_id"],)).fetchone()
+            if launched and f"{j['attempt_id']}/train" not in self.status["parts"]:
+                j.update(state="needs_review", error="training was launched but neither its process record nor "
+                                                     "its cost survived: cost unknowable, not retried automatically")
+                store.add_event(con, "needs_review", {"reason": j["error"]}, run_id=j["run_id"],
+                                attempt_id=j["attempt_id"])
+                self.log(f"NEEDS REVIEW {jid}: {j['error']}")
+                return
         model = Path(j["dir"]) / "model.pt" if j.get("dir") else None
         if (j["state"] == "evaluating" and j.get("model_sha256") and model and model.exists()
                 and db.sha256_file(model) == j["model_sha256"]):
@@ -336,15 +395,18 @@ class Campaign:
         store.add_event(con, "failed", {"stage": "runner stopped", "infrastructure": True},
                         run_id=j["run_id"], attempt_id=j.get("attempt_id"))
 
-    def run_child(self, j: dict | None, kind: str, argv: list[str], out: Path, err: Path, timeout: float):
-        """Run one trainer or evaluator, recording its identity in status.json
-        before waiting, so a restarted runner can recognise it."""
+    def run_child(self, j: dict | None, kind: str, argv: list[str], out: Path, err: Path, timeout: float,
+                  cost_key: str):
+        """Run one trainer or evaluator. Its identity is written to status.json
+        before waiting, so a restarted runner can recognise it; when it ends,
+        its elapsed time (parts[cost_key]) and the clearing of its identity are
+        one status write, so a crash can never lose both. Returns (rc, seconds)."""
+        t0 = time.time()
         with open(out, "w") as o, open(err, "w") as e:
             proc = subprocess.Popen(argv, env=self.env, stdout=o, stderr=e)
             if j is not None:
                 with self.lock:
-                    j["child"] = {"pid": proc.pid, "start": process_start(proc.pid), "kind": kind,
-                                  "since": time.time()}
+                    j["child"] = {"pid": proc.pid, "start": process_start(proc.pid), "kind": kind, "since": t0}
                     self.save()
             try:
                 rc = proc.wait(timeout=timeout)
@@ -352,21 +414,23 @@ class Campaign:
                 proc.kill()
                 proc.wait()
                 rc = "timeout"
-        if j is not None:
-            with self.lock:
+        seconds = round(time.time() - t0, 1)
+        with self.lock:
+            self.status["parts"][cost_key] = {"elapsed_seconds": seconds}
+            if j is not None:
                 j.pop("child", None)
-                self.save()
-        return rc
+            self.save()
+        return rc, seconds
 
     def train_job(self, phase: str, arm: str, seed: int) -> None:
         jid = self.job_id(arm, seed)
         j = self.status["jobs"][jid]
         try:
-            if j["state"] == "orphaned":
+            if j["state"] in ("orphaned", "needs_review"):
                 return
             if j["state"] == "evaluating" and j.get("resume_evaluation"):
                 self.dev_evaluations(phase, arm, seed, j)
-            while j["state"] not in ("done", "failed", "orphaned"):
+            while j["state"] not in ("done", "failed", "orphaned", "needs_review"):
                 if j["attempts"] >= 2 or (j["attempts"] == 1 and not j.get("retryable")):
                     with self.lock:
                         j["state"] = "failed"
@@ -454,11 +518,8 @@ class Campaign:
                         attempt_id=attempt_id)
         self.log(f"start {jid} attempt {n} (mlflow {ml_run[:8]})")
         timeout = eff["wall_minutes"] * 60 + self.grace
-        rc = self.run_child(j, "train", argv, d / "train.out", d / "train.err", timeout)
-        train_seconds = round(time.time() - t0, 1)
-        with self.lock:
-            self.status["parts"][f"{attempt_id}/train"] = {"elapsed_seconds": train_seconds}
-            self.save()
+        rc, train_seconds = self.run_child(j, "train", argv, d / "train.out", d / "train.err", timeout,
+                                           f"{attempt_id}/train")
         summary_path = d / "train_summary.json"
         if rc != 0 or not summary_path.exists() or not (d / "model.pt").exists():
             err = (d / "train.err").read_text()[-600:]
@@ -523,15 +584,25 @@ class Campaign:
         is checked against the remaining budget and the deadline first; each
         try keeps its own output files and elapsed-time record."""
         for n in (1, 2):
+            rkey = f"{j['attempt_id']}/eval/{role}/{seed}/try{n}"
             if n > 1:
-                with self.lock:
+                with self.lock:  # check and reserve in one step, so concurrent retries cannot share the room
                     reason = self.halted or self.fits(self.eval_hard, self.committed() + self.eval_hard)
+                    if not reason:
+                        self.status.setdefault("retry_reservations", {})[rkey] = self.eval_hard
+                        self.save()
                 if reason:
                     self.log(f"evaluation retry {role} {seed} for {j['attempt_id']} not run: {reason}")
                     return None
             target = out if n == 1 else out.with_name(f"{out.stem}.try{n}{out.suffix}")
-            r = self.evaluate(j["run_id"], j["attempt_id"], j["mlflow_run_id"], Path(j["dir"]) / "model.pt",
-                              j["model_sha256"], eff, role, seed, target, j["steps"], try_n=n, job=j)
+            try:
+                r = self.evaluate(j["run_id"], j["attempt_id"], j["mlflow_run_id"], Path(j["dir"]) / "model.pt",
+                                  j["model_sha256"], eff, role, seed, target, j["steps"], try_n=n, job=j)
+            finally:
+                if n > 1:
+                    with self.lock:  # its actual time is now in parts[...]; release the reservation
+                        self.status.get("retry_reservations", {}).pop(rkey, None)
+                        self.save()
             if r is not None:
                 return r
         return None
@@ -567,13 +638,9 @@ class Campaign:
                 "--per-level-out", str(out)]
         argv += ["--control-obs"] if proto["control_obs"] else []
         argv += ["--nearest-first"] if proto["nearest_first"] else []
-        t0 = time.time()
-        rc = self.run_child(job, "eval", argv, out.with_suffix(".out"), out.with_suffix(".err"), self.eval_hard)
-        seconds = round(time.time() - t0, 1)
         key = f"{attempt_id}/eval/{role}/{seed}" + (f"/try{try_n}" if try_n > 1 else "")
-        with self.lock:
-            self.status["parts"][key] = {"elapsed_seconds": seconds}
-            self.save()
+        rc, seconds = self.run_child(job, "eval", argv, out.with_suffix(".out"), out.with_suffix(".err"),
+                                     self.eval_hard, key)
         if rc != 0 or not out.exists():
             store.add_event(con, "failed", {"stage": f"evaluation {role} {seed}", "rc": rc}, run_id=run_id,
                             attempt_id=attempt_id)
@@ -755,6 +822,23 @@ class Campaign:
             self.log(f"final evaluation not run: {reason}")
             return
         seeds = c["seeds.training"][c["design.phases"][0]]
+        blocked = {}
+        for arm in (selection["selected_arm"], ref):
+            for s in seeds:
+                j = self.status["jobs"][self.job_id(arm, s)]
+                if j.get("orphan_child"):
+                    alive = self.live_children(j)
+                    if alive:
+                        blocked[self.job_id(arm, s)] = alive
+                    else:  # it ended after the restart; its cost was never recorded
+                        with self.lock:
+                            self.charge_dead_child(j)
+                            j.pop("orphan_child", None)
+                            self.save()
+        if blocked:
+            self.log(f"final evaluation blocked: evaluators from a previous runner are still alive {blocked}")
+            store.add_event(con, "final_blocked", {"live": blocked}, experiment_id=self.status["experiment_id"])
+            return
         final = {}
         for arm in (selection["selected_arm"], ref):
             for s in seeds:

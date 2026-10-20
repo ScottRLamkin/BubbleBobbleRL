@@ -508,3 +508,121 @@ def test_preflight_is_bounded_by_the_remaining_allowance(tmp_path, monkeypatch):
     parts = json.loads((root / "status.json").read_text())["parts"]
     cost = [p["elapsed_seconds"] for k, p in parts.items() if k.startswith("preflight/")]
     assert len(cost) == 1 and 0.4 <= cost[0] <= 5  # recorded although the subprocess was cut off
+
+
+def test_live_final_bank_evaluator_blocks_final_dispatch(tmp_path):
+    """A done job whose final-bank evaluator from a previous runner is still
+    alive: no second evaluator, no retraining, until it is gone."""
+    import subprocess
+
+    from exptrack.campaign import process_start
+
+    c, root = _campaign_with_status(tmp_path)
+    ids = c.register()
+    c.status.update(experiment_id=ids["experiment_id"], revision_id=ids["revision_id"])
+    for arm in ("ref", "wide"):
+        j = c.status["jobs"][f"{arm}_s11"]
+        d = root / f"{arm}_s11"
+        d.mkdir(exist_ok=True)
+        j.update(dir=str(d), model_sha256=f"sha-{arm}", steps=1, mlflow_run_id="m", development={"5": 1})
+    (root / "selection.json").write_text(json.dumps({
+        "selected_arm": "wide", "reference_arm": "ref", "checkpoints": {"wide": {"11": "sha-wide"},
+                                                                         "ref": {"11": "sha-ref"}},
+        "development": {}, "frozen": "t"}))
+    sleeper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)",
+                                str(root / "wide_s11" / "eval_final_6.json")])
+    calls = []
+    c.evaluate_with_retry = lambda j, role, seed, eff, out: calls.append((j["arm"], role)) or None
+    try:
+        jw = c.status["jobs"]["wide_s11"]
+        jw["child"] = {"pid": sleeper.pid, "start": process_start(sleeper.pid), "kind": "eval", "since": 0.0}
+        c.reconcile_all()
+        assert jw["state"] == "done" and jw["orphan_child"]["pids"] == [sleeper.pid]
+        c.select_and_finalize()
+        assert calls == [] and c.status["final_state"] == "pending"  # blocked: nothing dispatched
+    finally:
+        sleeper.kill()
+        sleeper.wait()
+    with pytest.raises(Exception):  # unblocked now: dispatch proceeds (the stub's None result is refused)
+        c.select_and_finalize()
+    assert calls and "orphan_child" not in jw and jw["state"] == "done"
+    assert any("/eval/interrupted" in k for k in c.status["parts"])  # the dead evaluator's time is charged
+
+
+def test_concurrent_retries_cannot_share_one_allowance(tmp_path):
+    import threading
+    import time
+
+    c, root = _campaign_with_status(tmp_path)
+    barrier = threading.Barrier(2)
+    second_tries = []
+
+    def fake(run_id, attempt_id, ml_run, model, sha, eff, role, seed, out, step, try_n=1, job=None):
+        if try_n == 1:
+            barrier.wait()  # both first tries fail together, so both retries race
+            return None
+        second_tries.append(seed)
+        time.sleep(0.3)  # hold the reservation while the other retry checks
+        return {"cleared": 1}
+
+    c.evaluate = fake
+    for arm in ("ref", "wide"):
+        c.status["jobs"][f"{arm}_s11"].update(dir=str(root), mlflow_run_id="m", model_sha256="x", steps=1)
+    c.cap_seconds = c.committed() + c.eval_hard + 1.0  # room for exactly one extra evaluation
+    results = {}
+    threads = [threading.Thread(target=lambda a=a, s=s: results.__setitem__(a, c.evaluate_with_retry(
+        c.status["jobs"][f"{a}_s11"], "final", s, {}, root / f"eval_{a}.json"))) for a, s in (("ref", 6), ("wide", 7))]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(second_tries) == 1 and sorted(v is None for v in results.values()) == [False, True]
+    assert c.status.get("retry_reservations", {}) == {}  # released after the try
+
+
+def test_child_cost_survives_the_clear_boundary_exactly_once(tmp_path):
+    import time
+
+    from exptrack import store
+
+    c, root = _campaign_with_status(tmp_path)
+    j = c.status["jobs"]["ref_s11"]
+    j.update(state="running", dir=str(root / "ref_s11"))
+    (root / "ref_s11").mkdir()
+    rc, secs = c.run_child(j, "train", [sys.executable, "-c", "pass"], root / "o.txt", root / "e.txt", 30,
+                           f"{j['attempt_id']}/train")
+    saved = json.loads((root / "status.json").read_text())
+    assert rc == 0 and "child" not in saved["jobs"]["ref_s11"]  # cleared and charged in the same write
+    assert saved["parts"][f"{j['attempt_id']}/train"]["elapsed_seconds"] == secs
+    # Interrupted before that write: the child record survives, so the time is charged once on restart.
+    jw = c.status["jobs"]["wide_s11"]
+    jw.update(state="running", dir=str(root / "wide_s11"),
+              child={"pid": 999999, "start": "gone", "kind": "train", "since": time.time() - 50})
+    c.reconcile_all()
+    c.reconcile_all()
+    charged = [p for k, p in c.status["parts"].items() if k.startswith(jw["attempt_id"] + "/train/interrupted")]
+    assert len(charged) == 1 and 49 <= charged[0]["elapsed_seconds"] <= 60
+    # Neither record nor cost survived for a launched attempt: refuse recovery, keep the reservation.
+    j.update(state="running")
+    c.status["parts"].pop(f"{j['attempt_id']}/train")
+    store.add_event(c.con(), "training_started", {}, run_id=j["run_id"], attempt_id=j["attempt_id"])
+    before = c.committed()
+    c.reconcile_all()
+    assert j["state"] == "needs_review" and c.committed() >= before
+    c.train_job("main", "ref", 11)
+    assert j["state"] == "needs_review" and j["attempts"] == 1
+
+
+def test_run_directory_matching_is_whole_path(tmp_path):
+    import subprocess
+
+    from exptrack.campaign import live_processes_mentioning
+
+    a, b = tmp_path / "ref_s11", tmp_path / "ref_s11_a2"
+    p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)", str(b / "model.pt")])
+    try:
+        assert p.pid in live_processes_mentioning(b)
+        assert p.pid not in live_processes_mentioning(a)
+    finally:
+        p.kill()
+        p.wait()
