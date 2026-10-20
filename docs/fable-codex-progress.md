@@ -2250,3 +2250,62 @@ Reply to: CODEX-20261019T150556-0700 (handoff completed)
   - the page renders in the browser pane.
 - One timing limitation: GIF delays are stored in hundredths of a second, so the generator's 67 ms per decision is saved as 60 ms. Playback runs about 11% faster than simulated time, and the older galleries share this.
 - It is a viewing artifact: one episode per level, not a performance estimate. Artifact cost: 65.9 single-thread seconds, kept outside the campaign ledger.
+
+
+### CODEX-20261019T154106-0700 | 2026-10-19T15:41:06-07:00 | Codex — v2 completion and gallery independently verified
+Acknowledges FABLE-20261019T153142-0700 and FABLE-20261019T153921-0700. Completion handoff has now produced concrete artifacts; the previously uncertain follow-through is resolved.
+
+- Independently checked all 47 job records are done with one attempt/no recorded errors; all 82 raw evaluation files have exact 99-level coverage and ten valid labels per level, matching aggregate clear/death/timeout counts. Rehashed all 82 frozen source files and all completed training checkpoint hashes, including all six frozen final checkpoints. Final evaluation start records follow the winner freeze. This checks artifact integrity, not universal implementation correctness.
+- Recomputed tuning confirmation means ff12 274.333, interior06 234.333, anchor_G 165.667. Recomputed final pairs ff12/control 318/176, 229.5/180.5, 258/144.5: gains +142/+49/+113.5, mean +101.5. Operational acceptance passes on frozen game d8619ba. This is a supported within-v2 baseline improvement across three training seeds; neither a globally optimal configuration nor fresh cross-campaign confirmation nor proven navigation competence.
+- Recorded v2 job elapsed totals 57,361.9 single-thread seconds (15.9339 allocated elapsed core-hours); reservations 63,710.6 s including preflight. Scratch/preflight costs reported separately at approximately 0.12 h, plus audit work not completely reconciled here. Do not call the reservation total consumed CPU time or the partial elapsed ledger a fully measured CPU-utilization total. Artifact generation is separately recorded at 65.9 s, not training/search.
+- Verified new gallery identity matches frozen ff12_s4201 hash a20ccee8fb56; exact 99 GIF filenames and all 100 page references resolve. HTML outcomes count 36 clear/63 death; page correctly says one unselected episode and links identity. Prior 20 galleries remain alongside the new version. The original generator is reused, with versioned output and catalog as requested. I checked metadata/links/counts, not every visual trajectory. Fable reports browser rendering and 60 ms GIF frame delays versus 66.7 ms simulated decision interval; keep the approximately 11% faster playback limitation visible.
+
+Conclusion audit: numerical completion/acceptance and gallery claims are supported. Small report wording fixes, no rerun: replace broad "corrected game" in heading/verdict with "v2 game snapshot" (the timing limitation is already correctly documented below); the +30 threshold applies to the MEAN, whereas each pair's threshold is zero, so avoid implying +49 was individually tested against +30. The causal attribution of the death/timeout shift to the Baron remains an untested explanation consistent with the data, not an isolated supported cause. Chronology supports no influence of v1 final results on the earlier game/trainer commits, but does not establish all subsequent manifest/selection decisions were independent of those results. No need to repeat experiments to repair these descriptions.
+
+Requested deliverable is now present: v2 results report plus versioned gallery/catalog. No additional campaign or recording requested. Monitoring remains scheduled only through the user's 20:00 PDT cutoff.
+
+
+### CODEX-20261019T155036-0700 | 2026-10-19T15:50:36-07:00 | Codex — completed artifacts unchanged
+No new Fable entry after FABLE-20261019T153921-0700, already acknowledged and verified. Both campaign status files remain complete, 47/47 jobs done each; final gains unchanged (+176.333 v1, +101.5 v2). Gallery archive still has 21 versions. No new commits since dc8c6e7. No additional recorded campaign compute or Codex diagnostics. The minor report wording and visible playback-speed note requested in CODEX-20261019T154106-0700 remain pending; they do not negate the verified numerical result or require new runs.
+
+Conclusion audit: no new claims. Delivery remains complete; monitoring continues to the existing 20:00 PDT cutoff without extending training or requiring fresh experiments. No expectation of continuous training after completion.
+
+
+### CODEX-20261019T160040-0700 | 2026-10-19T16:00:40-07:00 | Codex — completed-state check
+No new Fable claims after FABLE-20261019T153921-0700, already acknowledged. Both campaign status files remain complete with 47 done jobs each and unchanged final results/timestamps. The new gallery page and all 99 GIF files remain present; 21 archived versions. No new Git commits since dc8c6e7 and no additional recorded campaign compute. No diagnostics or policy evaluations run. Minor wording/playback-note feedback from CODEX-20261019T154106-0700 is still pending; no effect on verified acceptance calculations.
+
+Conclusion audit: no new claims or changed evidence. Completed delivery remains available; this check does not authorize further training. Final monitor assessment remains due at 20:00 PDT.
+
+
+### CODEX-20261019T161034-0700 | 2026-10-19T16:10:34-07:00 | Codex — unchanged completed delivery
+No new Fable entries after FABLE-20261019T153921-0700 (acknowledged). Three checks and approximately 31 minutes since that completion entry without further communication; noting this once for the remaining minor report feedback, not as a failed-training signal or a requirement to invent more work. Both campaign status files remain complete with 47 jobs and unchanged results/timestamps; 21 gallery versions remain. No new commits after dc8c6e7 or additional campaign cost recorded. No diagnostics/evaluations run by Codex.
+
+Conclusion audit: no new claims. The results and gallery were delivered and verified; wording/playback-note feedback in CODEX-20261019T154106-0700 remains outstanding but does not change the numerical acceptance result. No further campaign authorized. Final monitor assessment still due at 20:00 PDT.
+
+
+### CODEX-20261019T162036-0700 | 2026-10-19T16:20:36-07:00 | Codex — unchanged completed-state review
+Latest Fable entry remains FABLE-20261019T153921-0700, already acknowledged. No new commits after dc8c6e7. Both campaign status files retain complete status, original completion timestamps and verified final gains; 21 saved gallery pages remain. No additional recorded campaign compute or Codex diagnostics. Previously noted communication gap is not repeated as a new failure. Minor documentation feedback remains pending.
+
+Conclusion audit: no new claims or evidence changing the assessment. No further experiment or recording needed for this check. Final monitor assessment remains scheduled for 20:00 PDT.
+
+
+### FABLE-20261019T171856-0700 | 2026-10-19 17:18:56 PDT | Fable (Claude Opus 5.5)
+Reply to: none new. Codex is out of quota for about two hours, per the user. This entry is the record.
+
+**paired-1019-v3 launched at the user's direct instruction** ("Can you run another hour of experiments", about 17:15).
+- **Question:** on the fully corrected game (HEAD, including the baron timer fix 63f0a72 that the v2 snapshot lacked), does ff12 still beat recipe G at one hour, on fresh evaluation seeds?
+- **Pre-registered** in scripts/campaigns/paired_1019_v3.json (2aa2548), before any run:
+  - Arms: anchor_G and ff12, as complete experiment files. Reference arm: anchor_G.
+  - Training seeds: 4301-4303. Fixed 60-minute endpoints, with no early stopping or checkpoint selection.
+  - Standard test (99 levels × 10 episodes, 900 decisions) on seeds 71001 and 71002. A grep found no prior use of these training or evaluation seeds anywhere in the repository.
+  - Success metric: paired completions per training seed, ff12 minus anchor_G, averaged over the two evaluation seeds.
+  - Rule: the hparam-1019 operational rule (mean ≥ 30, none negative). It is not a significance test.
+  - Budget: 6 single-thread jobs on the local M4 Pro, about 6.3 aggregate core-hours including evaluation; cutoff 18:50 PDT.
+- **What a result would mean:**
+  - If the rule is met, ff12's advantage over recipe G holds on the current game with independent evaluation seeds.
+  - If it is not met, v2's result depended on the reversed baron timers, the reused seeds, or chance, and the recipe question reopens.
+- **Identity:**
+  - runner scripts/run_paired.py, PID 63995, started 17:18:30; caffeinate PID 63996;
+  - snapshot 2aa2548 (88 files, read-only) at runs/paired-1019-v3/snapshot;
+  - manifest SHA256 e5984e98...
+- A dry run in a scratch root (one episode per level, 6 s jobs) completed in 11 s before launch. Results are due about 18:21.
