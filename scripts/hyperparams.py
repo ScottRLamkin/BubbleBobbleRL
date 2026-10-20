@@ -194,17 +194,24 @@ def census(config_path: str | None = None) -> str:
              "Every hyperparameter of a training experiment, generated from `scripts/hyperparams.py`. There are "
              "no defaults: `train_ppo.py` refuses to start unless the experiment configuration states every one.",
              "", f"Values shown are from `{config_path}`." if config_path else "", ""]
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from exptrack.schema import RUN_KEYS
+
+    lines += ["Run-level hyperparameters: each is stored per run in `experiments.sqlite3` under the namespaced "
+              "key shown, with its unit, provenance and whether another setting switches it off "
+              "(`docs/experiment-tracking.md`).", ""]
     total = 0
     for g, title in GROUPS.items():
         rows = [s for s in SCHEMA if s[2] == g]
         total += len(rows)
-        lines += [f"## {title} ({len(rows)})", "", "| hyperparameter | type | value | meaning |", "|---|---|---|---|"]
+        lines += [f"## {title} ({len(rows)})", "", "| hyperparameter | stored as | type | value | meaning |",
+                  "|---|---|---|---|---|"]
         for name, t, _, meaning in rows:
             ts = "one of " + "/".join(t[1]) if isinstance(t, tuple) else {"path?": "path or null"}.get(t, t)
             val = json.dumps(base[name]) if name in base else ""
-            lines.append(f"| `{name}` | {ts} | {val} | {meaning} |")
+            lines.append(f"| `{name}` | `{RUN_KEYS[name][0]}` | {ts} | {val} | {meaning} |")
         lines.append("")
-    lines += [f"Total: {total} hyperparameters.", "",
+    lines += [f"Total: {total} run-level hyperparameters.", "",
               "Run controls (not hyperparameters; optional): " + ", ".join(f"`{r}`" for r in RUN_CONTROLS) + ".", ""]
     lines += _search_and_protocol_sections()
     return "\n".join(lines)
@@ -235,12 +242,21 @@ def _search_and_protocol_sections() -> list[str]:
                 "network and the observation.", ""]
     except Exception as e:  # noqa: BLE001
         out += [f"(evolve.py not importable here: {e})", ""]
-    out += ["## Standard-test protocol (`scripts/evaluate.py`)", "",
-            "Evaluation is a fixed protocol rather than an experiment choice: levels 1-99 (level 100's boss is "
-            "not implemented), 10 episodes per level (990), 900 agent steps (one minute at frame skip 4), one "
-            "life, sampled actions, seed 4242 unless a bank says otherwise, outcome = the game's completion "
-            "event. Observation flags must match the checkpoint, which the loader enforces. Its command-line "
-            "values default to this protocol.", "",
+    from exptrack.schema import EXPERIMENT_SCHEMA
+
+    out += [f"## Experiment-level hyperparameters ({len(EXPERIMENT_SCHEMA)})", "",
+            "A registered experiment (`scripts/exptrack/schema.py`) states every one of these; each revision "
+            "is immutable and each key is a typed row in `experiments.sqlite3`. The evaluation protocol, seed "
+            "banks, budget, selection and acceptance rules are experiment hyperparameters, not fixed code.", "",
+            "| key | type | unit | meaning |", "|---|---|---|---|"]
+    for k, (t, unit, meaning) in EXPERIMENT_SCHEMA.items():
+        out.append(f"| `{k}` | {t.replace('?', ' or null')} | {unit or ''} | {meaning} |")
+    out += ["", "## Evaluator command line (`scripts/evaluate.py`)", "",
+            "The registered campaign runner passes every protocol setting explicitly (levels, episodes, decision "
+            "cap, frame skip, seed, lives, action selection, observation flags) and checks the protocol the "
+            "evaluator reports. For hand use the command line still defaults to levels 1-99, 10 episodes, 900 "
+            "decisions, frame skip 4, one life, sampled actions, seed 4242. Observation flags must match the "
+            "checkpoint, which the loader enforces.", "",
             "## Fixed design (not exposed)", "",
             "- Observation layout: 8 player features; slots for 16 enemies, 16 bubbles, 8 loot items, 4 "
             "in-flight bubbles, 8 enemy projectiles; the ego tile window is 11 x 15; feature scalings.",
