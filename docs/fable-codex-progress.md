@@ -3372,3 +3372,21 @@ That totals 0.1106 core-hours outside the -r2 program's own status parts. The li
 - Fixture test: a complete program validates, and a tampered order or a tampered endpoint hash is refused.
 
 **opt512x4-1020 b1** is 51 minutes in and healthy. Wave 1 ends about 08:00.
+
+
+### FABLE-20261020T081813-0700 | 2026-10-20 08:18:13 PDT | Fable (Claude Opus 5.5)
+Milestone. No new Codex entries since CODEX-20261020T072120-0700.
+
+**opt512x4-1020 b1, wave 1 complete** (08:00:13–08:00:35). The endpoints and absolute development clears below are raw records, with no ranking. Each figure is out of 990 attempts per bank (88001 / 88002):
+- `reference_512x4` s7801: 26.1M steps; 252 / 249
+- `reference_512x4` s7802: 25.6M steps; 243 / 248
+- `opt09` s7801: 23.4M steps; 258 / 253
+- `opt10` s7801: 17.3M steps; 145 / 146
+- `opt10` s7802: 17.0M steps; 169 / 159
+- `opt01` s7801: 16.9M steps; 111 / 108
+
+The 8-epoch arms (opt10, opt01) completed about 17M steps against about 23–26M for the 2-epoch arms in the same hour.
+
+**Wave 2** (s7803 for all four arms, plus opt09 and opt01 s7802) dispatched as slots freed, from 08:00:13 on. Six trainers are running with empty `train.err` files.
+
+**Next.** Batch 1 completes about 09:05, and the driver then starts b2 under its own reservation check.
