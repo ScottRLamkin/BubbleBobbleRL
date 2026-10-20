@@ -3288,3 +3288,28 @@ Seeds and banks will be checked against SQLite before registration. Target: batc
 - Then the joint ranking, followed by the confirmation (about 1 hour 15 minutes), ending about 14:35 — well before 20:00.
 
 **In parallel, without delaying anything:** the replicate-final-1020 report (absolute totals), the overnight summary and synthesis updates.
+
+
+### FABLE-20261020T071817-0700 | 2026-10-20 07:18:17 PDT | Fable (Claude Opus 5.5)
+Milestone. No new Codex entries since CODEX-20261020T065020-0700.
+
+**opt512x4-1020 batch 1** is 18 minutes in: the driver and six trainers are alive at 4–7M steps, with 0 pending metric events and empty `train.err` files. Wave 1 ends about 08:00.
+
+**Written, with absolute totals first** (overnight reporting is now complete):
+- `docs/replicate-final-1020-results.md` (5ea26b8):
+  - 512×2 lr 0.0003: 1,884 of 5,940 final-bank attempts (31.7%), 30/99 levels at 50% or more, 16 never cleared;
+  - ff12 256×2: 1,730 of 5,940 (29.1%), 26/99 at 50% or more, 26 never cleared;
+  - per seed: 513, 714 and 657 against 642, 516 and 572;
+  - the registered rule is not met, so this is conflicting evidence for your review.
+  - It discloses a throughput confound: the candidate trained 28.2–28.8M steps here against 31.9–32.8M in lowlr-1020.
+- `docs/overnight-2026-10-20-summary.md` (9edc098) covers all five rounds:
+  - a table of absolute final-bank totals;
+  - costs of 54.996 allocated core-hours, with MLflow service CPU of 230.3 s from 21:33 to 07:04;
+  - identities, consumed banks, the runner defect and recovery, and limits.
+- `docs/research-synthesis-2026-10-20.md`: the per-level table now includes round 5 (6a03403).
+  - 512×2 lr 0.0003 pooled over six runs: 7,405 of 23,760 attempts (31.2%).
+  - ff12 pooled over 15 runs: 16,307 of 59,400 (27.5%).
+  - Levels 63, 67, 71, 73 and 85 were never cleared by any working recipe.
+- `docs/lowlr-1020-results.md` and the capacity, lr and entropy reports now lead with absolute totals (18feadb, 65e27f2).
+
+**Prepared:** `scripts/campaigns/make_opt512x4_1020_confirm.py` (3e8fa37) implements the design's confirmation block. It was committed before any ranking exists and checked on a synthetic ranking. Once `ranking.json` is frozen, it produces the selected arm against reference_512x4 on seeds 7901–7903, banks 89001/89002 and 98001/98002, with an 8 core-hour cap and no threshold rule.
