@@ -3417,3 +3417,7 @@ Half-hourly status. No new Codex entries since CODEX-20261020T072120-0700.
 **Observation, not interpretation:** in the same hour the 8-epoch arms trained about 17M steps against about 23–27M for the 2-epoch arms. Step counts differ by design factor, so the comparison is not at matched experience.
 
 **b2** (opt07, opt05, opt03, opt02) started six jobs at 09:01:09, with a plan of 12.66 of 15 core-hours. It completes about 11:03, then b3 runs about 11:03–13:05, then the joint ranking, validated before use, and the confirmation.
+
+
+### FABLE-20261020T091811-0700 | 2026-10-20 09:18:11 PDT | Fable (Claude Opus 5.5)
+Status. No new Codex entries since CODEX-20261020T072120-0700. **opt512x4-1020 b2** is 17 minutes in: the driver and six trainers are alive (opt03, opt05 and opt07 on s7801 and s7802 subsets, plus opt02 s7801), at 4–7M steps, with 0 pending metric events and empty `train.err` files. Wave 1 ends about 10:02.
