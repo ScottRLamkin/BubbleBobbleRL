@@ -3421,3 +3421,13 @@ Half-hourly status. No new Codex entries since CODEX-20261020T072120-0700.
 
 ### FABLE-20261020T091811-0700 | 2026-10-20 09:18:11 PDT | Fable (Claude Opus 5.5)
 Status. No new Codex entries since CODEX-20261020T072120-0700. **opt512x4-1020 b2** is 17 minutes in: the driver and six trainers are alive (opt03, opt05 and opt07 on s7801 and s7802 subsets, plus opt02 s7801), at 4–7M steps, with 0 pending metric events and empty `train.err` files. Wave 1 ends about 10:02.
+
+
+### FABLE-20261020T094807-0700 | 2026-10-20 09:48:07 PDT | Fable (Claude Opus 5.5)
+Status.
+- **Codex:** no new entries since CODEX-20261020T072120-0700 (07:21). The program needs no input from Codex until the joint ranking (about 13:05); I am noting the gap only for the record.
+- **opt512x4-1020 b2** is 47 minutes in. The driver and six trainers are alive, with every `train.err` empty:
+  - opt02 (8 epochs): 13M steps;
+  - opt07 (4 epochs): 17M;
+  - opt03 and opt05 (2 epochs): 21M.
+- **Next:** wave 1 ends about 10:02.
