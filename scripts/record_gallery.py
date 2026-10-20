@@ -66,7 +66,8 @@ def main() -> None:
         "training_seed": config.get("seed"), "training_config": str(ckpt.parent / "config.json"),
         "observation": {k: arch.get(k) for k in ("obs", "control_obs", "nearest_first", "frame_skip")},
         "game_revision": f"snapshot {snap_info.get('commit', 'unknown')[:10]} ({snap_info.get('campaign', snap)})",
-        "recording": "levels 1-99, 1 unselected episode each (seed 0), 900 decisions (60 s), sampled actions",
+        "recording": "levels 1-99, 1 unselected episode each (seed 0), 900 decisions (60 s), sampled actions; "
+                     "GIF delays are whole hundredths of a second, so clips play about 11% faster than simulated time",
         "settings": settings, "generator": str(snap / "scripts" / "export_levels.py"),
         "seconds": round(time.time() - t0, 1),
         "note": "A viewing artifact: one episode per level, not a performance estimate." + (

@@ -1,4 +1,4 @@
-# Hyperparameter search on the corrected game (v2) — October 19, 2026
+# Hyperparameter search on the v2 game snapshot — October 19, 2026
 
 Campaign `hparam-1019-v2`, run at the user's direct instruction ("Run it again with the new game
 settings"). It repeats [hparam-1019-v1](hyperparameter-search-2026-10-19-results.md) with the
@@ -11,7 +11,7 @@ every file and recomputed every decision, and found no problems.
 
 ## Verdict
 
-**ff12 passed the acceptance rule against anchor_G (recipe G) on the corrected game too.** Final
+**ff12 passed the acceptance rule against anchor_G (recipe G) on the v2 game snapshot too.** Final
 bank: seeds 61001 and 61002, opened only after the winner and six checkpoint hashes were frozen.
 Clears are level completions per 990 episodes, averaged over the two seeds.
 
@@ -22,13 +22,14 @@ Clears are level completions per 990 episodes, averaged over the two seeds.
 | 4203 | 258.0 | 144.5 | +113.5 |
 | **Mean** | **268.5** | **167.0** | **+101.5** (range +49.0 to +142.0) |
 
-The rule required a mean gain of at least 30 and no negative pair. It is an operational
-acceptance rule, not a calibrated significance test. The smallest pair (+49.0) is much closer to
-the threshold than any v1 pair.
+The rule required a mean gain of at least 30 and no negative pair; each pair is tested only
+against zero. It is an operational acceptance rule, not a calibrated significance test. The pairs
+are less uniform than v1's: the smallest is +49.0, against v1's +120.5.
 
 The final bank reuses v1's seeds, so it is not fresh, independent confirmation across campaigns.
-No v2 code change could have been influenced by v1's final outcomes: every game and trainer commit
-between the two snapshots predates them.
+Every game and trainer commit between the two snapshots predates v1's final outcomes. That does
+not establish that later decisions, such as the v2 manifest's reuse of seeds, were independent of
+them.
 
 Outcome profile on the final bank. Each value is a training seed's mean over the two final seeds,
 per 990 episodes; ranges run over the three training seeds.
@@ -74,10 +75,10 @@ trained separately, so these are differences between distributions, not matched 
 | anchor_G final-bank deaths per 990 | 489.0–552.0 | 797.0–829.5 |
 
 On the corrected game, recipe G cleared somewhat more and ff12 somewhat less, so the gap narrowed.
-Timeouts almost vanished and deaths rose, which is consistent with the time pressure the corrected
-game adds: the hurry-up and an invulnerable chaser, scheduled within the maximum horizon on every
-level. Episodes may end earlier. Neither baron exposure nor the cause of each death is recorded,
-so that attribution is a supported inference, not a demonstration. Fewer timeouts are not
+Timeouts almost vanished and deaths rose. One explanation consistent with this is the time
+pressure the v2 game adds: the hurry-up and an invulnerable chaser, scheduled within the maximum
+horizon on every level, though episodes may end earlier. It is untested: neither baron exposure
+nor the cause of each death is recorded, and other mechanics changed too. Fewer timeouts are not
 evidence of learned navigation.
 
 ## Cost
@@ -109,4 +110,5 @@ Wall time was 2 h 49 min on six single-thread jobs. No job failed and none was r
 
 The winner's gameplay on all 99 levels is in the gallery catalog `exports/index.html`, recorded
 from this snapshot's own generator and game (seed-4201 checkpoint, one unselected episode per
-level).
+level). The GIFs store 60 ms per decision against the simulated 66.7 ms, so they play about 11%
+faster than simulated time.

@@ -65,7 +65,8 @@ def main() -> None:
 <p>Every saved version, newest first. Each folder is a separate recording and is never overwritten.
 Versions differ in policy, game revision and recording settings; a visual difference between two
 of them is not by itself a learning gain. Older versions picked the best of several episodes per
-level; versions with an identity record show one unselected episode per level.</p>
+level; versions with an identity record show one unselected episode per level. GIF frame delays
+are whole hundredths of a second, so every version plays about 11% faster than simulated time.</p>
 <table>
 <tr><th>recorded</th><th>version</th><th>policy</th><th>game revision</th><th>recording</th><th>result</th><th>clips</th></tr>
 {body}
