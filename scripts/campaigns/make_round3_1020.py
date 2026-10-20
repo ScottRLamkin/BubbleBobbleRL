@@ -60,7 +60,8 @@ def build(lr_manifest: dict, sel: dict, res: dict) -> dict:
             "selection.rule": f"no selection: {win} is the only candidate; the final bank is opened after all "
                               "checkpoint hashes are frozen",
         })
-        ref_name = ref_arm0
+        ref_name = f"{ref_arm0} as the ORIGINAL comparator (lr-1020 accepted {win}; a failed replication means " \
+                   f"uncertainty requiring review, not an automatic change of the retained recipe)"
     else:
         arms = {ref_arm0: ref_over}
         for v in ENT:
@@ -77,11 +78,11 @@ def build(lr_manifest: dict, sel: dict, res: dict) -> dict:
                               "and the reference's three, before the final bank is opened; no candidate switching or "
                               "retuning on the final bank",
         })
-        ref_name = ref_arm0
+        ref_name = f"retained reference after lr-1020: {ref_arm0}"
     for a, over in arms.items():
         validate({**shared, **over})
     exp.update({
-        "reference.name": f"retained reference after lr-1020: {ref_name}",
+        "reference.name": ref_name,
         "reference.config_sha256": sha256_text(canonical(validate({**shared, **ref_over}))),
         "design.arms": arms,
         "design.reference_arm": ref_arm0,

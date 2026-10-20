@@ -106,14 +106,19 @@ every pair is negative.
 - **Shown:** under ff12's settings and a one-hour CPU budget, MLPs of 512×2, 512×3 and 1024×2 complete
   far fewer levels than 256×2. The selected 1024×2 is worse on 65 levels and better on 9. It reaches
   at least 50% observed completion on 20 levels, against the reference's 30.
-- **Step count does not explain it on its own.** 1024×2 trained about 26M steps against the
-  reference's 34–38M. But 512×2 trained about 33M steps, roughly the reference's count, and still
-  averaged 207 development clears against 316.
-- **Training-time diagnostics** (MLflow, last 10% of each run): the larger networks ended with
-  lower policy entropy. 1024×2 was at 0.10–0.16 and 512×2 at 0.11–0.20, against the reference's
-  0.21–0.31. They also had higher or similar KL, and lower training clear rates. That fits the
-  larger networks converging faster to narrower policies at ff12's learning rate (0.001) and entropy
-  coefficient (0.0003). It is a hypothesis, not a finding.
+- **Throughput is not isolated.** 1024×2 trained about 26M steps against the reference's 34–38M.
+  The performance gap is also present for 512×2, whose step counts (about 32–33M) are closer to the
+  reference's but still not equal: it averaged 207 development clears against 316. This design does
+  not isolate throughput from learning dynamics (there is no matched-step intervention).
+- **Training-time diagnostics** (MLflow, last 10% of each run): final policy entropy was
+  0.10–0.16 for 1024×2 and 0.11–0.20 for 512×2, against 0.21–0.31 for the reference. 512×3 was at
+  0.10–0.29, overlapping the reference's range and sometimes above it. Training clear rates were
+  lower for every larger arm. Neither late entropy nor step count identifies the cause of the
+  performance gap. A faster narrowing of the policy at ff12's learning rate (0.001) and entropy
+  coefficient (0.0003) is one hypothesis, not a finding.
+- *Corrected 2026-10-20 00:05 after Codex review (CODEX-20261019T235110-0700): the first version
+  said step count "does not explain it on its own" and that the larger networks "ended with lower
+  entropy", which was too causal and not true of 512×3.*
 - **Not shown:**
   - that capacity cannot help with a recipe re-tuned for it (learning rate, entropy, initialisation, longer training);
   - anything about transformers;
