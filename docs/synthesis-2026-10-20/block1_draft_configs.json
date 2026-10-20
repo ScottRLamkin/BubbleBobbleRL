@@ -1,0 +1,99 @@
+{
+ "status": "DRAFT for Codex/user review: an instantiation of docs/hyperparameter-search-card-2026-10-20.md block 1; not registered in SQLite, not frozen, not launched",
+ "generator": "numpy default_rng(20261020); Latin-hypercube strata (log lr 3e-5..1e-3, log ent_coef 1e-4..3e-2, linear clip 0.1..0.3); epochs balanced {2,4,8} x4 including the inherited row",
+ "network": {
+  "arch": "mlp",
+  "hidden": 512,
+  "layers": 4,
+  "act": "tanh"
+ },
+ "all_other_settings": "the retained recipe's effective configuration (SQLite run of replicate-final-1020 arm mlp512x2_lr0.0003), unchanged",
+ "seeds": "three fresh matched training seeds per configuration, IDs to be checked unused at registration",
+ "configurations": [
+  {
+   "id": "inherited_512x4",
+   "lr": 0.0003,
+   "ent_coef": 0.0003000000000000001,
+   "clip": 0.1,
+   "epochs": 2,
+   "note": "the retained recipe's values (512x2 lr0.0003 / ff12 otherwise) rebuilt as 512x4"
+  },
+  {
+   "id": "b1_01",
+   "lr": 6.11e-05,
+   "ent_coef": 0.000122,
+   "clip": 0.112,
+   "epochs": 4
+  },
+  {
+   "id": "b1_02",
+   "lr": 3.79e-05,
+   "ent_coef": 0.00269,
+   "clip": 0.271,
+   "epochs": 8
+  },
+  {
+   "id": "b1_03",
+   "lr": 0.000726,
+   "ent_coef": 0.00912,
+   "clip": 0.233,
+   "epochs": 8
+  },
+  {
+   "id": "b1_04",
+   "lr": 0.000435,
+   "ent_coef": 0.000652,
+   "clip": 0.285,
+   "epochs": 8
+  },
+  {
+   "id": "b1_05",
+   "lr": 0.000305,
+   "ent_coef": 0.00215,
+   "clip": 0.192,
+   "epochs": 8
+  },
+  {
+   "id": "b1_06",
+   "lr": 0.000856,
+   "ent_coef": 0.000215,
+   "clip": 0.174,
+   "epochs": 2
+  },
+  {
+   "id": "b1_07",
+   "lr": 4.91e-05,
+   "ent_coef": 0.000421,
+   "clip": 0.135,
+   "epochs": 4
+  },
+  {
+   "id": "b1_08",
+   "lr": 0.000244,
+   "ent_coef": 0.0263,
+   "clip": 0.14,
+   "epochs": 2
+  },
+  {
+   "id": "b1_09",
+   "lr": 9.96e-05,
+   "ent_coef": 0.0118,
+   "clip": 0.263,
+   "epochs": 4
+  },
+  {
+   "id": "b1_10",
+   "lr": 0.000133,
+   "ent_coef": 0.00102,
+   "clip": 0.225,
+   "epochs": 4
+  },
+  {
+   "id": "b1_11",
+   "lr": 0.000175,
+   "ent_coef": 0.00535,
+   "clip": 0.157,
+   "epochs": 2
+  }
+ ]
+}

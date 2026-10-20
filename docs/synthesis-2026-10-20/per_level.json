@@ -1,0 +1,6024 @@
+{
+ "ff12 256x2": {
+  "evaluation_files": 48,
+  "episodes": 47520,
+  "cleared": 12847,
+  "died": 34660,
+  "timed_out": 13,
+  "clear_pct": 27.0,
+  "death_pct": 72.9,
+  "timeout_pct": 0.0,
+  "episodes_per_level": 480,
+  "levels_never_cleared": [
+   21,
+   60,
+   63,
+   67,
+   71,
+   73,
+   85
+  ],
+  "levels_cleared_every_time": [],
+  "levels_at_least_half": 24,
+  "per_level": {
+   "1": {
+    "clear": 474,
+    "death": 6,
+    "timeout": 0
+   },
+   "2": {
+    "clear": 419,
+    "death": 61,
+    "timeout": 0
+   },
+   "3": {
+    "clear": 308,
+    "death": 172,
+    "timeout": 0
+   },
+   "4": {
+    "clear": 199,
+    "death": 281,
+    "timeout": 0
+   },
+   "5": {
+    "clear": 326,
+    "death": 154,
+    "timeout": 0
+   },
+   "6": {
+    "clear": 111,
+    "death": 369,
+    "timeout": 0
+   },
+   "7": {
+    "clear": 288,
+    "death": 192,
+    "timeout": 0
+   },
+   "8": {
+    "clear": 293,
+    "death": 187,
+    "timeout": 0
+   },
+   "9": {
+    "clear": 81,
+    "death": 399,
+    "timeout": 0
+   },
+   "10": {
+    "clear": 107,
+    "death": 373,
+    "timeout": 0
+   },
+   "11": {
+    "clear": 77,
+    "death": 403,
+    "timeout": 0
+   },
+   "12": {
+    "clear": 54,
+    "death": 426,
+    "timeout": 0
+   },
+   "13": {
+    "clear": 6,
+    "death": 474,
+    "timeout": 0
+   },
+   "14": {
+    "clear": 201,
+    "death": 279,
+    "timeout": 0
+   },
+   "15": {
+    "clear": 101,
+    "death": 379,
+    "timeout": 0
+   },
+   "16": {
+    "clear": 52,
+    "death": 428,
+    "timeout": 0
+   },
+   "17": {
+    "clear": 38,
+    "death": 442,
+    "timeout": 0
+   },
+   "18": {
+    "clear": 103,
+    "death": 377,
+    "timeout": 0
+   },
+   "19": {
+    "clear": 413,
+    "death": 67,
+    "timeout": 0
+   },
+   "20": {
+    "clear": 41,
+    "death": 439,
+    "timeout": 0
+   },
+   "21": {
+    "clear": 0,
+    "death": 480,
+    "timeout": 0
+   },
+   "22": {
+    "clear": 2,
+    "death": 478,
+    "timeout": 0
+   },
+   "23": {
+    "clear": 262,
+    "death": 218,
+    "timeout": 0
+   },
+   "24": {
+    "clear": 328,
+    "death": 152,
+    "timeout": 0
+   },
+   "25": {
+    "clear": 387,
+    "death": 93,
+    "timeout": 0
+   },
+   "26": {
+    "clear": 169,
+    "death": 311,
+    "timeout": 0
+   },
+   "27": {
+    "clear": 399,
+    "death": 81,
+    "timeout": 0
+   },
+   "28": {
+    "clear": 82,
+    "death": 398,
+    "timeout": 0
+   },
+   "29": {
+    "clear": 49,
+    "death": 431,
+    "timeout": 0
+   },
+   "30": {
+    "clear": 27,
+    "death": 453,
+    "timeout": 0
+   },
+   "31": {
+    "clear": 74,
+    "death": 406,
+    "timeout": 0
+   },
+   "32": {
+    "clear": 389,
+    "death": 91,
+    "timeout": 0
+   },
+   "33": {
+    "clear": 59,
+    "death": 421,
+    "timeout": 0
+   },
+   "34": {
+    "clear": 11,
+    "death": 469,
+    "timeout": 0
+   },
+   "35": {
+    "clear": 26,
+    "death": 454,
+    "timeout": 0
+   },
+   "36": {
+    "clear": 430,
+    "death": 50,
+    "timeout": 0
+   },
+   "37": {
+    "clear": 58,
+    "death": 422,
+    "timeout": 0
+   },
+   "38": {
+    "clear": 68,
+    "death": 412,
+    "timeout": 0
+   },
+   "39": {
+    "clear": 3,
+    "death": 477,
+    "timeout": 0
+   },
+   "40": {
+    "clear": 44,
+    "death": 436,
+    "timeout": 0
+   },
+   "41": {
+    "clear": 232,
+    "death": 248,
+    "timeout": 0
+   },
+   "42": {
+    "clear": 149,
+    "death": 331,
+    "timeout": 0
+   },
+   "43": {
+    "clear": 15,
+    "death": 465,
+    "timeout": 0
+   },
+   "44": {
+    "clear": 22,
+    "death": 458,
+    "timeout": 0
+   },
+   "45": {
+    "clear": 337,
+    "death": 143,
+    "timeout": 0
+   },
+   "46": {
+    "clear": 332,
+    "death": 148,
+    "timeout": 0
+   },
+   "47": {
+    "clear": 1,
+    "death": 479,
+    "timeout": 0
+   },
+   "48": {
+    "clear": 7,
+    "death": 473,
+    "timeout": 0
+   },
+   "49": {
+    "clear": 49,
+    "death": 431,
+    "timeout": 0
+   },
+   "50": {
+    "clear": 73,
+    "death": 407,
+    "timeout": 0
+   },
+   "51": {
+    "clear": 29,
+    "death": 451,
+    "timeout": 0
+   },
+   "52": {
+    "clear": 13,
+    "death": 467,
+    "timeout": 0
+   },
+   "53": {
+    "clear": 118,
+    "death": 362,
+    "timeout": 0
+   },
+   "54": {
+    "clear": 7,
+    "death": 473,
+    "timeout": 0
+   },
+   "55": {
+    "clear": 10,
+    "death": 470,
+    "timeout": 0
+   },
+   "56": {
+    "clear": 35,
+    "death": 445,
+    "timeout": 0
+   },
+   "57": {
+    "clear": 14,
+    "death": 466,
+    "timeout": 0
+   },
+   "58": {
+    "clear": 68,
+    "death": 412,
+    "timeout": 0
+   },
+   "59": {
+    "clear": 183,
+    "death": 297,
+    "timeout": 0
+   },
+   "60": {
+    "clear": 0,
+    "death": 480,
+    "timeout": 0
+   },
+   "61": {
+    "clear": 104,
+    "death": 376,
+    "timeout": 0
+   },
+   "62": {
+    "clear": 215,
+    "death": 265,
+    "timeout": 0
+   },
+   "63": {
+    "clear": 0,
+    "death": 480,
+    "timeout": 0
+   },
+   "64": {
+    "clear": 307,
+    "death": 173,
+    "timeout": 0
+   },
+   "65": {
+    "clear": 150,
+    "death": 330,
+    "timeout": 0
+   },
+   "66": {
+    "clear": 10,
+    "death": 470,
+    "timeout": 0
+   },
+   "67": {
+    "clear": 0,
+    "death": 480,
+    "timeout": 0
+   },
+   "68": {
+    "clear": 7,
+    "death": 473,
+    "timeout": 0
+   },
+   "69": {
+    "clear": 58,
+    "death": 422,
+    "timeout": 0
+   },
+   "70": {
+    "clear": 169,
+    "death": 311,
+    "timeout": 0
+   },
+   "71": {
+    "clear": 0,
+    "death": 480,
+    "timeout": 0
+   },
+   "72": {
+    "clear": 224,
+    "death": 256,
+    "timeout": 0
+   },
+   "73": {
+    "clear": 0,
+    "death": 480,
+    "timeout": 0
+   },
+   "74": {
+    "clear": 45,
+    "death": 435,
+    "timeout": 0
+   },
+   "75": {
+    "clear": 14,
+    "death": 466,
+    "timeout": 0
+   },
+   "76": {
+    "clear": 33,
+    "death": 447,
+    "timeout": 0
+   },
+   "77": {
+    "clear": 124,
+    "death": 356,
+    "timeout": 0
+   },
+   "78": {
+    "clear": 311,
+    "death": 169,
+    "timeout": 0
+   },
+   "79": {
+    "clear": 305,
+    "death": 175,
+    "timeout": 0
+   },
+   "80": {
+    "clear": 440,
+    "death": 40,
+    "timeout": 0
+   },
+   "81": {
+    "clear": 125,
+    "death": 355,
+    "timeout": 0
+   },
+   "82": {
+    "clear": 1,
+    "death": 479,
+    "timeout": 0
+   },
+   "83": {
+    "clear": 5,
+    "death": 475,
+    "timeout": 0
+   },
+   "84": {
+    "clear": 68,
+    "death": 412,
+    "timeout": 0
+   },
+   "85": {
+    "clear": 0,
+    "death": 480,
+    "timeout": 0
+   },
+   "86": {
+    "clear": 324,
+    "death": 156,
+    "timeout": 0
+   },
+   "87": {
+    "clear": 365,
+    "death": 115,
+    "timeout": 0
+   },
+   "88": {
+    "clear": 1,
+    "death": 479,
+    "timeout": 0
+   },
+   "89": {
+    "clear": 190,
+    "death": 290,
+    "timeout": 0
+   },
+   "90": {
+    "clear": 2,
+    "death": 478,
+    "timeout": 0
+   },
+   "91": {
+    "clear": 301,
+    "death": 179,
+    "timeout": 0
+   },
+   "92": {
+    "clear": 158,
+    "death": 322,
+    "timeout": 0
+   },
+   "93": {
+    "clear": 274,
+    "death": 206,
+    "timeout": 0
+   },
+   "94": {
+    "clear": 240,
+    "death": 240,
+    "timeout": 0
+   },
+   "95": {
+    "clear": 17,
+    "death": 463,
+    "timeout": 0
+   },
+   "96": {
+    "clear": 3,
+    "death": 477,
+    "timeout": 0
+   },
+   "97": {
+    "clear": 1,
+    "death": 479,
+    "timeout": 0
+   },
+   "98": {
+    "clear": 1,
+    "death": 479,
+    "timeout": 0
+   },
+   "99": {
+    "clear": 2,
+    "death": 465,
+    "timeout": 13
+   }
+  }
+ },
+ "512x2 lr0.001": {
+  "evaluation_files": 6,
+  "episodes": 5940,
+  "cleared": 1243,
+  "died": 4697,
+  "timed_out": 0,
+  "clear_pct": 20.9,
+  "death_pct": 79.1,
+  "timeout_pct": 0.0,
+  "episodes_per_level": 60,
+  "levels_never_cleared": [
+   13,
+   21,
+   22,
+   28,
+   30,
+   34,
+   35,
+   37,
+   38,
+   39,
+   44,
+   47,
+   48,
+   49,
+   52,
+   53,
+   55,
+   60,
+   63,
+   67,
+   68,
+   69,
+   71,
+   73,
+   74,
+   75,
+   76,
+   82,
+   85,
+   88,
+   90,
+   96,
+   97,
+   98,
+   99
+  ],
+  "levels_cleared_every_time": [
+   2,
+   86
+  ],
+  "levels_at_least_half": 19,
+  "per_level": {
+   "1": {
+    "clear": 59,
+    "death": 1,
+    "timeout": 0
+   },
+   "2": {
+    "clear": 60,
+    "death": 0,
+    "timeout": 0
+   },
+   "3": {
+    "clear": 39,
+    "death": 21,
+    "timeout": 0
+   },
+   "4": {
+    "clear": 10,
+    "death": 50,
+    "timeout": 0
+   },
+   "5": {
+    "clear": 42,
+    "death": 18,
+    "timeout": 0
+   },
+   "6": {
+    "clear": 21,
+    "death": 39,
+    "timeout": 0
+   },
+   "7": {
+    "clear": 4,
+    "death": 56,
+    "timeout": 0
+   },
+   "8": {
+    "clear": 15,
+    "death": 45,
+    "timeout": 0
+   },
+   "9": {
+    "clear": 4,
+    "death": 56,
+    "timeout": 0
+   },
+   "10": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "11": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "12": {
+    "clear": 6,
+    "death": 54,
+    "timeout": 0
+   },
+   "13": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "14": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "15": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "16": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "17": {
+    "clear": 11,
+    "death": 49,
+    "timeout": 0
+   },
+   "18": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "19": {
+    "clear": 46,
+    "death": 14,
+    "timeout": 0
+   },
+   "20": {
+    "clear": 6,
+    "death": 54,
+    "timeout": 0
+   },
+   "21": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "22": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "23": {
+    "clear": 11,
+    "death": 49,
+    "timeout": 0
+   },
+   "24": {
+    "clear": 34,
+    "death": 26,
+    "timeout": 0
+   },
+   "25": {
+    "clear": 56,
+    "death": 4,
+    "timeout": 0
+   },
+   "26": {
+    "clear": 9,
+    "death": 51,
+    "timeout": 0
+   },
+   "27": {
+    "clear": 53,
+    "death": 7,
+    "timeout": 0
+   },
+   "28": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "29": {
+    "clear": 21,
+    "death": 39,
+    "timeout": 0
+   },
+   "30": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "31": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "32": {
+    "clear": 40,
+    "death": 20,
+    "timeout": 0
+   },
+   "33": {
+    "clear": 10,
+    "death": 50,
+    "timeout": 0
+   },
+   "34": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "35": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "36": {
+    "clear": 57,
+    "death": 3,
+    "timeout": 0
+   },
+   "37": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "38": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "39": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "40": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "41": {
+    "clear": 29,
+    "death": 31,
+    "timeout": 0
+   },
+   "42": {
+    "clear": 22,
+    "death": 38,
+    "timeout": 0
+   },
+   "43": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "44": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "45": {
+    "clear": 41,
+    "death": 19,
+    "timeout": 0
+   },
+   "46": {
+    "clear": 41,
+    "death": 19,
+    "timeout": 0
+   },
+   "47": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "48": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "49": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "50": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "51": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "52": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "53": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "54": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "55": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "56": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "57": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "58": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "59": {
+    "clear": 13,
+    "death": 47,
+    "timeout": 0
+   },
+   "60": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "61": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "62": {
+    "clear": 34,
+    "death": 26,
+    "timeout": 0
+   },
+   "63": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "64": {
+    "clear": 40,
+    "death": 20,
+    "timeout": 0
+   },
+   "65": {
+    "clear": 10,
+    "death": 50,
+    "timeout": 0
+   },
+   "66": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "67": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "68": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "69": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "70": {
+    "clear": 12,
+    "death": 48,
+    "timeout": 0
+   },
+   "71": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "72": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "73": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "74": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "75": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "76": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "77": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "78": {
+    "clear": 20,
+    "death": 40,
+    "timeout": 0
+   },
+   "79": {
+    "clear": 40,
+    "death": 20,
+    "timeout": 0
+   },
+   "80": {
+    "clear": 52,
+    "death": 8,
+    "timeout": 0
+   },
+   "81": {
+    "clear": 20,
+    "death": 40,
+    "timeout": 0
+   },
+   "82": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "83": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "84": {
+    "clear": 14,
+    "death": 46,
+    "timeout": 0
+   },
+   "85": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "86": {
+    "clear": 60,
+    "death": 0,
+    "timeout": 0
+   },
+   "87": {
+    "clear": 19,
+    "death": 41,
+    "timeout": 0
+   },
+   "88": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "89": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "90": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "91": {
+    "clear": 40,
+    "death": 20,
+    "timeout": 0
+   },
+   "92": {
+    "clear": 20,
+    "death": 40,
+    "timeout": 0
+   },
+   "93": {
+    "clear": 40,
+    "death": 20,
+    "timeout": 0
+   },
+   "94": {
+    "clear": 20,
+    "death": 40,
+    "timeout": 0
+   },
+   "95": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "96": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "97": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "98": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "99": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   }
+  }
+ },
+ "512x3 lr0.001": {
+  "evaluation_files": 6,
+  "episodes": 5940,
+  "cleared": 1084,
+  "died": 4856,
+  "timed_out": 0,
+  "clear_pct": 18.2,
+  "death_pct": 81.8,
+  "timeout_pct": 0.0,
+  "episodes_per_level": 60,
+  "levels_never_cleared": [
+   10,
+   12,
+   13,
+   14,
+   17,
+   20,
+   21,
+   22,
+   28,
+   34,
+   35,
+   38,
+   39,
+   44,
+   48,
+   49,
+   50,
+   52,
+   53,
+   54,
+   55,
+   56,
+   57,
+   58,
+   60,
+   63,
+   66,
+   67,
+   68,
+   69,
+   71,
+   72,
+   73,
+   75,
+   76,
+   82,
+   83,
+   84,
+   85,
+   88,
+   89,
+   90,
+   95,
+   96,
+   97,
+   98,
+   99
+  ],
+  "levels_cleared_every_time": [
+   19,
+   27,
+   80,
+   86
+  ],
+  "levels_at_least_half": 15,
+  "per_level": {
+   "1": {
+    "clear": 57,
+    "death": 3,
+    "timeout": 0
+   },
+   "2": {
+    "clear": 44,
+    "death": 16,
+    "timeout": 0
+   },
+   "3": {
+    "clear": 26,
+    "death": 34,
+    "timeout": 0
+   },
+   "4": {
+    "clear": 11,
+    "death": 49,
+    "timeout": 0
+   },
+   "5": {
+    "clear": 35,
+    "death": 25,
+    "timeout": 0
+   },
+   "6": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "7": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "8": {
+    "clear": 4,
+    "death": 56,
+    "timeout": 0
+   },
+   "9": {
+    "clear": 4,
+    "death": 56,
+    "timeout": 0
+   },
+   "10": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "11": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "12": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "13": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "14": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "15": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "16": {
+    "clear": 10,
+    "death": 50,
+    "timeout": 0
+   },
+   "17": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "18": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "19": {
+    "clear": 60,
+    "death": 0,
+    "timeout": 0
+   },
+   "20": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "21": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "22": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "23": {
+    "clear": 14,
+    "death": 46,
+    "timeout": 0
+   },
+   "24": {
+    "clear": 18,
+    "death": 42,
+    "timeout": 0
+   },
+   "25": {
+    "clear": 28,
+    "death": 32,
+    "timeout": 0
+   },
+   "26": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "27": {
+    "clear": 60,
+    "death": 0,
+    "timeout": 0
+   },
+   "28": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "29": {
+    "clear": 11,
+    "death": 49,
+    "timeout": 0
+   },
+   "30": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "31": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "32": {
+    "clear": 54,
+    "death": 6,
+    "timeout": 0
+   },
+   "33": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "34": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "35": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "36": {
+    "clear": 55,
+    "death": 5,
+    "timeout": 0
+   },
+   "37": {
+    "clear": 4,
+    "death": 56,
+    "timeout": 0
+   },
+   "38": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "39": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "40": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "41": {
+    "clear": 27,
+    "death": 33,
+    "timeout": 0
+   },
+   "42": {
+    "clear": 17,
+    "death": 43,
+    "timeout": 0
+   },
+   "43": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "44": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "45": {
+    "clear": 43,
+    "death": 17,
+    "timeout": 0
+   },
+   "46": {
+    "clear": 54,
+    "death": 6,
+    "timeout": 0
+   },
+   "47": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "48": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "49": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "50": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "51": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "52": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "53": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "54": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "55": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "56": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "57": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "58": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "59": {
+    "clear": 12,
+    "death": 48,
+    "timeout": 0
+   },
+   "60": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "61": {
+    "clear": 13,
+    "death": 47,
+    "timeout": 0
+   },
+   "62": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "63": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "64": {
+    "clear": 40,
+    "death": 20,
+    "timeout": 0
+   },
+   "65": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "66": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "67": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "68": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "69": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "70": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "71": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "72": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "73": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "74": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "75": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "76": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "77": {
+    "clear": 7,
+    "death": 53,
+    "timeout": 0
+   },
+   "78": {
+    "clear": 56,
+    "death": 4,
+    "timeout": 0
+   },
+   "79": {
+    "clear": 47,
+    "death": 13,
+    "timeout": 0
+   },
+   "80": {
+    "clear": 60,
+    "death": 0,
+    "timeout": 0
+   },
+   "81": {
+    "clear": 6,
+    "death": 54,
+    "timeout": 0
+   },
+   "82": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "83": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "84": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "85": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "86": {
+    "clear": 60,
+    "death": 0,
+    "timeout": 0
+   },
+   "87": {
+    "clear": 9,
+    "death": 51,
+    "timeout": 0
+   },
+   "88": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "89": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "90": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "91": {
+    "clear": 46,
+    "death": 14,
+    "timeout": 0
+   },
+   "92": {
+    "clear": 20,
+    "death": 40,
+    "timeout": 0
+   },
+   "93": {
+    "clear": 23,
+    "death": 37,
+    "timeout": 0
+   },
+   "94": {
+    "clear": 8,
+    "death": 52,
+    "timeout": 0
+   },
+   "95": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "96": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "97": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "98": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "99": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   }
+  }
+ },
+ "1024x2 lr0.001": {
+  "evaluation_files": 18,
+  "episodes": 17820,
+  "cleared": 3752,
+  "died": 14024,
+  "timed_out": 44,
+  "clear_pct": 21.1,
+  "death_pct": 78.7,
+  "timeout_pct": 0.2,
+  "episodes_per_level": 180,
+  "levels_never_cleared": [
+   13,
+   21,
+   22,
+   29,
+   34,
+   35,
+   38,
+   39,
+   43,
+   48,
+   51,
+   52,
+   56,
+   63,
+   66,
+   67,
+   69,
+   71,
+   73,
+   76,
+   82,
+   83,
+   85,
+   88,
+   90,
+   95,
+   96,
+   98,
+   99
+  ],
+  "levels_cleared_every_time": [
+   1,
+   86
+  ],
+  "levels_at_least_half": 19,
+  "per_level": {
+   "1": {
+    "clear": 180,
+    "death": 0,
+    "timeout": 0
+   },
+   "2": {
+    "clear": 171,
+    "death": 9,
+    "timeout": 0
+   },
+   "3": {
+    "clear": 103,
+    "death": 77,
+    "timeout": 0
+   },
+   "4": {
+    "clear": 42,
+    "death": 138,
+    "timeout": 0
+   },
+   "5": {
+    "clear": 99,
+    "death": 81,
+    "timeout": 0
+   },
+   "6": {
+    "clear": 7,
+    "death": 173,
+    "timeout": 0
+   },
+   "7": {
+    "clear": 29,
+    "death": 151,
+    "timeout": 0
+   },
+   "8": {
+    "clear": 59,
+    "death": 121,
+    "timeout": 0
+   },
+   "9": {
+    "clear": 4,
+    "death": 176,
+    "timeout": 0
+   },
+   "10": {
+    "clear": 14,
+    "death": 166,
+    "timeout": 0
+   },
+   "11": {
+    "clear": 4,
+    "death": 176,
+    "timeout": 0
+   },
+   "12": {
+    "clear": 7,
+    "death": 173,
+    "timeout": 0
+   },
+   "13": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "14": {
+    "clear": 10,
+    "death": 170,
+    "timeout": 0
+   },
+   "15": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "16": {
+    "clear": 3,
+    "death": 177,
+    "timeout": 0
+   },
+   "17": {
+    "clear": 3,
+    "death": 177,
+    "timeout": 0
+   },
+   "18": {
+    "clear": 5,
+    "death": 175,
+    "timeout": 0
+   },
+   "19": {
+    "clear": 140,
+    "death": 40,
+    "timeout": 0
+   },
+   "20": {
+    "clear": 1,
+    "death": 179,
+    "timeout": 0
+   },
+   "21": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "22": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "23": {
+    "clear": 69,
+    "death": 111,
+    "timeout": 0
+   },
+   "24": {
+    "clear": 79,
+    "death": 101,
+    "timeout": 0
+   },
+   "25": {
+    "clear": 176,
+    "death": 4,
+    "timeout": 0
+   },
+   "26": {
+    "clear": 22,
+    "death": 158,
+    "timeout": 0
+   },
+   "27": {
+    "clear": 177,
+    "death": 3,
+    "timeout": 0
+   },
+   "28": {
+    "clear": 1,
+    "death": 179,
+    "timeout": 0
+   },
+   "29": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "30": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "31": {
+    "clear": 7,
+    "death": 173,
+    "timeout": 0
+   },
+   "32": {
+    "clear": 170,
+    "death": 10,
+    "timeout": 0
+   },
+   "33": {
+    "clear": 14,
+    "death": 166,
+    "timeout": 0
+   },
+   "34": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "35": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "36": {
+    "clear": 166,
+    "death": 14,
+    "timeout": 0
+   },
+   "37": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "38": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "39": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "40": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "41": {
+    "clear": 73,
+    "death": 107,
+    "timeout": 0
+   },
+   "42": {
+    "clear": 50,
+    "death": 130,
+    "timeout": 0
+   },
+   "43": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "44": {
+    "clear": 1,
+    "death": 179,
+    "timeout": 0
+   },
+   "45": {
+    "clear": 122,
+    "death": 58,
+    "timeout": 0
+   },
+   "46": {
+    "clear": 137,
+    "death": 43,
+    "timeout": 0
+   },
+   "47": {
+    "clear": 11,
+    "death": 169,
+    "timeout": 0
+   },
+   "48": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "49": {
+    "clear": 40,
+    "death": 140,
+    "timeout": 0
+   },
+   "50": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "51": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "52": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "53": {
+    "clear": 6,
+    "death": 174,
+    "timeout": 0
+   },
+   "54": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "55": {
+    "clear": 1,
+    "death": 179,
+    "timeout": 0
+   },
+   "56": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "57": {
+    "clear": 1,
+    "death": 179,
+    "timeout": 0
+   },
+   "58": {
+    "clear": 25,
+    "death": 155,
+    "timeout": 0
+   },
+   "59": {
+    "clear": 16,
+    "death": 164,
+    "timeout": 0
+   },
+   "60": {
+    "clear": 39,
+    "death": 141,
+    "timeout": 0
+   },
+   "61": {
+    "clear": 40,
+    "death": 140,
+    "timeout": 0
+   },
+   "62": {
+    "clear": 30,
+    "death": 150,
+    "timeout": 0
+   },
+   "63": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "64": {
+    "clear": 131,
+    "death": 49,
+    "timeout": 0
+   },
+   "65": {
+    "clear": 18,
+    "death": 162,
+    "timeout": 0
+   },
+   "66": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "67": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "68": {
+    "clear": 4,
+    "death": 176,
+    "timeout": 0
+   },
+   "69": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "70": {
+    "clear": 45,
+    "death": 135,
+    "timeout": 0
+   },
+   "71": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "72": {
+    "clear": 52,
+    "death": 128,
+    "timeout": 0
+   },
+   "73": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "74": {
+    "clear": 16,
+    "death": 164,
+    "timeout": 0
+   },
+   "75": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "76": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "77": {
+    "clear": 27,
+    "death": 153,
+    "timeout": 0
+   },
+   "78": {
+    "clear": 130,
+    "death": 50,
+    "timeout": 0
+   },
+   "79": {
+    "clear": 130,
+    "death": 50,
+    "timeout": 0
+   },
+   "80": {
+    "clear": 159,
+    "death": 21,
+    "timeout": 0
+   },
+   "81": {
+    "clear": 18,
+    "death": 162,
+    "timeout": 0
+   },
+   "82": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "83": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "84": {
+    "clear": 11,
+    "death": 169,
+    "timeout": 0
+   },
+   "85": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "86": {
+    "clear": 180,
+    "death": 0,
+    "timeout": 0
+   },
+   "87": {
+    "clear": 16,
+    "death": 164,
+    "timeout": 0
+   },
+   "88": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "89": {
+    "clear": 16,
+    "death": 164,
+    "timeout": 0
+   },
+   "90": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "91": {
+    "clear": 120,
+    "death": 60,
+    "timeout": 0
+   },
+   "92": {
+    "clear": 107,
+    "death": 73,
+    "timeout": 0
+   },
+   "93": {
+    "clear": 168,
+    "death": 12,
+    "timeout": 0
+   },
+   "94": {
+    "clear": 35,
+    "death": 145,
+    "timeout": 0
+   },
+   "95": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "96": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "97": {
+    "clear": 1,
+    "death": 148,
+    "timeout": 31
+   },
+   "98": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "99": {
+    "clear": 0,
+    "death": 167,
+    "timeout": 13
+   }
+  }
+ },
+ "1024x2 lr0.0003": {
+  "evaluation_files": 18,
+  "episodes": 17820,
+  "cleared": 4350,
+  "died": 13459,
+  "timed_out": 11,
+  "clear_pct": 24.4,
+  "death_pct": 75.5,
+  "timeout_pct": 0.1,
+  "episodes_per_level": 180,
+  "levels_never_cleared": [
+   21,
+   22,
+   30,
+   35,
+   60,
+   63,
+   67,
+   71,
+   73,
+   75,
+   82,
+   83,
+   85,
+   88,
+   90,
+   96,
+   97,
+   98,
+   99
+  ],
+  "levels_cleared_every_time": [],
+  "levels_at_least_half": 22,
+  "per_level": {
+   "1": {
+    "clear": 174,
+    "death": 6,
+    "timeout": 0
+   },
+   "2": {
+    "clear": 163,
+    "death": 17,
+    "timeout": 0
+   },
+   "3": {
+    "clear": 99,
+    "death": 81,
+    "timeout": 0
+   },
+   "4": {
+    "clear": 69,
+    "death": 111,
+    "timeout": 0
+   },
+   "5": {
+    "clear": 113,
+    "death": 67,
+    "timeout": 0
+   },
+   "6": {
+    "clear": 46,
+    "death": 134,
+    "timeout": 0
+   },
+   "7": {
+    "clear": 119,
+    "death": 61,
+    "timeout": 0
+   },
+   "8": {
+    "clear": 108,
+    "death": 72,
+    "timeout": 0
+   },
+   "9": {
+    "clear": 11,
+    "death": 169,
+    "timeout": 0
+   },
+   "10": {
+    "clear": 26,
+    "death": 154,
+    "timeout": 0
+   },
+   "11": {
+    "clear": 12,
+    "death": 168,
+    "timeout": 0
+   },
+   "12": {
+    "clear": 34,
+    "death": 146,
+    "timeout": 0
+   },
+   "13": {
+    "clear": 1,
+    "death": 179,
+    "timeout": 0
+   },
+   "14": {
+    "clear": 48,
+    "death": 132,
+    "timeout": 0
+   },
+   "15": {
+    "clear": 39,
+    "death": 141,
+    "timeout": 0
+   },
+   "16": {
+    "clear": 12,
+    "death": 168,
+    "timeout": 0
+   },
+   "17": {
+    "clear": 3,
+    "death": 177,
+    "timeout": 0
+   },
+   "18": {
+    "clear": 20,
+    "death": 160,
+    "timeout": 0
+   },
+   "19": {
+    "clear": 171,
+    "death": 9,
+    "timeout": 0
+   },
+   "20": {
+    "clear": 19,
+    "death": 161,
+    "timeout": 0
+   },
+   "21": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "22": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "23": {
+    "clear": 87,
+    "death": 93,
+    "timeout": 0
+   },
+   "24": {
+    "clear": 132,
+    "death": 48,
+    "timeout": 0
+   },
+   "25": {
+    "clear": 121,
+    "death": 59,
+    "timeout": 0
+   },
+   "26": {
+    "clear": 61,
+    "death": 119,
+    "timeout": 0
+   },
+   "27": {
+    "clear": 151,
+    "death": 29,
+    "timeout": 0
+   },
+   "28": {
+    "clear": 11,
+    "death": 169,
+    "timeout": 0
+   },
+   "29": {
+    "clear": 5,
+    "death": 175,
+    "timeout": 0
+   },
+   "30": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "31": {
+    "clear": 10,
+    "death": 170,
+    "timeout": 0
+   },
+   "32": {
+    "clear": 171,
+    "death": 9,
+    "timeout": 0
+   },
+   "33": {
+    "clear": 13,
+    "death": 167,
+    "timeout": 0
+   },
+   "34": {
+    "clear": 6,
+    "death": 174,
+    "timeout": 0
+   },
+   "35": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "36": {
+    "clear": 170,
+    "death": 10,
+    "timeout": 0
+   },
+   "37": {
+    "clear": 6,
+    "death": 174,
+    "timeout": 0
+   },
+   "38": {
+    "clear": 5,
+    "death": 175,
+    "timeout": 0
+   },
+   "39": {
+    "clear": 1,
+    "death": 179,
+    "timeout": 0
+   },
+   "40": {
+    "clear": 16,
+    "death": 164,
+    "timeout": 0
+   },
+   "41": {
+    "clear": 92,
+    "death": 88,
+    "timeout": 0
+   },
+   "42": {
+    "clear": 75,
+    "death": 105,
+    "timeout": 0
+   },
+   "43": {
+    "clear": 1,
+    "death": 179,
+    "timeout": 0
+   },
+   "44": {
+    "clear": 7,
+    "death": 173,
+    "timeout": 0
+   },
+   "45": {
+    "clear": 131,
+    "death": 49,
+    "timeout": 0
+   },
+   "46": {
+    "clear": 119,
+    "death": 61,
+    "timeout": 0
+   },
+   "47": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "48": {
+    "clear": 1,
+    "death": 179,
+    "timeout": 0
+   },
+   "49": {
+    "clear": 6,
+    "death": 174,
+    "timeout": 0
+   },
+   "50": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "51": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "52": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "53": {
+    "clear": 19,
+    "death": 161,
+    "timeout": 0
+   },
+   "54": {
+    "clear": 3,
+    "death": 177,
+    "timeout": 0
+   },
+   "55": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "56": {
+    "clear": 7,
+    "death": 173,
+    "timeout": 0
+   },
+   "57": {
+    "clear": 2,
+    "death": 178,
+    "timeout": 0
+   },
+   "58": {
+    "clear": 20,
+    "death": 160,
+    "timeout": 0
+   },
+   "59": {
+    "clear": 41,
+    "death": 139,
+    "timeout": 0
+   },
+   "60": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "61": {
+    "clear": 73,
+    "death": 107,
+    "timeout": 0
+   },
+   "62": {
+    "clear": 60,
+    "death": 120,
+    "timeout": 0
+   },
+   "63": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "64": {
+    "clear": 77,
+    "death": 103,
+    "timeout": 0
+   },
+   "65": {
+    "clear": 21,
+    "death": 159,
+    "timeout": 0
+   },
+   "66": {
+    "clear": 1,
+    "death": 179,
+    "timeout": 0
+   },
+   "67": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "68": {
+    "clear": 1,
+    "death": 179,
+    "timeout": 0
+   },
+   "69": {
+    "clear": 21,
+    "death": 159,
+    "timeout": 0
+   },
+   "70": {
+    "clear": 57,
+    "death": 123,
+    "timeout": 0
+   },
+   "71": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "72": {
+    "clear": 47,
+    "death": 133,
+    "timeout": 0
+   },
+   "73": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "74": {
+    "clear": 5,
+    "death": 175,
+    "timeout": 0
+   },
+   "75": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "76": {
+    "clear": 1,
+    "death": 179,
+    "timeout": 0
+   },
+   "77": {
+    "clear": 38,
+    "death": 142,
+    "timeout": 0
+   },
+   "78": {
+    "clear": 137,
+    "death": 43,
+    "timeout": 0
+   },
+   "79": {
+    "clear": 131,
+    "death": 49,
+    "timeout": 0
+   },
+   "80": {
+    "clear": 141,
+    "death": 39,
+    "timeout": 0
+   },
+   "81": {
+    "clear": 38,
+    "death": 142,
+    "timeout": 0
+   },
+   "82": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "83": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "84": {
+    "clear": 10,
+    "death": 170,
+    "timeout": 0
+   },
+   "85": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "86": {
+    "clear": 140,
+    "death": 40,
+    "timeout": 0
+   },
+   "87": {
+    "clear": 66,
+    "death": 114,
+    "timeout": 0
+   },
+   "88": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "89": {
+    "clear": 91,
+    "death": 89,
+    "timeout": 0
+   },
+   "90": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "91": {
+    "clear": 107,
+    "death": 73,
+    "timeout": 0
+   },
+   "92": {
+    "clear": 56,
+    "death": 124,
+    "timeout": 0
+   },
+   "93": {
+    "clear": 133,
+    "death": 47,
+    "timeout": 0
+   },
+   "94": {
+    "clear": 72,
+    "death": 108,
+    "timeout": 0
+   },
+   "95": {
+    "clear": 39,
+    "death": 141,
+    "timeout": 0
+   },
+   "96": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "97": {
+    "clear": 0,
+    "death": 179,
+    "timeout": 1
+   },
+   "98": {
+    "clear": 0,
+    "death": 180,
+    "timeout": 0
+   },
+   "99": {
+    "clear": 0,
+    "death": 170,
+    "timeout": 10
+   }
+  }
+ },
+ "1024x2 lr0.003": {
+  "evaluation_files": 6,
+  "episodes": 5940,
+  "cleared": 0,
+  "died": 5888,
+  "timed_out": 52,
+  "clear_pct": 0.0,
+  "death_pct": 99.1,
+  "timeout_pct": 0.9,
+  "episodes_per_level": 60,
+  "levels_never_cleared": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   33,
+   34,
+   35,
+   36,
+   37,
+   38,
+   39,
+   40,
+   41,
+   42,
+   43,
+   44,
+   45,
+   46,
+   47,
+   48,
+   49,
+   50,
+   51,
+   52,
+   53,
+   54,
+   55,
+   56,
+   57,
+   58,
+   59,
+   60,
+   61,
+   62,
+   63,
+   64,
+   65,
+   66,
+   67,
+   68,
+   69,
+   70,
+   71,
+   72,
+   73,
+   74,
+   75,
+   76,
+   77,
+   78,
+   79,
+   80,
+   81,
+   82,
+   83,
+   84,
+   85,
+   86,
+   87,
+   88,
+   89,
+   90,
+   91,
+   92,
+   93,
+   94,
+   95,
+   96,
+   97,
+   98,
+   99
+  ],
+  "levels_cleared_every_time": [],
+  "levels_at_least_half": 0,
+  "per_level": {
+   "1": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "2": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "3": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "4": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "5": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "6": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "7": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "8": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "9": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "10": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "11": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "12": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "13": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "14": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "15": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "16": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "17": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "18": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "19": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "20": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "21": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "22": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "23": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "24": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "25": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "26": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "27": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "28": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "29": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "30": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "31": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "32": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "33": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "34": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "35": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "36": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "37": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "38": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "39": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "40": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "41": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "42": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "43": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "44": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "45": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "46": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "47": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "48": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "49": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "50": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "51": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "52": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "53": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "54": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "55": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "56": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "57": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "58": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "59": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "60": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "61": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "62": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "63": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "64": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "65": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "66": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "67": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "68": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "69": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "70": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "71": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "72": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "73": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "74": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "75": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "76": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "77": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "78": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "79": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "80": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "81": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "82": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "83": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "84": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "85": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "86": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "87": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "88": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "89": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "90": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "91": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "92": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "93": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "94": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "95": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "96": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "97": {
+    "clear": 0,
+    "death": 8,
+    "timeout": 52
+   },
+   "98": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "99": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   }
+  }
+ },
+ "256x2 ent0.0001": {
+  "evaluation_files": 12,
+  "episodes": 11880,
+  "cleared": 3322,
+  "died": 8551,
+  "timed_out": 7,
+  "clear_pct": 28.0,
+  "death_pct": 72.0,
+  "timeout_pct": 0.1,
+  "episodes_per_level": 120,
+  "levels_never_cleared": [
+   13,
+   21,
+   22,
+   30,
+   34,
+   35,
+   39,
+   47,
+   48,
+   51,
+   60,
+   63,
+   66,
+   67,
+   71,
+   73,
+   75,
+   76,
+   82,
+   85,
+   88,
+   90,
+   95,
+   98,
+   99
+  ],
+  "levels_cleared_every_time": [
+   36,
+   86
+  ],
+  "levels_at_least_half": 26,
+  "per_level": {
+   "1": {
+    "clear": 118,
+    "death": 2,
+    "timeout": 0
+   },
+   "2": {
+    "clear": 119,
+    "death": 1,
+    "timeout": 0
+   },
+   "3": {
+    "clear": 89,
+    "death": 31,
+    "timeout": 0
+   },
+   "4": {
+    "clear": 63,
+    "death": 57,
+    "timeout": 0
+   },
+   "5": {
+    "clear": 90,
+    "death": 30,
+    "timeout": 0
+   },
+   "6": {
+    "clear": 73,
+    "death": 47,
+    "timeout": 0
+   },
+   "7": {
+    "clear": 39,
+    "death": 81,
+    "timeout": 0
+   },
+   "8": {
+    "clear": 62,
+    "death": 58,
+    "timeout": 0
+   },
+   "9": {
+    "clear": 6,
+    "death": 114,
+    "timeout": 0
+   },
+   "10": {
+    "clear": 16,
+    "death": 104,
+    "timeout": 0
+   },
+   "11": {
+    "clear": 14,
+    "death": 106,
+    "timeout": 0
+   },
+   "12": {
+    "clear": 16,
+    "death": 104,
+    "timeout": 0
+   },
+   "13": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "14": {
+    "clear": 27,
+    "death": 93,
+    "timeout": 0
+   },
+   "15": {
+    "clear": 6,
+    "death": 114,
+    "timeout": 0
+   },
+   "16": {
+    "clear": 6,
+    "death": 114,
+    "timeout": 0
+   },
+   "17": {
+    "clear": 5,
+    "death": 115,
+    "timeout": 0
+   },
+   "18": {
+    "clear": 14,
+    "death": 106,
+    "timeout": 0
+   },
+   "19": {
+    "clear": 96,
+    "death": 24,
+    "timeout": 0
+   },
+   "20": {
+    "clear": 4,
+    "death": 116,
+    "timeout": 0
+   },
+   "21": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "22": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "23": {
+    "clear": 30,
+    "death": 90,
+    "timeout": 0
+   },
+   "24": {
+    "clear": 86,
+    "death": 34,
+    "timeout": 0
+   },
+   "25": {
+    "clear": 119,
+    "death": 1,
+    "timeout": 0
+   },
+   "26": {
+    "clear": 42,
+    "death": 78,
+    "timeout": 0
+   },
+   "27": {
+    "clear": 112,
+    "death": 8,
+    "timeout": 0
+   },
+   "28": {
+    "clear": 34,
+    "death": 86,
+    "timeout": 0
+   },
+   "29": {
+    "clear": 6,
+    "death": 114,
+    "timeout": 0
+   },
+   "30": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "31": {
+    "clear": 21,
+    "death": 99,
+    "timeout": 0
+   },
+   "32": {
+    "clear": 96,
+    "death": 24,
+    "timeout": 0
+   },
+   "33": {
+    "clear": 27,
+    "death": 93,
+    "timeout": 0
+   },
+   "34": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "35": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "36": {
+    "clear": 120,
+    "death": 0,
+    "timeout": 0
+   },
+   "37": {
+    "clear": 10,
+    "death": 110,
+    "timeout": 0
+   },
+   "38": {
+    "clear": 8,
+    "death": 112,
+    "timeout": 0
+   },
+   "39": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "40": {
+    "clear": 8,
+    "death": 112,
+    "timeout": 0
+   },
+   "41": {
+    "clear": 78,
+    "death": 42,
+    "timeout": 0
+   },
+   "42": {
+    "clear": 58,
+    "death": 62,
+    "timeout": 0
+   },
+   "43": {
+    "clear": 4,
+    "death": 116,
+    "timeout": 0
+   },
+   "44": {
+    "clear": 10,
+    "death": 110,
+    "timeout": 0
+   },
+   "45": {
+    "clear": 101,
+    "death": 19,
+    "timeout": 0
+   },
+   "46": {
+    "clear": 117,
+    "death": 3,
+    "timeout": 0
+   },
+   "47": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "48": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "49": {
+    "clear": 9,
+    "death": 111,
+    "timeout": 0
+   },
+   "50": {
+    "clear": 29,
+    "death": 91,
+    "timeout": 0
+   },
+   "51": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "52": {
+    "clear": 3,
+    "death": 117,
+    "timeout": 0
+   },
+   "53": {
+    "clear": 20,
+    "death": 100,
+    "timeout": 0
+   },
+   "54": {
+    "clear": 1,
+    "death": 119,
+    "timeout": 0
+   },
+   "55": {
+    "clear": 1,
+    "death": 119,
+    "timeout": 0
+   },
+   "56": {
+    "clear": 23,
+    "death": 97,
+    "timeout": 0
+   },
+   "57": {
+    "clear": 2,
+    "death": 118,
+    "timeout": 0
+   },
+   "58": {
+    "clear": 18,
+    "death": 102,
+    "timeout": 0
+   },
+   "59": {
+    "clear": 31,
+    "death": 89,
+    "timeout": 0
+   },
+   "60": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "61": {
+    "clear": 39,
+    "death": 81,
+    "timeout": 0
+   },
+   "62": {
+    "clear": 28,
+    "death": 92,
+    "timeout": 0
+   },
+   "63": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "64": {
+    "clear": 108,
+    "death": 12,
+    "timeout": 0
+   },
+   "65": {
+    "clear": 21,
+    "death": 99,
+    "timeout": 0
+   },
+   "66": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "67": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "68": {
+    "clear": 3,
+    "death": 117,
+    "timeout": 0
+   },
+   "69": {
+    "clear": 3,
+    "death": 117,
+    "timeout": 0
+   },
+   "70": {
+    "clear": 84,
+    "death": 36,
+    "timeout": 0
+   },
+   "71": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "72": {
+    "clear": 37,
+    "death": 83,
+    "timeout": 0
+   },
+   "73": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "74": {
+    "clear": 16,
+    "death": 104,
+    "timeout": 0
+   },
+   "75": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "76": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "77": {
+    "clear": 25,
+    "death": 95,
+    "timeout": 0
+   },
+   "78": {
+    "clear": 114,
+    "death": 6,
+    "timeout": 0
+   },
+   "79": {
+    "clear": 99,
+    "death": 21,
+    "timeout": 0
+   },
+   "80": {
+    "clear": 113,
+    "death": 7,
+    "timeout": 0
+   },
+   "81": {
+    "clear": 37,
+    "death": 83,
+    "timeout": 0
+   },
+   "82": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "83": {
+    "clear": 3,
+    "death": 117,
+    "timeout": 0
+   },
+   "84": {
+    "clear": 12,
+    "death": 108,
+    "timeout": 0
+   },
+   "85": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "86": {
+    "clear": 120,
+    "death": 0,
+    "timeout": 0
+   },
+   "87": {
+    "clear": 62,
+    "death": 58,
+    "timeout": 0
+   },
+   "88": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "89": {
+    "clear": 69,
+    "death": 51,
+    "timeout": 0
+   },
+   "90": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "91": {
+    "clear": 67,
+    "death": 53,
+    "timeout": 0
+   },
+   "92": {
+    "clear": 18,
+    "death": 102,
+    "timeout": 0
+   },
+   "93": {
+    "clear": 102,
+    "death": 18,
+    "timeout": 0
+   },
+   "94": {
+    "clear": 46,
+    "death": 74,
+    "timeout": 0
+   },
+   "95": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "96": {
+    "clear": 8,
+    "death": 112,
+    "timeout": 0
+   },
+   "97": {
+    "clear": 1,
+    "death": 119,
+    "timeout": 0
+   },
+   "98": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "99": {
+    "clear": 0,
+    "death": 113,
+    "timeout": 7
+   }
+  }
+ },
+ "256x2 ent0.001": {
+  "evaluation_files": 6,
+  "episodes": 5940,
+  "cleared": 1647,
+  "died": 4290,
+  "timed_out": 3,
+  "clear_pct": 27.7,
+  "death_pct": 72.2,
+  "timeout_pct": 0.1,
+  "episodes_per_level": 60,
+  "levels_never_cleared": [
+   21,
+   22,
+   28,
+   30,
+   34,
+   35,
+   39,
+   40,
+   43,
+   44,
+   47,
+   48,
+   51,
+   52,
+   53,
+   60,
+   63,
+   66,
+   67,
+   68,
+   69,
+   71,
+   72,
+   73,
+   76,
+   82,
+   84,
+   85,
+   88,
+   90,
+   96,
+   98,
+   99
+  ],
+  "levels_cleared_every_time": [
+   1,
+   19,
+   32,
+   36,
+   79,
+   86
+  ],
+  "levels_at_least_half": 26,
+  "per_level": {
+   "1": {
+    "clear": 60,
+    "death": 0,
+    "timeout": 0
+   },
+   "2": {
+    "clear": 59,
+    "death": 1,
+    "timeout": 0
+   },
+   "3": {
+    "clear": 38,
+    "death": 22,
+    "timeout": 0
+   },
+   "4": {
+    "clear": 34,
+    "death": 26,
+    "timeout": 0
+   },
+   "5": {
+    "clear": 47,
+    "death": 13,
+    "timeout": 0
+   },
+   "6": {
+    "clear": 28,
+    "death": 32,
+    "timeout": 0
+   },
+   "7": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "8": {
+    "clear": 17,
+    "death": 43,
+    "timeout": 0
+   },
+   "9": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "10": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "11": {
+    "clear": 7,
+    "death": 53,
+    "timeout": 0
+   },
+   "12": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "13": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "14": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "15": {
+    "clear": 18,
+    "death": 42,
+    "timeout": 0
+   },
+   "16": {
+    "clear": 18,
+    "death": 42,
+    "timeout": 0
+   },
+   "17": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "18": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "19": {
+    "clear": 60,
+    "death": 0,
+    "timeout": 0
+   },
+   "20": {
+    "clear": 4,
+    "death": 56,
+    "timeout": 0
+   },
+   "21": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "22": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "23": {
+    "clear": 33,
+    "death": 27,
+    "timeout": 0
+   },
+   "24": {
+    "clear": 36,
+    "death": 24,
+    "timeout": 0
+   },
+   "25": {
+    "clear": 59,
+    "death": 1,
+    "timeout": 0
+   },
+   "26": {
+    "clear": 9,
+    "death": 51,
+    "timeout": 0
+   },
+   "27": {
+    "clear": 58,
+    "death": 2,
+    "timeout": 0
+   },
+   "28": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "29": {
+    "clear": 19,
+    "death": 41,
+    "timeout": 0
+   },
+   "30": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "31": {
+    "clear": 4,
+    "death": 56,
+    "timeout": 0
+   },
+   "32": {
+    "clear": 60,
+    "death": 0,
+    "timeout": 0
+   },
+   "33": {
+    "clear": 13,
+    "death": 47,
+    "timeout": 0
+   },
+   "34": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "35": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "36": {
+    "clear": 60,
+    "death": 0,
+    "timeout": 0
+   },
+   "37": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "38": {
+    "clear": 32,
+    "death": 28,
+    "timeout": 0
+   },
+   "39": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "40": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "41": {
+    "clear": 34,
+    "death": 26,
+    "timeout": 0
+   },
+   "42": {
+    "clear": 19,
+    "death": 41,
+    "timeout": 0
+   },
+   "43": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "44": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "45": {
+    "clear": 48,
+    "death": 12,
+    "timeout": 0
+   },
+   "46": {
+    "clear": 58,
+    "death": 2,
+    "timeout": 0
+   },
+   "47": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "48": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "49": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "50": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "51": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "52": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "53": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "54": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "55": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "56": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "57": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "58": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "59": {
+    "clear": 38,
+    "death": 22,
+    "timeout": 0
+   },
+   "60": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "61": {
+    "clear": 15,
+    "death": 45,
+    "timeout": 0
+   },
+   "62": {
+    "clear": 14,
+    "death": 46,
+    "timeout": 0
+   },
+   "63": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "64": {
+    "clear": 59,
+    "death": 1,
+    "timeout": 0
+   },
+   "65": {
+    "clear": 11,
+    "death": 49,
+    "timeout": 0
+   },
+   "66": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "67": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "68": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "69": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "70": {
+    "clear": 28,
+    "death": 32,
+    "timeout": 0
+   },
+   "71": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "72": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "73": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "74": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "75": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "76": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "77": {
+    "clear": 18,
+    "death": 42,
+    "timeout": 0
+   },
+   "78": {
+    "clear": 53,
+    "death": 7,
+    "timeout": 0
+   },
+   "79": {
+    "clear": 60,
+    "death": 0,
+    "timeout": 0
+   },
+   "80": {
+    "clear": 59,
+    "death": 1,
+    "timeout": 0
+   },
+   "81": {
+    "clear": 18,
+    "death": 42,
+    "timeout": 0
+   },
+   "82": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "83": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "84": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "85": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "86": {
+    "clear": 60,
+    "death": 0,
+    "timeout": 0
+   },
+   "87": {
+    "clear": 35,
+    "death": 25,
+    "timeout": 0
+   },
+   "88": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "89": {
+    "clear": 42,
+    "death": 18,
+    "timeout": 0
+   },
+   "90": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "91": {
+    "clear": 59,
+    "death": 1,
+    "timeout": 0
+   },
+   "92": {
+    "clear": 28,
+    "death": 32,
+    "timeout": 0
+   },
+   "93": {
+    "clear": 56,
+    "death": 4,
+    "timeout": 0
+   },
+   "94": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "95": {
+    "clear": 10,
+    "death": 50,
+    "timeout": 0
+   },
+   "96": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "97": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "98": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "99": {
+    "clear": 0,
+    "death": 57,
+    "timeout": 3
+   }
+  }
+ },
+ "256x2 ent0.003": {
+  "evaluation_files": 6,
+  "episodes": 5940,
+  "cleared": 1526,
+  "died": 4412,
+  "timed_out": 2,
+  "clear_pct": 25.7,
+  "death_pct": 74.3,
+  "timeout_pct": 0.0,
+  "episodes_per_level": 60,
+  "levels_never_cleared": [
+   13,
+   21,
+   22,
+   34,
+   39,
+   48,
+   50,
+   51,
+   60,
+   63,
+   66,
+   67,
+   71,
+   73,
+   75,
+   82,
+   85,
+   88,
+   90,
+   96,
+   98,
+   99
+  ],
+  "levels_cleared_every_time": [],
+  "levels_at_least_half": 23,
+  "per_level": {
+   "1": {
+    "clear": 59,
+    "death": 1,
+    "timeout": 0
+   },
+   "2": {
+    "clear": 42,
+    "death": 18,
+    "timeout": 0
+   },
+   "3": {
+    "clear": 40,
+    "death": 20,
+    "timeout": 0
+   },
+   "4": {
+    "clear": 36,
+    "death": 24,
+    "timeout": 0
+   },
+   "5": {
+    "clear": 32,
+    "death": 28,
+    "timeout": 0
+   },
+   "6": {
+    "clear": 22,
+    "death": 38,
+    "timeout": 0
+   },
+   "7": {
+    "clear": 21,
+    "death": 39,
+    "timeout": 0
+   },
+   "8": {
+    "clear": 25,
+    "death": 35,
+    "timeout": 0
+   },
+   "9": {
+    "clear": 7,
+    "death": 53,
+    "timeout": 0
+   },
+   "10": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "11": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "12": {
+    "clear": 13,
+    "death": 47,
+    "timeout": 0
+   },
+   "13": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "14": {
+    "clear": 15,
+    "death": 45,
+    "timeout": 0
+   },
+   "15": {
+    "clear": 12,
+    "death": 48,
+    "timeout": 0
+   },
+   "16": {
+    "clear": 11,
+    "death": 49,
+    "timeout": 0
+   },
+   "17": {
+    "clear": 9,
+    "death": 51,
+    "timeout": 0
+   },
+   "18": {
+    "clear": 13,
+    "death": 47,
+    "timeout": 0
+   },
+   "19": {
+    "clear": 48,
+    "death": 12,
+    "timeout": 0
+   },
+   "20": {
+    "clear": 4,
+    "death": 56,
+    "timeout": 0
+   },
+   "21": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "22": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "23": {
+    "clear": 28,
+    "death": 32,
+    "timeout": 0
+   },
+   "24": {
+    "clear": 52,
+    "death": 8,
+    "timeout": 0
+   },
+   "25": {
+    "clear": 55,
+    "death": 5,
+    "timeout": 0
+   },
+   "26": {
+    "clear": 14,
+    "death": 46,
+    "timeout": 0
+   },
+   "27": {
+    "clear": 53,
+    "death": 7,
+    "timeout": 0
+   },
+   "28": {
+    "clear": 13,
+    "death": 47,
+    "timeout": 0
+   },
+   "29": {
+    "clear": 12,
+    "death": 48,
+    "timeout": 0
+   },
+   "30": {
+    "clear": 4,
+    "death": 56,
+    "timeout": 0
+   },
+   "31": {
+    "clear": 8,
+    "death": 52,
+    "timeout": 0
+   },
+   "32": {
+    "clear": 42,
+    "death": 18,
+    "timeout": 0
+   },
+   "33": {
+    "clear": 4,
+    "death": 56,
+    "timeout": 0
+   },
+   "34": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "35": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "36": {
+    "clear": 55,
+    "death": 5,
+    "timeout": 0
+   },
+   "37": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "38": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "39": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "40": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "41": {
+    "clear": 42,
+    "death": 18,
+    "timeout": 0
+   },
+   "42": {
+    "clear": 24,
+    "death": 36,
+    "timeout": 0
+   },
+   "43": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "44": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "45": {
+    "clear": 43,
+    "death": 17,
+    "timeout": 0
+   },
+   "46": {
+    "clear": 39,
+    "death": 21,
+    "timeout": 0
+   },
+   "47": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "48": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "49": {
+    "clear": 7,
+    "death": 53,
+    "timeout": 0
+   },
+   "50": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "51": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "52": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "53": {
+    "clear": 14,
+    "death": 46,
+    "timeout": 0
+   },
+   "54": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "55": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "56": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "57": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "58": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "59": {
+    "clear": 12,
+    "death": 48,
+    "timeout": 0
+   },
+   "60": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "61": {
+    "clear": 16,
+    "death": 44,
+    "timeout": 0
+   },
+   "62": {
+    "clear": 24,
+    "death": 36,
+    "timeout": 0
+   },
+   "63": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "64": {
+    "clear": 40,
+    "death": 20,
+    "timeout": 0
+   },
+   "65": {
+    "clear": 15,
+    "death": 45,
+    "timeout": 0
+   },
+   "66": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "67": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "68": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "69": {
+    "clear": 6,
+    "death": 54,
+    "timeout": 0
+   },
+   "70": {
+    "clear": 34,
+    "death": 26,
+    "timeout": 0
+   },
+   "71": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "72": {
+    "clear": 22,
+    "death": 38,
+    "timeout": 0
+   },
+   "73": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "74": {
+    "clear": 7,
+    "death": 53,
+    "timeout": 0
+   },
+   "75": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "76": {
+    "clear": 8,
+    "death": 52,
+    "timeout": 0
+   },
+   "77": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "78": {
+    "clear": 33,
+    "death": 27,
+    "timeout": 0
+   },
+   "79": {
+    "clear": 39,
+    "death": 21,
+    "timeout": 0
+   },
+   "80": {
+    "clear": 54,
+    "death": 6,
+    "timeout": 0
+   },
+   "81": {
+    "clear": 14,
+    "death": 46,
+    "timeout": 0
+   },
+   "82": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "83": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "84": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "85": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "86": {
+    "clear": 40,
+    "death": 20,
+    "timeout": 0
+   },
+   "87": {
+    "clear": 34,
+    "death": 26,
+    "timeout": 0
+   },
+   "88": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "89": {
+    "clear": 28,
+    "death": 32,
+    "timeout": 0
+   },
+   "90": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "91": {
+    "clear": 40,
+    "death": 20,
+    "timeout": 0
+   },
+   "92": {
+    "clear": 29,
+    "death": 31,
+    "timeout": 0
+   },
+   "93": {
+    "clear": 42,
+    "death": 18,
+    "timeout": 0
+   },
+   "94": {
+    "clear": 18,
+    "death": 42,
+    "timeout": 0
+   },
+   "95": {
+    "clear": 13,
+    "death": 47,
+    "timeout": 0
+   },
+   "96": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "97": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "98": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "99": {
+    "clear": 0,
+    "death": 58,
+    "timeout": 2
+   }
+  }
+ },
+ "1024x2 lr0.0001": {
+  "evaluation_files": 6,
+  "episodes": 5940,
+  "cleared": 1590,
+  "died": 4349,
+  "timed_out": 1,
+  "clear_pct": 26.8,
+  "death_pct": 73.2,
+  "timeout_pct": 0.0,
+  "episodes_per_level": 60,
+  "levels_never_cleared": [
+   22,
+   30,
+   34,
+   39,
+   48,
+   51,
+   52,
+   54,
+   57,
+   63,
+   64,
+   66,
+   67,
+   68,
+   71,
+   73,
+   75,
+   82,
+   83,
+   85,
+   88,
+   90,
+   92,
+   95,
+   97,
+   98,
+   99
+  ],
+  "levels_cleared_every_time": [],
+  "levels_at_least_half": 24,
+  "per_level": {
+   "1": {
+    "clear": 59,
+    "death": 1,
+    "timeout": 0
+   },
+   "2": {
+    "clear": 45,
+    "death": 15,
+    "timeout": 0
+   },
+   "3": {
+    "clear": 56,
+    "death": 4,
+    "timeout": 0
+   },
+   "4": {
+    "clear": 46,
+    "death": 14,
+    "timeout": 0
+   },
+   "5": {
+    "clear": 48,
+    "death": 12,
+    "timeout": 0
+   },
+   "6": {
+    "clear": 13,
+    "death": 47,
+    "timeout": 0
+   },
+   "7": {
+    "clear": 57,
+    "death": 3,
+    "timeout": 0
+   },
+   "8": {
+    "clear": 39,
+    "death": 21,
+    "timeout": 0
+   },
+   "9": {
+    "clear": 4,
+    "death": 56,
+    "timeout": 0
+   },
+   "10": {
+    "clear": 19,
+    "death": 41,
+    "timeout": 0
+   },
+   "11": {
+    "clear": 22,
+    "death": 38,
+    "timeout": 0
+   },
+   "12": {
+    "clear": 7,
+    "death": 53,
+    "timeout": 0
+   },
+   "13": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "14": {
+    "clear": 16,
+    "death": 44,
+    "timeout": 0
+   },
+   "15": {
+    "clear": 20,
+    "death": 40,
+    "timeout": 0
+   },
+   "16": {
+    "clear": 6,
+    "death": 54,
+    "timeout": 0
+   },
+   "17": {
+    "clear": 3,
+    "death": 57,
+    "timeout": 0
+   },
+   "18": {
+    "clear": 19,
+    "death": 41,
+    "timeout": 0
+   },
+   "19": {
+    "clear": 21,
+    "death": 39,
+    "timeout": 0
+   },
+   "20": {
+    "clear": 6,
+    "death": 54,
+    "timeout": 0
+   },
+   "21": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "22": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "23": {
+    "clear": 23,
+    "death": 37,
+    "timeout": 0
+   },
+   "24": {
+    "clear": 48,
+    "death": 12,
+    "timeout": 0
+   },
+   "25": {
+    "clear": 45,
+    "death": 15,
+    "timeout": 0
+   },
+   "26": {
+    "clear": 31,
+    "death": 29,
+    "timeout": 0
+   },
+   "27": {
+    "clear": 18,
+    "death": 42,
+    "timeout": 0
+   },
+   "28": {
+    "clear": 17,
+    "death": 43,
+    "timeout": 0
+   },
+   "29": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "30": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "31": {
+    "clear": 11,
+    "death": 49,
+    "timeout": 0
+   },
+   "32": {
+    "clear": 56,
+    "death": 4,
+    "timeout": 0
+   },
+   "33": {
+    "clear": 23,
+    "death": 37,
+    "timeout": 0
+   },
+   "34": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "35": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "36": {
+    "clear": 55,
+    "death": 5,
+    "timeout": 0
+   },
+   "37": {
+    "clear": 13,
+    "death": 47,
+    "timeout": 0
+   },
+   "38": {
+    "clear": 31,
+    "death": 29,
+    "timeout": 0
+   },
+   "39": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "40": {
+    "clear": 8,
+    "death": 52,
+    "timeout": 0
+   },
+   "41": {
+    "clear": 34,
+    "death": 26,
+    "timeout": 0
+   },
+   "42": {
+    "clear": 4,
+    "death": 56,
+    "timeout": 0
+   },
+   "43": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "44": {
+    "clear": 8,
+    "death": 52,
+    "timeout": 0
+   },
+   "45": {
+    "clear": 46,
+    "death": 14,
+    "timeout": 0
+   },
+   "46": {
+    "clear": 27,
+    "death": 33,
+    "timeout": 0
+   },
+   "47": {
+    "clear": 10,
+    "death": 50,
+    "timeout": 0
+   },
+   "48": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "49": {
+    "clear": 22,
+    "death": 38,
+    "timeout": 0
+   },
+   "50": {
+    "clear": 6,
+    "death": 54,
+    "timeout": 0
+   },
+   "51": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "52": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "53": {
+    "clear": 10,
+    "death": 50,
+    "timeout": 0
+   },
+   "54": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "55": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "56": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "57": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "58": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "59": {
+    "clear": 24,
+    "death": 36,
+    "timeout": 0
+   },
+   "60": {
+    "clear": 37,
+    "death": 23,
+    "timeout": 0
+   },
+   "61": {
+    "clear": 13,
+    "death": 47,
+    "timeout": 0
+   },
+   "62": {
+    "clear": 8,
+    "death": 52,
+    "timeout": 0
+   },
+   "63": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "64": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "65": {
+    "clear": 22,
+    "death": 38,
+    "timeout": 0
+   },
+   "66": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "67": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "68": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "69": {
+    "clear": 5,
+    "death": 55,
+    "timeout": 0
+   },
+   "70": {
+    "clear": 42,
+    "death": 18,
+    "timeout": 0
+   },
+   "71": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "72": {
+    "clear": 34,
+    "death": 26,
+    "timeout": 0
+   },
+   "73": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "74": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "75": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "76": {
+    "clear": 11,
+    "death": 49,
+    "timeout": 0
+   },
+   "77": {
+    "clear": 9,
+    "death": 51,
+    "timeout": 0
+   },
+   "78": {
+    "clear": 28,
+    "death": 32,
+    "timeout": 0
+   },
+   "79": {
+    "clear": 1,
+    "death": 59,
+    "timeout": 0
+   },
+   "80": {
+    "clear": 56,
+    "death": 4,
+    "timeout": 0
+   },
+   "81": {
+    "clear": 16,
+    "death": 44,
+    "timeout": 0
+   },
+   "82": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "83": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "84": {
+    "clear": 11,
+    "death": 49,
+    "timeout": 0
+   },
+   "85": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "86": {
+    "clear": 39,
+    "death": 21,
+    "timeout": 0
+   },
+   "87": {
+    "clear": 36,
+    "death": 24,
+    "timeout": 0
+   },
+   "88": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "89": {
+    "clear": 24,
+    "death": 36,
+    "timeout": 0
+   },
+   "90": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "91": {
+    "clear": 34,
+    "death": 26,
+    "timeout": 0
+   },
+   "92": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "93": {
+    "clear": 40,
+    "death": 20,
+    "timeout": 0
+   },
+   "94": {
+    "clear": 31,
+    "death": 29,
+    "timeout": 0
+   },
+   "95": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "96": {
+    "clear": 2,
+    "death": 58,
+    "timeout": 0
+   },
+   "97": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "98": {
+    "clear": 0,
+    "death": 60,
+    "timeout": 0
+   },
+   "99": {
+    "clear": 0,
+    "death": 59,
+    "timeout": 1
+   }
+  }
+ },
+ "512x2 lr0.0003": {
+  "evaluation_files": 12,
+  "episodes": 11880,
+  "cleared": 3578,
+  "died": 8299,
+  "timed_out": 3,
+  "clear_pct": 30.1,
+  "death_pct": 69.9,
+  "timeout_pct": 0.0,
+  "episodes_per_level": 120,
+  "levels_never_cleared": [
+   22,
+   23,
+   39,
+   42,
+   48,
+   50,
+   52,
+   56,
+   57,
+   63,
+   64,
+   66,
+   67,
+   68,
+   71,
+   73,
+   75,
+   82,
+   83,
+   85,
+   88,
+   90,
+   95,
+   99
+  ],
+  "levels_cleared_every_time": [
+   93
+  ],
+  "levels_at_least_half": 29,
+  "per_level": {
+   "1": {
+    "clear": 115,
+    "death": 5,
+    "timeout": 0
+   },
+   "2": {
+    "clear": 112,
+    "death": 8,
+    "timeout": 0
+   },
+   "3": {
+    "clear": 113,
+    "death": 7,
+    "timeout": 0
+   },
+   "4": {
+    "clear": 112,
+    "death": 8,
+    "timeout": 0
+   },
+   "5": {
+    "clear": 112,
+    "death": 8,
+    "timeout": 0
+   },
+   "6": {
+    "clear": 23,
+    "death": 97,
+    "timeout": 0
+   },
+   "7": {
+    "clear": 80,
+    "death": 40,
+    "timeout": 0
+   },
+   "8": {
+    "clear": 51,
+    "death": 69,
+    "timeout": 0
+   },
+   "9": {
+    "clear": 6,
+    "death": 114,
+    "timeout": 0
+   },
+   "10": {
+    "clear": 31,
+    "death": 89,
+    "timeout": 0
+   },
+   "11": {
+    "clear": 36,
+    "death": 84,
+    "timeout": 0
+   },
+   "12": {
+    "clear": 10,
+    "death": 110,
+    "timeout": 0
+   },
+   "13": {
+    "clear": 34,
+    "death": 86,
+    "timeout": 0
+   },
+   "14": {
+    "clear": 28,
+    "death": 92,
+    "timeout": 0
+   },
+   "15": {
+    "clear": 5,
+    "death": 115,
+    "timeout": 0
+   },
+   "16": {
+    "clear": 14,
+    "death": 106,
+    "timeout": 0
+   },
+   "17": {
+    "clear": 1,
+    "death": 119,
+    "timeout": 0
+   },
+   "18": {
+    "clear": 36,
+    "death": 84,
+    "timeout": 0
+   },
+   "19": {
+    "clear": 24,
+    "death": 96,
+    "timeout": 0
+   },
+   "20": {
+    "clear": 29,
+    "death": 91,
+    "timeout": 0
+   },
+   "21": {
+    "clear": 2,
+    "death": 118,
+    "timeout": 0
+   },
+   "22": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "23": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "24": {
+    "clear": 111,
+    "death": 9,
+    "timeout": 0
+   },
+   "25": {
+    "clear": 119,
+    "death": 1,
+    "timeout": 0
+   },
+   "26": {
+    "clear": 40,
+    "death": 80,
+    "timeout": 0
+   },
+   "27": {
+    "clear": 107,
+    "death": 13,
+    "timeout": 0
+   },
+   "28": {
+    "clear": 2,
+    "death": 118,
+    "timeout": 0
+   },
+   "29": {
+    "clear": 4,
+    "death": 116,
+    "timeout": 0
+   },
+   "30": {
+    "clear": 2,
+    "death": 118,
+    "timeout": 0
+   },
+   "31": {
+    "clear": 18,
+    "death": 102,
+    "timeout": 0
+   },
+   "32": {
+    "clear": 111,
+    "death": 9,
+    "timeout": 0
+   },
+   "33": {
+    "clear": 43,
+    "death": 77,
+    "timeout": 0
+   },
+   "34": {
+    "clear": 2,
+    "death": 118,
+    "timeout": 0
+   },
+   "35": {
+    "clear": 2,
+    "death": 118,
+    "timeout": 0
+   },
+   "36": {
+    "clear": 114,
+    "death": 6,
+    "timeout": 0
+   },
+   "37": {
+    "clear": 72,
+    "death": 48,
+    "timeout": 0
+   },
+   "38": {
+    "clear": 99,
+    "death": 21,
+    "timeout": 0
+   },
+   "39": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "40": {
+    "clear": 4,
+    "death": 116,
+    "timeout": 0
+   },
+   "41": {
+    "clear": 90,
+    "death": 30,
+    "timeout": 0
+   },
+   "42": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "43": {
+    "clear": 2,
+    "death": 118,
+    "timeout": 0
+   },
+   "44": {
+    "clear": 5,
+    "death": 115,
+    "timeout": 0
+   },
+   "45": {
+    "clear": 87,
+    "death": 33,
+    "timeout": 0
+   },
+   "46": {
+    "clear": 60,
+    "death": 60,
+    "timeout": 0
+   },
+   "47": {
+    "clear": 36,
+    "death": 84,
+    "timeout": 0
+   },
+   "48": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "49": {
+    "clear": 38,
+    "death": 82,
+    "timeout": 0
+   },
+   "50": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "51": {
+    "clear": 20,
+    "death": 100,
+    "timeout": 0
+   },
+   "52": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "53": {
+    "clear": 29,
+    "death": 91,
+    "timeout": 0
+   },
+   "54": {
+    "clear": 2,
+    "death": 118,
+    "timeout": 0
+   },
+   "55": {
+    "clear": 3,
+    "death": 117,
+    "timeout": 0
+   },
+   "56": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "57": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "58": {
+    "clear": 13,
+    "death": 107,
+    "timeout": 0
+   },
+   "59": {
+    "clear": 38,
+    "death": 82,
+    "timeout": 0
+   },
+   "60": {
+    "clear": 53,
+    "death": 67,
+    "timeout": 0
+   },
+   "61": {
+    "clear": 45,
+    "death": 75,
+    "timeout": 0
+   },
+   "62": {
+    "clear": 44,
+    "death": 76,
+    "timeout": 0
+   },
+   "63": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "64": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "65": {
+    "clear": 8,
+    "death": 112,
+    "timeout": 0
+   },
+   "66": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "67": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "68": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "69": {
+    "clear": 3,
+    "death": 117,
+    "timeout": 0
+   },
+   "70": {
+    "clear": 97,
+    "death": 23,
+    "timeout": 0
+   },
+   "71": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "72": {
+    "clear": 67,
+    "death": 53,
+    "timeout": 0
+   },
+   "73": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "74": {
+    "clear": 18,
+    "death": 102,
+    "timeout": 0
+   },
+   "75": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "76": {
+    "clear": 26,
+    "death": 94,
+    "timeout": 0
+   },
+   "77": {
+    "clear": 9,
+    "death": 111,
+    "timeout": 0
+   },
+   "78": {
+    "clear": 107,
+    "death": 13,
+    "timeout": 0
+   },
+   "79": {
+    "clear": 63,
+    "death": 57,
+    "timeout": 0
+   },
+   "80": {
+    "clear": 109,
+    "death": 11,
+    "timeout": 0
+   },
+   "81": {
+    "clear": 62,
+    "death": 58,
+    "timeout": 0
+   },
+   "82": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "83": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "84": {
+    "clear": 22,
+    "death": 98,
+    "timeout": 0
+   },
+   "85": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "86": {
+    "clear": 119,
+    "death": 1,
+    "timeout": 0
+   },
+   "87": {
+    "clear": 60,
+    "death": 60,
+    "timeout": 0
+   },
+   "88": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "89": {
+    "clear": 75,
+    "death": 45,
+    "timeout": 0
+   },
+   "90": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "91": {
+    "clear": 96,
+    "death": 24,
+    "timeout": 0
+   },
+   "92": {
+    "clear": 1,
+    "death": 119,
+    "timeout": 0
+   },
+   "93": {
+    "clear": 120,
+    "death": 0,
+    "timeout": 0
+   },
+   "94": {
+    "clear": 63,
+    "death": 57,
+    "timeout": 0
+   },
+   "95": {
+    "clear": 0,
+    "death": 120,
+    "timeout": 0
+   },
+   "96": {
+    "clear": 2,
+    "death": 118,
+    "timeout": 0
+   },
+   "97": {
+    "clear": 61,
+    "death": 58,
+    "timeout": 1
+   },
+   "98": {
+    "clear": 1,
+    "death": 119,
+    "timeout": 0
+   },
+   "99": {
+    "clear": 0,
+    "death": 118,
+    "timeout": 2
+   }
+  }
+ }
+}
