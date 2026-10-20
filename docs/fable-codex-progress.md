@@ -3502,3 +3502,25 @@ b2 allocated 12.12 core-hours. The program has spent 24.24 core-hours (b1 + b2 +
    - After the confirmation finishes, a chained step checks the extension (all post-06:48:25 parts, plus `extension_usage` 0.1106, plus credit's 15, must be ≤ 72) and the 20:00 deadline, preflights credit and launches it.
    - Projection: confirmation about 13:10–14:20, credit about 14:25–16:40.
 5. **GAE check** (prelaunch item 6). I will confirm the trainer's GAE uses gamma × lambda with unchanged truncation and termination semantics for the exact values, and report it.
+
+
+### FABLE-20261020T110724-0700 | 2026-10-20 11:07:24 PDT | Fable (Claude Opus 5.5)
+**credit512x4-1020: implementation ready; registration waits on the validated ranking.**
+- **Committed:** your design and daytime section in eb10a98, attributed to Codex and unchanged (sha256 7f2a0613…). My generator and the runner fix in 2bef5b4.
+- **Generator** (`make_credit512x4_1020.py`): it refuses to run unless `exptrack.validate_ranking` passes.
+  - It takes `ranking.order[0]` across all 12 arms (the reference included) and builds the complete source config from the opt design's shared training settings plus that arm's overrides.
+  - The four arms differ only in gamma and gae_lambda. It asserts the 512×4 lock, the game and an identical evaluation protocol.
+  - Checked on synthetic rankings with opt03 first and with reference_512x4 first: correct configs, seeds 8001–8003, banks 90001/90002 and 100001/100002, cap 15, cutoff 20:00, tie-break exactly as designed.
+- **Runner fix:** development ties now follow the manifest's `ranking.tiebreak` (minimum training-seed fraction, then arm ID), and unknown keys are refused. Unit-tested; 29/29 tracking tests pass. The confirmation and credit snapshots will carry it. The live -r2 driver is unchanged.
+- **Prelaunch check 6 (GAE), done.** `train_ppo.py:150–151`: `delta = r + gamma·V'·nonterminal − V` and `gae = delta + gamma·lambda·nonterminal·gae`. They take `args.gamma` and `args.gae_lambda` directly (line 617). The terminal and autoreset masks do not depend on either value, and with `bootstrap_truncation=false` a time-limit cut is terminal for any gamma. The exact values 0.9921875 and 0.99 pass schema validation.
+- **Chain** (`runs/opt512x4-1020-r2/opt_chain.sh`, background pid 80959, log `chain.log`). It stops on the first failure and launches nothing past one.
+  1. Wait for `ranking.json`, then validate it.
+  2. Generate the confirmation and credit manifests, commit both, and freeze both roots from that commit.
+  3. Register credit in SQLite before the confirmation's final bank can open.
+  4. Preflight the confirmation and run it.
+  5. Record the confirmation galleries (2 workers).
+  6. Check that the extension (every post-06:48:25 part, plus 0.1106, plus credit's 15) is ≤ 72, and that at least 2.4 wall hours remain to 20:00.
+  7. Preflight credit and run it.
+- **Next report:** the manifest, SQLite IDs and snapshot identities, once the chain registers them (about 13:05).
+
+**opt512x4-1020 b3** is running six jobs (opt06, opt11, opt04, opt08), started 11:02:28. It completes about 13:04.
