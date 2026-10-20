@@ -37,7 +37,9 @@ ranking. The development banks were also selection banks.
 - Nearly every failed attempt is a death; timeouts are essentially zero for every working recipe.
 - Five levels were never cleared by any working recipe tonight: **63, 67, 71, 73 and 85**. ff12 also
   never cleared level 21, in 600 attempts.
-- No recipe clears any level reliably. ff12 cleared no level in all 600 of its attempts on it.
+- Per-level rates carry their attempt counts: ff12 cleared no level in every one of its 600 attempts.
+  Other recipes cleared between 0 and 6 levels in every one of their 60–240 attempts (the table above).
+  No general reliability conclusion is drawn from these counts.
 - In the newest galleries (seed 7601, one episode per level), most deaths came early:
   - deaths at a median of 105 decisions (reference) and 127 decisions (512×2 lr 0.0003), about 7–8.5
     simulated seconds;
@@ -108,16 +110,16 @@ Mean training-episode clear rate at quarters of each run, from `trajectories.jso
 | 1024×2 lr 0.003 | 3 | 0.000 | 0.000 | 0.000 | 0.000 | 0.00 | 25.0 |
 
 **Observations:**
-- For ff12 and the better recipes, the training clear rate is still rising over the last quarter
-  of the hour; the figures show no plateau at 60 minutes. These are noisy rolling training
-  statistics, not evaluation. They do not show that evaluation would keep improving, but they also
-  give no evidence that one hour is enough.
+- The trajectories are noisy. For several recipes the last-10% training clear rate is above the
+  earlier quarter-point samples; ff12, for example, goes 0.177, 0.212 and 0.242, then 0.272. For
+  others it is not: 512×2 at lr 0.0003 has 0.337 at 75% and 0.300 over the last 10%. Point samples and
+  window means are different summaries. There is some continuing training improvement, but
+  endpoint-only evaluation cannot show whether evaluation performance saturates.
 - Entropy falls from about 2.1 nats to about 0.5 within the first 5–10M steps in every run, then
   drifts down slowly. Recipes keep improving after that point, so low entropy alone does not mean
   learning stopped.
 - At ff12's lr 0.001, 512×2 declines over the second half (0.220, 0.213, 0.194) and 512×3 is flat
-  and noisy. 1024×2 rises slowly from a lower level (0.173, 0.177, 0.205). At lr 0.0003, 512×2 rises
-  through the hour.
+  and noisy. 1024×2 rises slowly from a lower level (0.173, 0.177, 0.205).
 
 ## 4. Competing hypotheses, ranked
 
@@ -129,13 +131,15 @@ Each is ranked by the evidence for it and by how cheaply the next experiment can
    - ent_coef, clip and epochs were never tested at 512×4.
    - Prediction: a block-1 search on 512×4 (learning rate, entropy, clip, epochs) finds settings
      with clearly higher absolute completion than the inherited recipe.
-   - Rejected if every configuration lands within the seed spread of the inherited one.
+   - If the tested design does not resolve a better setting, that does not rule out optimisation
+     effects outside the tested points or ranges.
 2. **Training duration or sample budget.**
-   - Evidence: training clear rates are still rising at 60 minutes. 1024×2 got about 28% fewer
-     steps per hour than 256×2, and 512×2 about 7% fewer.
+   - Evidence: there is some continuing improvement in noisy training curves, which is not a
+     demonstrated cause. 1024×2 got about 28% fewer steps per hour than 256×2, and 512×2 about 7% fewer.
    - Prediction: continuing the best block-1 configuration for 2–3 hours (a separate, budgeted
      duration experiment) raises absolute evaluation completion.
-   - Rejected if extra time leaves the evaluation flat.
+   - A flat result from extra time would weaken this hypothesis for the recipe tested, not rule it
+     out in general.
    - This is a different question from the one-hour target and must be reported as such.
 3. **Survival credit assignment and reward balance.**
    - Evidence: failures are early deaths, not timeouts. The death penalty (5) is half the clear
@@ -154,30 +158,18 @@ Each is ranked by the evidence for it and by how cheaply the next experiment can
      poorly. This first needs a diagnostic of per-level death causes, with no training. If confirmed,
      it would point to observation changes, which are allowed within the locked MLP.
 
-## 5. Next experiment (draft for Codex's and the user's review; not registered, not launched)
+## 5. Next experiment
 
-This instantiates Codex's search card, block 1 (`docs/hyperparameter-search-card-2026-10-20.md`),
-which tests hypothesis 1 directly.
+The next experiment is Codex's frozen daytime design, not the draft that stood here:
+`docs/daytime-search-2026-10-20.md` and `scripts/campaigns/opt512x4_1020_design.json`, sha256
+`0d378836…`. It was registered in SQLite and launched at 06:59:48 as opt512x4-1020, from snapshot
+`0a147adb39` in `runs/opt512x4-1020-r2`. My earlier draft instantiation
+(`docs/synthesis-2026-10-20/block1_draft_configs.json`) was superseded and not used.
 
-- **Network:** MLP 512×4 tanh (user-locked). Everything else uses the retained recipe's effective
-  configuration.
-- **Configurations:** 12, in `docs/synthesis-2026-10-20/block1_draft_configs.json`:
-  - the inherited row (lr 0.0003, ent_coef 0.0003, clip 0.1, epochs 2);
-  - 11 Latin-hypercube rows from a fixed generator seed: lr 3e-5 to 1e-3 (log), ent_coef 1e-4 to 3e-2
-    (log), clip 0.1 to 0.3 (linear), and epochs {2, 4, 8} balanced 4/4/4 counting the inherited row.
-- **Replication:** three fresh matched training seeds per configuration, full 60-minute endpoints,
-  36 jobs in three batches of 12. Each batch is capped at 15 core-hours including evaluation.
-- **Measures, all absolute:** clears out of attempts, the percentage, per-level clear, death and
-  timeout counts, and levels never or always cleared. All seeds are shown; there is no pruning and
-  no performance retries.
-- **Selection and confirmation:** freeze one configuration, then compare it with the 512×4
-  inherited row on three NEW seeds and unopened banks.
-- **What would discriminate the hypotheses:**
-  - A large spread across configurations supports hypothesis 1.
-  - A flat spread with still-rising training curves points to hypothesis 2, and the follow-up
-    becomes the duration experiment.
-  - A flat spread with flat curves points to hypotheses 3–5, reward, exposure and representation.
-- **Evaluation:** the protocol stays as it is. Death time is not recorded in evaluation files today.
-  Recording it would be a versioned protocol change, which Codex would need to specify.
+No outcome of that program routes the hypotheses above automatically. A flat or overlapping tested
+region does not rule out optimisation, and flat curves would not establish reward, exposure or
+representation causes. Codex interprets the results and assigns the next block.
 
-This does not fit before 08:00, so nothing is launched.
+*Corrected 2026-10-20 08:00 after Codex review (CODEX-20261020T072120-0700): removed a universal
+reliability claim, the "no plateau" and "rises through the hour" statements, invalid rejection
+criteria and automatic hypothesis routing, and the stale draft next-experiment section.*

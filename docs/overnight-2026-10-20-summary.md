@@ -1,7 +1,8 @@
 # Overnight experiments, October 19–20, 2026
 
 Five registered rounds ran between 21:19 and 06:50. Fable did the implementation and execution;
-Codex reviewed every 30 minutes in `docs/fable-codex-progress.md`. They ran under the user's overnight
+Codex reviewed at its scheduled checks in `docs/fable-codex-progress.md` (with a recorded gap: no
+separate reviews at 04:19 or 04:49). They ran under the user's overnight
 authorization (`docs/experiment-direction-2026-10-19.md`, CODEX-20261019T205252-0700 and
 CODEX-20261019T205553-0700). At 06:48 the user extended the work through 20:00 with a new
 Codex-designed program on MLP 512×4 (`docs/daytime-search-2026-10-20.md`), which is not covered here.
@@ -10,13 +11,18 @@ Codex-designed program on MLP 512×4 (`docs/daytime-search-2026-10-20.md`), whic
 
 **No recipe is close to solving the game.**
 
-- Under the standard test (each of levels 1–99 started fresh, one life, 900 decisions of 60 simulated
-  seconds, sampled actions), the best final-bank result of the night was **512×2 at lr 0.0003: 1,884 of
-  5,940 level attempts (31.7%)**, in replicate-final-1020.
-- The ff12 MLP 256×2 reference ranged from **1,340 to 1,979 of 5,940 (22.6%–33.3%)** across the five
-  rounds' final banks. That spread is as large as any difference between recipes.
-- Almost every failed attempt was a death; timeouts were about 0.1% or less. In the galleries, most
-  deaths came within the first 5–10 simulated seconds.
+- **The test:** each of levels 1–99 started fresh, one life, 900 decisions of 60 simulated seconds,
+  sampled actions.
+- **The latest selected candidate:** its final result was **512×2 at lr 0.0003: 1,884 of 5,940 level
+  attempts (31.7%)**, in replicate-final-1020. Its matched ff12 comparator, on the same seeds and bank,
+  scored 1,730 of 5,940 (29.1%).
+- **Across rounds,** with different seeds and banks, so not a matched comparison: the highest single
+  final-bank total was ff12 256×2's **1,979 of 5,940 (33.3%)** in capacity-1020. ff12 ranged from
+  **1,340 to 1,979 (22.6%–33.3%)** over the five rounds. That spread is comparable to most differences
+  between recipes.
+- **How attempts fail:** almost every failed attempt was a death; timeouts were about 0.1% or less. In
+  the two lowlr-1020 galleries (one episode per level), most deaths came within the first 5–10
+  simulated seconds.
 - Five levels (63, 67, 71, 73, 85) were never cleared by any working recipe.
 
 **The search outcome:**
@@ -24,6 +30,8 @@ Codex-designed program on MLP 512×4 (`docs/daytime-search-2026-10-20.md`), whic
   (replicate-final-1020, where one of three training seeds lost by 64.5 clears per 990).
 - That is conflicting evidence awaiting Codex's review. ff12 was not automatically reinstated.
 - The user has since fixed all future work to MLP 512×4.
+
+*Corrected 2026-10-20 08:00 after Codex review (CODEX-20261020T072120-0700): "best final-bank result of the night" (ff12 scored 1,979 in capacity-1020), "as large as any difference" (capacity-1020's gap was larger), "highest totals ... in both rounds", and "Codex reviewed every 30 minutes" were wrong or too broad.*
 
 ## Rounds
 
@@ -63,8 +71,9 @@ used 230.3 CPU-seconds from 21:33 to 07:04, accounted separately.
   lr 0.003, 0.001, 0.0003 and 0.0001. 512×2 completed 20.9% at lr 0.001 and 30.1% at 0.0003. These pool
   different rounds and seeds, so they are descriptive; they do not measure how much of any gap the
   learning rate caused.
-- **512×2 at lr 0.0003 produced the highest final-bank totals of the night in both rounds it ran:** 29.8%
-  and 31.7%. Its paired comparisons against ff12 split, one round meeting the rule and one not.
+- **512×2 at lr 0.0003 exceeded its matched ff12 comparator's total in both rounds it ran:** 1,770 against
+  1,569 (29.8% against 26.4%) and 1,884 against 1,730 (31.7% against 29.1%). Its per-seed comparisons
+  split: the registered rule was met in one round and not in the other.
 - **Seed spread dominates.** The training seed is the replication unit, with three per round. The
   reference alone spanned 22.6%–33.3% of final-bank attempts across rounds.
 
