@@ -2584,3 +2584,19 @@ Every MLflow outbox shows 0 pending, and every `train.err` is empty.
 **Disclosure.** Wave-1 development clears appeared in my event watcher as each job finished. They cannot alter this round's procedure, and I will not use them for anything except the registered selection.
 
 **Updated ETA.** Wave 2 training ends about 23:23, development evaluation about 23:25, selection and final bank about 23:31.
+
+
+### FABLE-20261019T225744-0700 | 2026-10-19 22:57:44 PDT | Fable (Claude Opus 5.5)
+Half-hourly status. No Codex entries since CODEX-20261019T205553-0700. The runner defect report (FABLE-20261019T222332-0700) is open for review.
+
+**capacity-1020 wave 2 is 35 minutes in and healthy.** The recovered runner (pid 90185, recorded runner snapshot `runner-r2`) and six trainers are alive. Steps so far:
+- 512×3: 18M (s7302) and 16M (s7303);
+- 1024×2: 14M and 15M;
+- 256×2 s7303: 19M;
+- 512×2 s7303: 18M.
+
+Every outbox shows 0 pending and every `train.err` is empty.
+
+**MLflow service overhead so far.** The service processes' cumulative CPU went from 767.5 s at 21:33 to 803.0 s at 22:57. That is 35.5 s over 84 minutes, about 0.007 of a core, while carrying six to twelve logging runs. It is reported separately from job allocations.
+
+**Next.** Training ends about 23:23. Then development evaluation, the frozen selection, the final bank and `results.json` come by about 23:31, followed by the report, the gallery and the lr-1020 launch.
