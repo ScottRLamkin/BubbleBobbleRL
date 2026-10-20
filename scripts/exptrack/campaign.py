@@ -50,6 +50,14 @@ from .mlflow_sink import client_for, ensure_experiment, find_run_by_tag, log_par
 THREADS = {k: "1" for k in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS")}
 PREFLIGHT_RESERVE_SECONDS = 600  # campaign preflight allowance, counted against the cap
 RUNNER_FILE = "scripts/exptrack/campaign.py"  # the only file a recorded runner snapshot may change
+# Development tie-breaks a manifest may state (ranking.tiebreak), applied in its order after the
+# primary key (mean development clears, descending). Anything else is refused, never ignored.
+TIEBREAKS = {
+    "minimum training-seed completed fraction descending": lambda t: -t["min_seed_fraction"],
+    "mean levels cleared at least once on the development bank": lambda t: -t["mean_levels_cleared"],
+    "smaller parameter count": lambda t: t["parameter_count"],
+    "arm id": None, "arm id ascending": None,
+}
 
 
 def iso() -> str:
@@ -64,6 +72,13 @@ def write_json_atomic(path: Path, obj) -> None:
 
 class SystemicError(RuntimeError):
     """A correctness failure that must stop the campaign (not retried)."""
+
+
+def rank_candidates(table: dict, candidates: list[str], tiebreak: list[str]) -> list[str]:
+    """Mean development clears descending, then the manifest's tie-breaks in
+    order, then arm id (always last, so the order is total)."""
+    breaks = [TIEBREAKS[t] for t in tiebreak if TIEBREAKS[t] is not None]
+    return sorted(candidates, key=lambda a: (-table[a]["mean_cleared"], *[f(table[a]) for f in breaks], a))
 
 
 def process_start(pid: int) -> str | None:
@@ -109,6 +124,9 @@ class Campaign:
             raise SystemExit(f"this runner implements paired_arms_with_selection and search_batch, not "
                              f"{c['design.type']}")
         self.search_only = c["design.type"] == "search_batch"
+        unknown = [t for t in c["ranking.tiebreak"] if t not in TIEBREAKS]
+        if unknown:
+            raise SystemExit(f"ranking.tiebreak {unknown} is not implemented by this runner; refusing to guess")
         if self.search_only and set(c["evaluation.seed_banks"]) != {"development"}:
             raise SystemExit("a search batch has a development bank only (no final bank)")
         if not c["tracking.required"] or not c["tracking.mlflow_uri"] or not c["tracking.mlflow_experiment"]:
@@ -830,20 +848,25 @@ class Campaign:
         for arm in self.arm_order():
             rows = [self.status["jobs"][self.job_id(arm, s)] for s in c["seeds.training"][c["design.phases"][0]]]
             con = self.con()
-            clears, levels = [], []
+            clears, levels, seed_fractions = [], [], []
             for j in rows:
+                c_j = e_j = 0
                 for r in con.execute("SELECT results_json FROM evaluations WHERE run_id = ? AND role = 'development' "
                                      "AND checkpoint_sha256 = ?", (j["run_id"], j["model_sha256"])):
                     res = json.loads(r["results_json"])
                     clears.append(res["cleared"])
                     levels.append(res["levels_cleared"])
+                    c_j += res["cleared"]
+                    e_j += res["episodes"]
+                seed_fractions.append(c_j / e_j if e_j else 0.0)
             n_expected = len(rows) * len(c["evaluation.seed_banks"]["development"])
             if len(clears) != n_expected:
                 raise SystemicError(f"{arm}: {len(clears)} development evaluations, expected {n_expected}")
             params = con.execute("SELECT value_json FROM run_params WHERE run_id = ? AND key = "
                                  "'network.parameter_count'", (rows[0]["run_id"],)).fetchone()[0]
             table[arm] = {"mean_cleared": sum(clears) / len(clears), "mean_levels_cleared": sum(levels) / len(levels),
-                          "parameter_count": json.loads(params), "clears": clears}
+                          "parameter_count": json.loads(params), "clears": clears,
+                          "min_seed_fraction": min(seed_fractions)}
         return table
 
     def select_and_finalize(self) -> None:
@@ -855,8 +878,7 @@ class Campaign:
         else:
             table = self.dev_table()
             candidates = [a for a in self.arm_order() if a != ref]
-            ranked = sorted(candidates, key=lambda a: (-table[a]["mean_cleared"], -table[a]["mean_levels_cleared"],
-                                                       table[a]["parameter_count"], a))
+            ranked = rank_candidates(table, candidates, c["ranking.tiebreak"])
             seeds = c["seeds.training"][c["design.phases"][0]]
             selection = {
                 "selected_arm": ranked[0], "reference_arm": ref, "ranking": ranked, "development": table,

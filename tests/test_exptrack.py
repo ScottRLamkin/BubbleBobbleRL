@@ -765,3 +765,21 @@ def test_ranking_validation_recomputes_from_sqlite(tmp_path):
     st.write_text(json.dumps(s))
     with pytest.raises(SystemExit):
         validate(root, dbp)
+
+
+def test_selection_follows_the_manifest_tiebreak(tmp_path):
+    from exptrack.campaign import Campaign, rank_candidates
+
+    table = {"a": {"mean_cleared": 300.0, "min_seed_fraction": 0.25, "mean_levels_cleared": 60, "parameter_count": 5},
+             "b": {"mean_cleared": 300.0, "min_seed_fraction": 0.29, "mean_levels_cleared": 50, "parameter_count": 9},
+             "c": {"mean_cleared": 290.0, "min_seed_fraction": 0.40, "mean_levels_cleared": 70, "parameter_count": 1}}
+    credit = ["minimum training-seed completed fraction descending", "arm id ascending"]
+    assert rank_candidates(table, ["a", "b", "c"], credit) == ["b", "a", "c"]
+    old = ["mean levels cleared at least once on the development bank", "smaller parameter count", "arm id"]
+    assert rank_candidates(table, ["a", "b", "c"], old) == ["a", "b", "c"]
+    assert rank_candidates(table, ["b", "a"], []) == ["a", "b"]  # arm id is always the last key
+    m = _tiny_manifest("tb-test", "sqlite:///unused.db")
+    m["experiment"]["ranking.tiebreak"] = ["something new"]
+    _fake_snapshot(tmp_path / "tb", m)
+    with pytest.raises(SystemExit):
+        Campaign(tmp_path / "tb", tmp_path / "tb.sqlite3", require_snapshot_code=False)
