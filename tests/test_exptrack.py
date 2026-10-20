@@ -628,3 +628,93 @@ def test_run_directory_matching_is_whole_path(tmp_path):
     finally:
         p.kill()
         p.wait()
+
+
+# ------------------------------------------------------------ search programs
+
+def _fake_program(root: Path, uri: str, cap: float = 53.0) -> None:
+    """A program snapshot with a tiny design, two search batches and a program manifest."""
+    import hashlib
+    import shutil
+
+    from exptrack.db import sha256_file
+
+    snap = root / "snapshot"
+    ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
+    shutil.copytree(REPO / "src", snap / "src", ignore=ignore)
+    shutil.copytree(REPO / "scripts", snap / "scripts", ignore=ignore)
+    camp = snap / "scripts" / "campaigns"
+    design = {"design": {"arms": [{"id": a, "overrides": o} for a, o in
+                                  (("ref", {}), ("w64", {"hidden": 64}), ("w48", {"hidden": 48}), ("w40", {"hidden": 40}))]}}
+    (camp / "tiny_design.json").write_text(json.dumps(design))
+    batches = []
+    for k, arms in enumerate((["ref", "w64"], ["w48", "w40"]), 1):
+        m = _tiny_manifest(f"tinyprog-b{k}", uri)
+        e = m["experiment"]
+        e.update({"design.type": "search_batch", "design.arms": {a: dict(design["design"]["arms"][
+                      [x["id"] for x in design["design"]["arms"]].index(a)]["overrides"]) for a in arms},
+                  "design.reference_arm": "ref" if "ref" in arms else None, "search.order": arms,
+                  "evaluation.seed_banks": {"development": [5]}, "evaluation.phase_roles": {"main": ["development"]},
+                  "acceptance.mean_paired_gain_min": None, "acceptance.each_paired_gain_min": None,
+                  "budget.aggregate_core_hours": 1.0})
+        rel = f"scripts/campaigns/tinyprog_b{k}.json"
+        (snap / rel).write_text(json.dumps(m))
+        batches.append({"id": f"tinyprog-b{k}", "arms": arms, "manifest": rel})
+    program = {"program_id": "tinyprog", "design_path": "scripts/campaigns/tiny_design.json",
+               "design_sha256": hashlib.sha256((camp / "tiny_design.json").read_bytes()).hexdigest(),
+               "batches": batches, "ranking": {"reference": "ref"}, "confirmation": {},
+               "budget": {"extension_core_hours": 72.0, "extension_used_before_program_core_hours": 0.0,
+                          "program_cap_core_hours": cap, "batch_cap_core_hours": 1.0,
+                          "confirmation_cap_core_hours": 1.0, "max_concurrent_jobs": 1}}
+    (camp / "tinyprog.json").write_text(json.dumps(program))
+    files = {str(p.relative_to(snap)): sha256_file(p) for p in sorted(snap.rglob("*")) if p.is_file()}
+    (root / "snapshot.json").write_text(json.dumps({
+        "campaign": "tinyprog", "manifest": "scripts/campaigns/tinyprog.json", "commit": "test",
+        "interpreter": sys.executable, "manifest_sha256": files["scripts/campaigns/tinyprog.json"], "files": files}))
+
+
+def test_search_program_runs_batches_then_ranks_jointly(tmp_path):
+    from exptrack import db
+    from exptrack.program import Program
+    from train_ppo import mlflow_tracking_uri
+
+    root = tmp_path / "tinyprog"
+    _fake_program(root, mlflow_tracking_uri())
+    dbp = tmp_path / "p.sqlite3"
+    pr = Program(root, dbp, require_snapshot_code=False)
+    pr.register()  # every batch's configurations and runs exist before anything trains
+    con = db.connect(dbp)
+    assert con.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 4
+    assert con.execute("SELECT COUNT(*) FROM run_attempts").fetchone()[0] == 0
+    assert con.execute("SELECT COUNT(*) FROM events WHERE event = 'program_registered'").fetchone()[0] == 1
+    pr.run()
+    for b in ("tinyprog-b1", "tinyprog-b2"):
+        res = json.loads((root / b / "batch_results.json").read_text())
+        assert res["search_only"] and all(v["episodes"] == 99 for v in res["arms"].values())
+        assert not (root / b / "selection.json").exists() and not (root / b / "results.json").exists()
+    roles = {r[0] for r in con.execute("SELECT DISTINCT role FROM evaluations")}
+    assert roles == {"development"}  # no final bank anywhere in the search
+    ranking = json.loads((root / "ranking.json").read_text())
+    assert sorted(ranking["order"]) == ["ref", "w40", "w48", "w64"] and ranking["selected"] != "ref"
+    fr = {a: ranking["arms"][a]["fraction"] for a in ranking["order"]}
+    assert list(fr.values()) == sorted(fr.values(), reverse=True)
+    # A restart resumes without duplicates: nothing retrains, the frozen ranking stays.
+    n_att = con.execute("SELECT COUNT(*) FROM run_attempts").fetchone()[0]
+    Program(root, dbp, require_snapshot_code=False).run()
+    assert con.execute("SELECT COUNT(*) FROM run_attempts").fetchone()[0] == n_att == 4
+    assert json.loads((root / "ranking.json").read_text())["frozen"] == ranking["frozen"]
+
+
+def test_search_program_refuses_a_batch_that_does_not_fit(tmp_path):
+    from exptrack import db
+    from exptrack.program import Program
+    from train_ppo import mlflow_tracking_uri
+
+    root = tmp_path / "tinyprog"
+    _fake_program(root, mlflow_tracking_uri(), cap=2.5)  # two batch caps + confirmation = 3.0 > 2.5
+    dbp = tmp_path / "p.sqlite3"
+    Program(root, dbp, require_snapshot_code=False).run()
+    con = db.connect(dbp)
+    assert con.execute("SELECT COUNT(*) FROM run_attempts").fetchone()[0] == 0
+    assert con.execute("SELECT COUNT(*) FROM events WHERE event = 'program_stopped'").fetchone()[0] == 1
+    assert not (root / "ranking.json").exists()

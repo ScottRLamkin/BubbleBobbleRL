@@ -1,0 +1,84 @@
+{
+ "program_id": "opt512x4-1020",
+ "design_path": "scripts/campaigns/opt512x4_1020_design.json",
+ "design_sha256": "0d378836cb6aba99531aff0ea74d5f1ab87fc2b65bd82fb81f808834830679b6",
+ "authorized_at": "2026-10-20T06:48:25-07:00",
+ "hard_cutoff": "2026-10-20T20:00:00-07:00",
+ "batches": [
+  {
+   "id": "opt512x4-1020-b1",
+   "arms": [
+    "reference_512x4",
+    "opt10",
+    "opt09",
+    "opt01"
+   ],
+   "manifest": "scripts/campaigns/opt512x4_1020_b1.json"
+  },
+  {
+   "id": "opt512x4-1020-b2",
+   "arms": [
+    "opt07",
+    "opt05",
+    "opt03",
+    "opt02"
+   ],
+   "manifest": "scripts/campaigns/opt512x4_1020_b2.json"
+  },
+  {
+   "id": "opt512x4-1020-b3",
+   "arms": [
+    "opt06",
+    "opt11",
+    "opt04",
+    "opt08"
+   ],
+   "manifest": "scripts/campaigns/opt512x4_1020_b3.json"
+  }
+ ],
+ "ranking": {
+  "banks": [
+   88001,
+   88002
+  ],
+  "used_for": "joint ranking only, after all 36 full-duration jobs and their endpoint evaluations complete",
+  "aggregation": "absolute completed episodes / attempted episodes across three policy seeds and two banks; also each policy seed and per-level clears/deaths/timeouts",
+  "ranking": [
+   "mean completed episode fraction descending",
+   "minimum training-seed completed fraction descending",
+   "arm id ascending"
+  ],
+  "reference": "reference_512x4",
+  "select": "highest-ranked non-reference arm; retain reference in all reporting even if it ranks first",
+  "failure_policy": "show failed seeds and resolve infrastructure failure within one retry/full reservation; if any seed remains incomplete do not declare complete ranking or confirmation readiness"
+ },
+ "confirmation": {
+  "cap_allocated_core_hours": 8,
+  "arms": "selected non-reference arm and reference_512x4 with identical effective settings except fresh seeds",
+  "training_seeds": [
+   7901,
+   7902,
+   7903
+  ],
+  "training_minutes": 60,
+  "development_banks": [
+   89001,
+   89002
+  ],
+  "final_banks": [
+   98001,
+   98002
+  ],
+  "freeze": "freeze selected config before fresh training, then all six endpoint hashes before opening final banks",
+  "decision": "report absolute clear totals/fractions, every training seed, per-level coverage and deaths/timeouts; Codex chooses provisional retained recipe from observed absolute final performance and seed consistency without declaring competence or statistical significance; no old +30 threshold",
+  "no_candidate_switching_on_final": true
+ },
+ "budget": {
+  "extension_core_hours": 72.0,
+  "extension_used_before_program_core_hours": 0.0921,
+  "program_cap_core_hours": 53.0,
+  "batch_cap_core_hours": 15.0,
+  "confirmation_cap_core_hours": 8.0,
+  "max_concurrent_jobs": 6
+ }
+}

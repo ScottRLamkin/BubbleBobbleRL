@@ -105,8 +105,12 @@ class Campaign:
         self.manifest = json.loads(mpath.read_text())
         self.cfg = schema.validate_experiment(self.manifest["experiment"])
         c = self.cfg
-        if c["design.type"] != "paired_arms_with_selection":
-            raise SystemExit(f"this runner implements paired_arms_with_selection, not {c['design.type']}")
+        if c["design.type"] not in ("paired_arms_with_selection", "search_batch"):
+            raise SystemExit(f"this runner implements paired_arms_with_selection and search_batch, not "
+                             f"{c['design.type']}")
+        self.search_only = c["design.type"] == "search_batch"
+        if self.search_only and set(c["evaluation.seed_banks"]) != {"development"}:
+            raise SystemExit("a search batch has a development bank only (no final bank)")
         if not c["tracking.required"] or not c["tracking.mlflow_uri"] or not c["tracking.mlflow_experiment"]:
             raise SystemExit("MLflow tracking is mandatory: tracking.required, mlflow_uri and mlflow_experiment")
         if c["evaluation.cap_frames"] != c["evaluation.max_steps"] * c["evaluation.frame_skip"]:
@@ -178,8 +182,8 @@ class Campaign:
     def register(self) -> dict:
         """Idempotent: the game version, experiment, revision and every run."""
         c, con = self.cfg, self.con()
-        ref = c["design.reference_arm"]
-        ref_cfg = schema.validate_trainer_config({**c["shared.training"], **c["design.arms"][ref]})
+        ref = c["design.reference_arm"]  # a search batch without the reference arm checks the shared settings
+        ref_cfg = schema.validate_trainer_config({**c["shared.training"], **(c["design.arms"][ref] if ref else {})})
         if db.sha256_text(db.canonical(ref_cfg)) != c["reference.config_sha256"]:
             raise SystemicError("reference.config_sha256 does not match the reference arm's configuration")
         gid = store.register_game_version(con, c["game.name"], self.snap / "src" / "bubblebobblerl",
@@ -214,6 +218,8 @@ class Campaign:
         return self.cfg["budget.per_run_wall_minutes"][phase] * 60 + self.grace + self.eval_hard * n_dev
 
     def final_reservation(self) -> float:
+        if self.search_only:
+            return 0.0
         return 2 * len(self.cfg["seeds.training"][self.cfg["design.phases"][0]]) * \
             len(self.cfg["evaluation.seed_banks"]["final"]) * self.eval_hard
 
@@ -299,7 +305,51 @@ class Campaign:
             store.add_event(con, "campaign_incomplete", {"states": states}, experiment_id=ids["experiment_id"],
                             revision_id=ids["revision_id"])
             return
+        if self.search_only:
+            self.batch_results()
+            return
         self.select_and_finalize()
+
+    def batch_results(self) -> dict:
+        """A search-only batch: every job's development results, absolute, with
+        no selection and no final bank (ranking happens across the program)."""
+        c, con = self.cfg, self.con()
+        out = {"campaign": self.manifest["campaign_id"], "experiment_id": self.status["experiment_id"],
+               "revision_id": self.status["revision_id"], "search_only": True,
+               "development_bank": c["evaluation.seed_banks"]["development"], "arms": {}, "written": iso()}
+        for arm in self.arm_order():
+            runs = {}
+            for s in c["seeds.training"][c["design.phases"][0]]:
+                j = self.status["jobs"][self.job_id(arm, s)]
+                evals = {}
+                for r in con.execute("SELECT protocol_json, results_json FROM evaluations WHERE run_id = ? AND role = "
+                                     "'development' AND checkpoint_sha256 = ?", (j["run_id"], j["model_sha256"])):
+                    res = json.loads(r["results_json"])
+                    evals[str(json.loads(r["protocol_json"])["seed"])] = {
+                        k: res[k] for k in ("cleared", "died", "timeout", "episodes", "levels_cleared")}
+                cleared = sum(e["cleared"] for e in evals.values())
+                episodes = sum(e["episodes"] for e in evals.values())
+                runs[str(s)] = {"run_id": j["run_id"], "mlflow_run_id": j["mlflow_run_id"],
+                                "model_sha256": j["model_sha256"], "steps": j["steps"], "updates": j["updates"],
+                                "train_seconds": j.get("train_seconds"), "development": evals,
+                                "cleared": cleared, "episodes": episodes,
+                                "fraction": cleared / episodes if episodes else None}
+            tot_c = sum(r["cleared"] for r in runs.values())
+            tot_e = sum(r["episodes"] for r in runs.values())
+            out["arms"][arm] = {"overrides": c["design.arms"][arm], "runs": runs, "cleared": tot_c, "episodes": tot_e,
+                                "fraction": tot_c / tot_e if tot_e else None,
+                                "min_seed_fraction": min(r["fraction"] for r in runs.values())}
+        out["allocated_core_hours"] = self.spent() / 3600
+        path = self.root / "batch_results.json"
+        write_json_atomic(path, out)
+        store.add_artifact(con, "batch_results", path, db.sha256_file(path), experiment_id=self.status["experiment_id"])
+        store.add_event(con, "search_batch_complete", {a: {k: v[k] for k in ("cleared", "episodes", "fraction")}
+                                                       for a, v in out["arms"].items()},
+                        experiment_id=self.status["experiment_id"], revision_id=self.status["revision_id"])
+        self.log("search batch complete: " + "; ".join(f"{a} {v['cleared']}/{v['episodes']}" for a, v in
+                                                       out["arms"].items()) + f"; allocated "
+                 f"{out['allocated_core_hours']:.2f} core-hours (no selection, no final bank)")
+        return out
 
     def reconcile_all(self) -> None:
         """After a previous runner stopped: reconcile every job (running or
@@ -477,6 +527,10 @@ class Campaign:
         params = {r["key"]: json.loads(r["value_json"]) for r in con.execute(
             "SELECT key, value_json FROM run_params WHERE run_id = ?", (run_id,))}
         params.update({f"experiment.{k}": v for k, v in c.items() if k != "shared.training"})
+        for k, v in list(params.items()):  # MLflow caps a parameter value at 6000 characters
+            text = v if isinstance(v, str) else json.dumps(v)
+            if len(text) > 5000:
+                params[k] = text[:4800] + f" ...[truncated; sha256 {db.sha256_text(text)[:16]}; full value in SQLite]"
         log_params(client, run.info.run_id, params)
         return client, exp_id, run.info.run_id, attempt_id
 
@@ -867,7 +921,11 @@ class Campaign:
             pairs[str(s)] = gain
         mean_gain = sum(pairs.values()) / len(pairs)
         lo_mean, lo_each = c["acceptance.mean_paired_gain_min"], c["acceptance.each_paired_gain_min"]
-        accepted = (lo_mean is None or mean_gain >= lo_mean) and (lo_each is None or min(pairs.values()) >= lo_each)
+        if lo_mean is None and lo_each is None:
+            accepted = None  # no threshold rule registered: absolute outcomes are reported, the decision is reviewed
+        else:
+            accepted = ((lo_mean is None or mean_gain >= lo_mean)
+                        and (lo_each is None or min(pairs.values()) >= lo_each))
 
         def per_level(arm):
             tot = {}
@@ -897,6 +955,10 @@ class Campaign:
                                                 "mlflow_run_id", "run_id", "attempts", "development")}
                      for k, j in self.status["jobs"].items()},
             "written": iso()}
+        absolute = {a: (sum(final[(a, s, fs)]["cleared"] for s in seeds for fs in fseeds),
+                        sum(final[(a, s, fs)]["episodes"] for s in seeds for fs in fseeds)) for a in (sel, ref)}
+        out["absolute_final"] = {a: {"cleared": c_, "episodes": e_, "fraction": c_ / e_} for a, (c_, e_) in
+                                 absolute.items()}
         path = self.root / "results.json"
         write_json_atomic(path, out)
         store.add_artifact(con, "results", path, db.sha256_file(path), experiment_id=self.status["experiment_id"])
@@ -904,5 +966,7 @@ class Campaign:
                                                                      "mean_paired_gain", "acceptance",
                                                                      "allocated_core_hours")},
                         experiment_id=self.status["experiment_id"], revision_id=self.status["revision_id"])
-        self.log(f"results: {sel} vs {ref} paired gains {pairs}, mean {mean_gain:+.1f}; acceptance "
-                 f"{'met' if accepted else 'not met'}; allocated {out['allocated_core_hours']:.2f} core-hours")
+        self.log(f"results: {sel} {absolute[sel][0]}/{absolute[sel][1]}, {ref} {absolute[ref][0]}/{absolute[ref][1]} "
+                 f"final-bank clears; paired gains {pairs}; rule "
+                 f"{'none registered' if accepted is None else ('met' if accepted else 'not met')}; allocated "
+                 f"{out['allocated_core_hours']:.2f} core-hours")

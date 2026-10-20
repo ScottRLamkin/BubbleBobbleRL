@@ -42,6 +42,10 @@ def main(argv=None) -> None:
     s.add_argument("roots", nargs="+")
     s.add_argument("--db", default=str(db.DEFAULT_DB))
     s.add_argument("--mlflow-uri", default=None, help="default: $MLFLOW_TRACKING_URI, else the service on :5000")
+    s = sub.add_parser("program", help="registered multi-batch search program (run from its snapshot)")
+    s.add_argument("action", choices=["register", "preflight", "run", "rank"])
+    s.add_argument("--root", required=True)
+    s.add_argument("--db", required=True)
     s = sub.add_parser("campaign", help="registered campaign (run from its snapshot)")
     s.add_argument("action", choices=["register", "preflight", "run"])
     s.add_argument("--root", required=True)
@@ -75,6 +79,21 @@ def main(argv=None) -> None:
         con = db.connect(a.db)
         for root in a.roots:
             print(root, json.dumps(import_campaign(con, root, resolve_uri(a.mlflow_uri))))
+    elif a.cmd == "program":
+        from .program import Program
+
+        pr = Program(a.root, a.db)
+        if a.action == "register":
+            print(json.dumps(pr.register(), indent=1))
+        elif a.action == "preflight":
+            r = pr.preflight()
+            print(json.dumps(r, indent=1))
+            if not r["ok"]:
+                raise SystemExit("preflight failed")
+        elif a.action == "rank":
+            print(json.dumps({k: v for k, v in pr.rank().items() if k != "arms"}, indent=1))
+        else:
+            pr.run()
     elif a.cmd == "campaign":
         from .campaign import Campaign
 
