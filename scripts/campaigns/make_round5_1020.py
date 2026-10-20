@@ -103,6 +103,9 @@ def build(low_manifest: dict, low_sel: dict, low_res: dict) -> dict:
                               "Entering retained recipe ff12: it stays retained unless the rule is met, in which case "
                               f"replacing it with {cand} is recommended for review.")),
         "tracking.mlflow_experiment": "replicate-final-1020",
+        "reference.retained_recipe_entering": retained,
+        "reference.original_comparator": ref,
+        "search.consumed_banks": CONSUMED_BANKS,
     })
     schema.validate_experiment(exp)
     return {

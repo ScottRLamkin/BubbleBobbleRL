@@ -163,6 +163,8 @@ def _search_campaign(root: Path) -> dict:
         "acceptance.mean_paired_gain_min": float(fin["practical_improvement"]["mean_paired_gain_min"]),
         "acceptance.each_paired_gain_min": float(fin["practical_improvement"]["each_paired_gain_min"]),
         "tracking.mlflow_uri": None, "tracking.mlflow_experiment": None, "tracking.required": False,
+        "reference.retained_recipe_entering": None, "reference.original_comparator": None,
+        "search.consumed_banks": None,
     }
     return {"campaign": m["campaign_id"], "experiment": exp, "runs": runs, "root": root, "info": info,
             "artifacts": [p for p in (root / "report.md", root / "audit.md", root / "status.json",
@@ -234,6 +236,8 @@ def _paired_campaign(root: Path) -> dict:
         "acceptance.mean_paired_gain_min": float(acc["mean_paired_gain_min"]),
         "acceptance.each_paired_gain_min": float(acc["each_paired_gain_min"]),
         "tracking.mlflow_uri": None, "tracking.mlflow_experiment": None, "tracking.required": False,
+        "reference.retained_recipe_entering": None, "reference.original_comparator": None,
+        "search.consumed_banks": None,
     }
     return {"campaign": m["campaign_id"], "experiment": exp, "runs": runs, "root": root, "info": info,
             "artifacts": [p for p in (root / "results.json", root / "status.json", root / "snapshot.json",

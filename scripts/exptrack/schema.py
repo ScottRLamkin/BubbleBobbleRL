@@ -136,6 +136,10 @@ EXPERIMENT_SCHEMA: dict[str, tuple[str, str | None, str]] = {
     "game.source_commit": ("str?", None, "git commit the game files came from"),
     "reference.name": ("str", None, "the comparison recipe"),
     "reference.config_sha256": ("str", None, "hash of the reference recipe's complete trainer configuration"),
+    "reference.retained_recipe_entering": ("str?", None, "recipe retained entering this round in an adaptive series "
+                                           "(null = not tracked: first or historical round)"),
+    "reference.original_comparator": ("str?", None, "the original comparator arm when its role differs from the "
+                                      "retained recipe (null = not tracked)"),
     "design.type": ("str", None, "paired_arms | fractional_factorial_screen | grid | single"),
     "design.arms": ("object", None, "arm name -> trainer-key overrides on top of shared.training"),
     "design.factors": ("object", None, "tested factor -> values, as named in the design"),
@@ -160,6 +164,8 @@ EXPERIMENT_SCHEMA: dict[str, tuple[str, str | None, str]] = {
     "evaluation.checkpoint": ("str", None, "which checkpoint is evaluated"),
     "search.procedure": ("str", None, "how configurations are generated and ordered"),
     "search.order": ("list", None, "dispatch order of arms (empty = as listed)"),
+    "search.consumed_banks": ("object?", None, "earlier evaluation banks consumed by the adaptive search "
+                              "(campaign -> seeds; null = none tracked)"),
     "budget.hardware": ("str", None, "machine and CPU"),
     "budget.per_run_wall_minutes": ("object", "wall minutes", "phase -> training allowance per run"),
     "budget.aggregate_core_hours": ("float", "core-hours", "cap on reserved single-thread time"),

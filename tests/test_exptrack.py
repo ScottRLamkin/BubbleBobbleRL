@@ -152,6 +152,8 @@ def _tiny_manifest(name: str, uri: str, lives: int = 1, wide: int = 64) -> dict:
         "evaluation.seed_banks": {"development": [5], "final": [6]}, "evaluation.lives": lives,
         "budget.max_concurrent_jobs": 1, "budget.aggregate_core_hours": 1.0, "budget.hard_cutoff": None,
         "tracking.mlflow_uri": uri, "tracking.mlflow_experiment": name,
+        "reference.retained_recipe_entering": None, "reference.original_comparator": None,
+        "search.consumed_banks": None,
     })
     from exptrack.db import canonical, sha256_text
     from hyperparams import validate

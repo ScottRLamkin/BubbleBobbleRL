@@ -144,7 +144,7 @@ Evolution children take every hyperparameter from the run's `--config` except th
 
 Each child changes 1 to 4 genes, each by a factor in [1/3.0, 3.0]. Not genes (fixed by the run's config): every other hyperparameter, including `kill_bonus`, `score_reward`, `stationary_window`, the network and the observation.
 
-## Experiment-level hyperparameters (48)
+## Experiment-level hyperparameters (51)
 
 A registered experiment (`scripts/exptrack/schema.py`) states every one of these; each revision is immutable and each key is a typed row in `experiments.sqlite3`. The evaluation protocol, seed banks, budget, selection and acceptance rules are experiment hyperparameters, not fixed code.
 
@@ -156,6 +156,8 @@ A registered experiment (`scripts/exptrack/schema.py`) states every one of these
 | `game.source_commit` | str or null |  | git commit the game files came from |
 | `reference.name` | str |  | the comparison recipe |
 | `reference.config_sha256` | str |  | hash of the reference recipe's complete trainer configuration |
+| `reference.retained_recipe_entering` | str or null |  | recipe retained entering this round in an adaptive series (null = not tracked: first or historical round) |
+| `reference.original_comparator` | str or null |  | the original comparator arm when its role differs from the retained recipe (null = not tracked) |
 | `design.type` | str |  | paired_arms | fractional_factorial_screen | grid | single |
 | `design.arms` | object |  | arm name -> trainer-key overrides on top of shared.training |
 | `design.factors` | object |  | tested factor -> values, as named in the design |
@@ -180,6 +182,7 @@ A registered experiment (`scripts/exptrack/schema.py`) states every one of these
 | `evaluation.checkpoint` | str |  | which checkpoint is evaluated |
 | `search.procedure` | str |  | how configurations are generated and ordered |
 | `search.order` | list |  | dispatch order of arms (empty = as listed) |
+| `search.consumed_banks` | object or null |  | earlier evaluation banks consumed by the adaptive search (campaign -> seeds; null = none tracked) |
 | `budget.hardware` | str |  | machine and CPU |
 | `budget.per_run_wall_minutes` | object | wall minutes | phase -> training allowance per run |
 | `budget.aggregate_core_hours` | float | core-hours | cap on reserved single-thread time |
