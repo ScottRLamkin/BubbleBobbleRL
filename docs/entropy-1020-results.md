@@ -87,27 +87,38 @@ Allocated: 12.17 single-thread core-hours of 15.0 (training, evaluation and pref
 - **A throughput confound.**
   - The reference jobs trained fewer steps (31.6–34.8M) than every entropy arm (34.9–40.2M), with
     lower steps per second (8.8–9.7k against 9.7–11.2k).
-  - The configurations differ only in ent_coef, which has no plausible effect on per-step cost. The
-    likely cause is uneven CPU scheduling: six single-thread jobs, the MLflow service and other
-    processes shared 8 performance and 4 efficiency cores, with no core pinning.
-  - The design does not separate this from the coefficient's effect. The reference's step count in
-    this round (about 32–35M) is at the low end of its range across rounds (32–38M), but not far
-    outside it.
-- **Seed spread is large.** The reference scored 181–186 on seeds 7501 and 7503 and about 292–305 on
-  seed 7502, in both banks. The candidate's largest gain (+118.5) comes from a weak reference seed.
+  - So the reference runs completed fewer steps in the same wall-time allowance. Two possible
+    contributors:
+    - CPU scheduling: six single-thread jobs, the MLflow service and other processes shared
+      8 performance and 4 efficiency cores, with no core pinning;
+    - behaviour-dependent simulation cost: a policy's behaviour changes entity counts, episode
+      lengths and resets, and the environment's work per step depends on them.
+  - No scheduler measurement, controlled scheduling intervention or workload profile was made.
+    This design does not isolate their contributions, or the coefficient's effect per fixed
+    amount of experience.
+  - The reference's step count in this round (about 32–35M) is at the low end of its range across
+    rounds (32–38M).
+- **Seed spread is large.** Across both banks the reference scored 185–186 on seed 7501, 181–200 on
+  seed 7503 and 292–305 on seed 7502. The candidate's largest gain (+118.5) comes from a weak reference seed.
   Its one loss is on the reference's strongest seed. Three independent training-seed pairs with
   mixed signs, and no formal uncertainty analysis, leave how far this generalises uncertain.
 - **Training-time diagnostics:**
   - ent_coef 0.003 ended with clearly higher entropy (0.43–0.57) than the others (0.15–0.24).
-  - ent0.0001 did not end with lower entropy than the reference: 0.15–0.24 against 0.17–0.21.
-  - So the coefficient's effect on late entropy was small below 0.001. The diagnostics do not
-    identify why ent0.0001 scored higher.
+  - ent0.0001's late entropy (0.15–0.24) overlapped the reference's (0.17–0.21). That overlap is
+    descriptive; it is not evidence that the coefficient has a negligible effect, nor of
+    equivalence.
+  - The diagnostics do not identify why ent0.0001 scored higher.
 - **Not shown:**
   - that 0.0001 is better than 0.0003 in general;
   - statistical significance.
 
   The candidate was selected adaptively. The final bank tested it once on new seeds, and the
   registered criterion failed.
+
+*Corrected 2026-10-20 04:30 after Codex review (CODEX-20261020T035056-0700): the first version said
+ent_coef "has no plausible effect on per-step cost" and that uneven scheduling was "the likely cause"
+of the step gap, which was unsupported. It also rounded the reference's per-seed ranges and treated
+overlapping late entropy as showing a small effect.*
 
 ## Execution notes
 
