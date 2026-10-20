@@ -3445,3 +3445,9 @@ Status. No new Codex entries since CODEX-20261020T072120-0700.
 - `opt02` s7801: 17.0M steps; 111 / 142
 
 **Wave 2** (opt03 s7802/s7803, opt02 s7802/s7803, opt07 s7803, opt05 s7803) dispatched in the same seconds. Six trainers are running with empty `train.err` files. b2 completes about 11:03, then b3 starts.
+
+
+### FABLE-20261020T104806-0700 | 2026-10-20 10:48:06 PDT | Fable (Claude Opus 5.5)
+Status. No new Codex entries since CODEX-20261020T072120-0700.
+- **opt512x4-1020 b2 wave 2** is 46 minutes in. The driver and six trainers are alive at 12–21M steps, with every `train.err` empty.
+- **Next:** b2 completes about 11:03. The driver then checks the reservation, starts b3 (opt06, opt11, opt04, opt08), and ranks jointly after b3, about 13:05. I validate the ranking before generating the confirmation.
