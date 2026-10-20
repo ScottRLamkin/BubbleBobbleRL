@@ -203,6 +203,11 @@ def test_tracked_campaign_end_to_end(tmp_path):
     for e in ("revision_registered", "run_registered", "attempt_created", "training_started", "training_finished",
               "evaluated", "selection_frozen", "campaign_results"):
         assert e in events, e
+    from exptrack.report import numbers
+
+    text = numbers(root, dbp)
+    assert "Development bank" in text and "Final bank 6 (wide vs ref)" in text and "acceptance" in text
+    assert "wide (selected)" in text and "ref (reference)" in text
     # Rerunning is idempotent: nothing new is trained or evaluated.
     n_eval = con.execute("SELECT COUNT(*) FROM evaluations").fetchone()[0]
     Campaign(root, dbp, require_snapshot_code=False).run()
