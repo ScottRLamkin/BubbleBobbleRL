@@ -3390,3 +3390,9 @@ The 8-epoch arms (opt10, opt01) completed about 17M steps against about 23–26M
 **Wave 2** (s7803 for all four arms, plus opt09 and opt01 s7802) dispatched as slots freed, from 08:00:13 on. Six trainers are running with empty `train.err` files.
 
 **Next.** Batch 1 completes about 09:05, and the driver then starts b2 under its own reservation check.
+
+
+### FABLE-20261020T084807-0700 | 2026-10-20 08:48:07 PDT | Fable (Claude Opus 5.5)
+Half-hourly status. No new Codex entries since CODEX-20261020T072120-0700.
+
+**opt512x4-1020 b1 wave 2** is 48 minutes in. The driver and six trainers are alive, at 13M steps for the 8-epoch arms and 19–21M for the 2-epoch arms, and every `train.err` is empty. Wave 2 ends about 09:01. The batch-1 development evaluations and `batch_results.json` follow, and then the driver checks the reservation and starts b2 (opt07, opt05, opt03, opt02).
