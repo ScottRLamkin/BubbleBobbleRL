@@ -260,3 +260,105 @@ def test_historical_import_is_idempotent_and_invents_no_curves(tmp_path):
         assert not any(k.startswith("losses_") or k.startswith("charts_") for k in r.data.metrics)
         for k in r.data.metrics:  # single end-of-run values, no curves
             assert len(client.get_metric_history(r.info.run_id, k)) == 1
+
+
+# ------------------------------------------------------------- store rules
+
+def _registered(tmp_path):
+    from exptrack import db, store
+
+    con = db.connect(tmp_path / "s.sqlite3")
+    m = _tiny_manifest("store-test", "sqlite:///unused.db")
+    e = m["experiment"]
+    gid = store.register_game_version(con, e["game.name"], REPO / "src" / "bubblebobblerl", e["game.source_commit"],
+                                      "test")
+    eid = store.register_experiment(con, "store-test", e["experiment.question"])
+    rid = store.register_revision(con, eid, e, gid, "test")
+    return con, e, gid, eid, rid
+
+
+def _register_worker(args):
+    path, rid, arm, seed = args
+    import sys as _sys
+
+    _sys.path.insert(0, str(REPO / "scripts"))
+    from exptrack import db, store
+
+    return store.register_run(db.connect(path), rid, arm, seed, phase="main")
+
+
+def test_concurrent_registration_is_idempotent(tmp_path):
+    import multiprocessing as mp
+
+    con, e, gid, eid, rid = _registered(tmp_path)
+    jobs = [(str(tmp_path / "s.sqlite3"), rid, arm, 11) for arm in ("ref", "wide") for _ in range(4)]
+    with mp.get_context("spawn").Pool(4) as pool:
+        ids = pool.map(_register_worker, jobs)
+    assert len(set(ids)) == 2
+    assert con.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 2
+    assert con.execute("SELECT COUNT(*) FROM events WHERE event = 'run_registered'").fetchone()[0] == 2
+
+
+def test_conflicting_registration_is_rejected_and_records_are_immutable(tmp_path):
+    import sqlite3
+
+    from exptrack import store
+
+    con, e, gid, eid, rid = _registered(tmp_path)
+    run = store.register_run(con, rid, "ref", 11, phase="main")
+    assert store.register_run(con, rid, "ref", 11, phase="main") == run  # same thing again: same id
+    store.register_run(con, rid, "wide", 11, phase="main")
+    with pytest.raises(store.ConflictError):  # same identity, different configuration
+        store.register_run(con, rid, "ref", 11, phase="main", run_key="phase=main/arm=wide/seed=11")
+    with pytest.raises(store.ConflictError):
+        store.register_experiment(con, "store-test", "a different question")
+    assert store.register_revision(con, eid, e, gid, "again") == rid
+    for sql in ("UPDATE runs SET arm = 'x'", "DELETE FROM runs", "UPDATE run_params SET value_json = '1'",
+                "UPDATE experiment_revisions SET change_note = 'x'", "DELETE FROM events",
+                "UPDATE experiment_params SET value_json = '1'"):
+        with pytest.raises(sqlite3.DatabaseError):
+            con.execute(sql)
+
+
+def test_every_parameter_is_recorded_with_gates_and_provenance(tmp_path):
+    from exptrack import schema, store
+
+    con, e, gid, eid, rid = _registered(tmp_path)
+    run = store.register_run(con, rid, "wide", 11, phase="main")
+    rows = {r["key"]: r for r in con.execute("SELECT * FROM run_params WHERE run_id = ?", (run,))}
+    assert {r["trainer_key"] for r in rows.values() if r["trainer_key"]} == set(schema.TRAINER_KEYS)
+    for k in ("network.input_size", "network.parameter_count", "game.source_hash", "design.arm"):
+        assert k in rows
+    assert rows["network.mlp.hidden"]["source"] == "experiment.arm"
+    assert rows["budget.wall_minutes"]["source"] == "experiment.budget"
+    assert rows["init.seed"]["source"] == "run.override"
+    assert rows["return.gamma"]["source"] == "experiment.shared"
+    # ff12 has score_reward false: the score scale is kept but inactive, governed by score_reward
+    assert rows["reward.score_scale"]["active"] == 0 and rows["reward.score_scale"]["gated_by"] == "reward.score_reward"
+    assert rows["reward.clear_bonus"]["active"] == 1
+    exp_rows = {r["key"] for r in con.execute("SELECT key FROM experiment_params WHERE revision_id = ?", (rid,))}
+    assert set(schema.EXPERIMENT_SCHEMA) <= exp_rows
+    assert "design.arm.wide.network.mlp.hidden" in exp_rows and "shared.reward.death_penalty" in exp_rows
+    assert store.reconstruct_run_config(con, run)["hidden"] == 64
+
+
+@pytest.mark.parametrize("hidden,layers,params", [(256, 2, 181514), (512, 2, 494090), (512, 3, 756746),
+                                                   (1024, 2, 1512458)])
+def test_larger_mlps_build_count_and_round_trip(tmp_path, hidden, layers, params):
+    import torch
+
+    from bubblebobblerl import BubbleBobbleEnv
+    from train_ppo import Agent
+
+    env = BubbleBobbleEnv(obs_type="ego", control_obs=True)
+    a = Agent(env.observation_space, env.action_space.n, "mlp", hidden, layers, "tanh")
+    assert sum(p.numel() for p in a.parameters()) == params
+    path = tmp_path / "model.pt"
+    torch.save(a.state_dict(), path)
+    (tmp_path / "arch.json").write_text(json.dumps({"arch": "mlp", "hidden": hidden, "layers": layers, "act": "tanh",
+                                                    "obs": "ego", "control_obs": True, "nearest_first": False}))
+    b = Agent.load(str(path), env.observation_space, env.action_space.n, env=env)
+    for (ka, va), (kb, vb) in zip(a.state_dict().items(), b.state_dict().items()):
+        assert ka == kb and torch.equal(va, vb)
+    x = torch.as_tensor(env.reset(seed=1, options={"level": 1})[0]).unsqueeze(0)
+    assert torch.equal(a.actor(a._encode(a.obs_in(x))), b.actor(b._encode(b.obs_in(x))))
