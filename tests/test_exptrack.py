@@ -227,3 +227,36 @@ def test_tracked_campaign_end_to_end(tmp_path):
               for r in store.query_params(con, "run", "network.mlp.hidden")}
     assert sorted(hidden.values()) == [32, 32, 48, 64]
     assert con.execute("SELECT COUNT(*) FROM evaluations").fetchone()[0] == n_eval  # old results untouched
+
+
+@pytest.mark.skipif(not (REPO / "runs" / "paired-1019-v3" / "status.json").exists(),
+                    reason="needs the paired-1019-v3 campaign records")
+def test_historical_import_is_idempotent_and_invents_no_curves(tmp_path):
+    from exptrack import db
+    from exptrack.historical import import_campaign
+    from exptrack.mlflow_sink import client_for
+    from train_ppo import mlflow_tracking_uri
+
+    con = db.connect(tmp_path / "h.sqlite3")
+    uri = mlflow_tracking_uri()
+    first = import_campaign(con, REPO / "runs" / "paired-1019-v3", uri)
+    assert (first["runs"], first["evaluations"], first["mlflow_created"]) == (6, 12, 6)
+    again = import_campaign(con, REPO / "runs" / "paired-1019-v3", uri)
+    assert again["mlflow_created"] == 0 and again["experiment_id"] == first["experiment_id"]
+    assert con.execute("SELECT COUNT(*) FROM evaluations").fetchone()[0] == 12
+    status = json.loads((REPO / "runs" / "paired-1019-v3" / "status.json").read_text())
+    recorded = {(j["model_sha256"], int(s)): r["cleared"] for j in status["jobs"].values()
+                for s, r in j["results"].items()}
+    for e in con.execute("SELECT checkpoint_sha256, protocol_json, results_json, origin FROM evaluations"):
+        assert e["origin"] == "historical_import"
+        assert recorded[(e["checkpoint_sha256"], json.loads(e["protocol_json"])["seed"])] == \
+            json.loads(e["results_json"])["cleared"]
+    client = client_for(uri)
+    runs = client.search_runs([first["mlflow_experiment_id"]], max_results=100)
+    assert len(runs) == 6
+    for r in runs:
+        assert r.data.tags["origin"] == "historical_import"
+        assert "not recorded" in r.data.tags["learning_curves"]
+        assert not any(k.startswith("losses_") or k.startswith("charts_") for k in r.data.metrics)
+        for k in r.data.metrics:  # single end-of-run values, no curves
+            assert len(client.get_metric_history(r.info.run_id, k)) == 1

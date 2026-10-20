@@ -4,6 +4,7 @@
     PYTHONPATH=scripts .venv/bin/python -m exptrack show [--experiment NAME] [--run RUN_ID]
     PYTHONPATH=scripts .venv/bin/python -m exptrack params run network.mlp.hidden
     PYTHONPATH=scripts .venv/bin/python -m exptrack sync RUN_DIR
+    PYTHONPATH=scripts .venv/bin/python -m exptrack import-historical runs/hparam-1019 runs/hparam-1019-v2 ...
     PYTHONPATH=<root>/snapshot/src:<root>/snapshot/scripts .venv/bin/python -m exptrack \\
         campaign preflight|run --root runs/<id> --db experiments.sqlite3
 
@@ -37,6 +38,10 @@ def main(argv=None) -> None:
     s = sub.add_parser("sync", help="replay a run directory's metric outbox to its MLflow run")
     s.add_argument("run_dir")
     s.add_argument("--db", default=str(db.DEFAULT_DB))
+    s = sub.add_parser("import-historical", help="import completed campaigns from their own records")
+    s.add_argument("roots", nargs="+")
+    s.add_argument("--db", default=str(db.DEFAULT_DB))
+    s.add_argument("--mlflow-uri", default=None, help="default: $MLFLOW_TRACKING_URI, else the service on :5000")
     s = sub.add_parser("campaign", help="registered campaign (run from its snapshot)")
     s.add_argument("action", choices=["register", "preflight", "run"])
     s.add_argument("--root", required=True)
@@ -63,6 +68,13 @@ def main(argv=None) -> None:
         n = replay(row["mlflow_tracking_uri"], row["mlflow_run_id"], d / "mlflow_outbox.jsonl")
         store.add_event(con, "metrics_replayed", {"events": n}, run_id=row["run_id"], attempt_id=row["id"])
         print(f"replayed {n} metric events to {row['mlflow_run_id']}")
+    elif a.cmd == "import-historical":
+        from .historical import import_campaign
+        from .mlflow_sink import resolve_uri
+
+        con = db.connect(a.db)
+        for root in a.roots:
+            print(root, json.dumps(import_campaign(con, root, resolve_uri(a.mlflow_uri))))
     elif a.cmd == "campaign":
         from .campaign import Campaign
 
