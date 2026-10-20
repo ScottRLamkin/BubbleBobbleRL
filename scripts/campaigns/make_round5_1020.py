@@ -24,11 +24,22 @@ Rule:
 - new development (87001/87002) and final (97001/97002) banks; the same
   protocol and acceptance rule, applied to this round's fresh pairs ONLY. The
   earlier pairs are reported alongside but not pooled into the decision.
-- If the rule is met, replacing ff12 is recommended for review (the candidate
-  was chosen adaptively across rounds; this is one confirmatory replication,
-  not an overall significance claim). If not, ff12 256x2 stays retained. This
-  is a single pre-registered replication, not a retry until acceptance.
+- Retained recipe vs original comparator (revised 2026-10-20 04:30 after
+  CODEX-20261020T035056-0700, before any lowlr-1020 outcome): ff12 256x2 is
+  always the ORIGINAL comparator (the reference arm). The recipe retained
+  ENTERING this round is lowlr-1020's accepted winner if lowlr-1020 met its
+  rule, otherwise ff12. Decision: if lowlr-1020 was accepted, a met rule
+  supports the retained winner and a failed rule is conflicting evidence
+  requiring review (no automatic reset to ff12); if lowlr-1020 was not
+  accepted, ff12 stays retained unless this round's rule is met, in which case
+  replacing it with the candidate is recommended for review.
+- This is one fresh-seed replication after adaptive candidate selection, not
+  proof of the strongest general recipe and not a retry until acceptance. The
+  earlier rounds' banks informed this choice; they are marked consumed for the
+  search (still valid records of their own frozen comparisons, no longer
+  untouched holdouts for the whole search).
 """
+
 
 from __future__ import annotations
 
@@ -44,6 +55,8 @@ from exptrack.db import canonical, sha256_text  # noqa: E402
 from hyperparams import validate  # noqa: E402
 
 ENTROPY_BEST = ("ent0.0001", {"ent_coef": 0.0001}, 53.0)
+CONSUMED_BANKS = {"capacity-1020": [83001, 83002, 93001, 93002], "lr-1020": [84001, 84002, 94001, 94002],
+                  "entropy-1020": [85001, 85002, 95001, 95002], "lowlr-1020": [86001, 86002, 96001, 96002]}
 
 
 def build(low_manifest: dict, low_sel: dict, low_res: dict) -> dict:
@@ -52,7 +65,9 @@ def build(low_manifest: dict, low_sel: dict, low_res: dict) -> dict:
     ref = e0["design.reference_arm"]
     ref_over = dict(e0["design.arms"][ref])
     low_gain = float(low_res["mean_paired_gain"])
-    if bool(low_res["acceptance"]["met"]) or low_gain > ENTROPY_BEST[2]:
+    low_accepted = bool(low_res["acceptance"]["met"])
+    retained = low_sel["selected_arm"] if low_accepted else ref
+    if low_accepted or low_gain > ENTROPY_BEST[2]:
         cand, cand_over, source = (low_sel["selected_arm"], dict(e0["design.arms"][low_sel["selected_arm"]]),
                                    f"lowlr-1020 selected arm (final mean paired gain {low_gain:+.1f}, acceptance "
                                    f"{'met' if low_res['acceptance']['met'] else 'not met'})")
@@ -66,7 +81,9 @@ def build(low_manifest: dict, low_sel: dict, low_res: dict) -> dict:
     exp = dict(e0)
     exp.update({
         "experiment.question": f"On three fresh training seeds, does {cand} beat ff12 MLP 256x2 by the registered rule?",
-        "reference.name": f"{ref} as the ORIGINAL comparator (ff12 256x2, retained through rounds 1-4)",
+        "reference.name": (f"{ref} (ff12 256x2) as the ORIGINAL comparator; retained recipe entering this round: "
+                           f"{retained}" + (" (lowlr-1020 accepted)" if low_accepted else
+                                            " (no round accepted a replacement)")),
         "reference.config_sha256": sha256_text(canonical(validate({**shared, **ref_over}))),
         "design.arms": arms,
         "design.factors": {"recipe": [ref, cand], "candidate_source": source, "held_fixed": "everything else"},
@@ -78,8 +95,13 @@ def build(low_manifest: dict, low_sel: dict, low_res: dict) -> dict:
                             "(make_round5_1020.py, committed before lowlr-1020 outcomes)",
         "search.order": list(arms),
         "ranking.metric": "single candidate (no ranking); development bank reported for comparison",
-        "selection.rule": f"no selection: {cand} is the only candidate; the final bank is opened after all six "
-                          "checkpoint hashes are frozen; the decision uses this round's fresh pairs only",
+        "selection.rule": (f"no selection: {cand} is the only candidate; the final bank is opened after all six "
+                           "checkpoint hashes are frozen; the decision uses this round's fresh pairs only. "
+                           + (f"Entering retained recipe {retained} (lowlr-1020 accepted): rule met supports it; rule "
+                              "failed is conflicting evidence requiring review, not a reset to ff12."
+                              if low_accepted else
+                              "Entering retained recipe ff12: it stays retained unless the rule is met, in which case "
+                              f"replacing it with {cand} is recommended for review.")),
         "tracking.mlflow_experiment": "replicate-final-1020",
     })
     schema.validate_experiment(exp)
@@ -91,6 +113,11 @@ def build(low_manifest: dict, low_sel: dict, low_res: dict) -> dict:
         "seed_provenance": "training seeds 7701-7703 and evaluation seeds 87001/87002, 97001/97002 appear in no "
                            "campaign manifest, config or run directory name in this repository (checked "
                            "2026-10-20 03:45)",
+        "retained_recipe_entering": retained,
+        "original_comparator": ref,
+        "consumed_banks": {"banks": CONSUMED_BANKS, "meaning": "these earlier development/final banks informed the "
+                           "adaptive choice of this round's candidate; they remain valid records of their own frozen "
+                           "comparisons but are not untouched holdouts for the overall search"},
         "derived_from": {"lowlr-1020 selected_arm": low_sel["selected_arm"], "lowlr-1020 mean_paired_gain": low_gain,
                          "lowlr-1020 acceptance_met": bool(low_res["acceptance"]["met"]),
                          "entropy-1020 ent0.0001 mean_paired_gain": 53.0},
