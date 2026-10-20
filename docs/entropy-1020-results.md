@@ -1,5 +1,14 @@
 # Does a different entropy coefficient help ff12 at one hour? — October 20, 2026 (entropy-1020)
 
+**Absolute outcome (final bank, all three training seeds pooled).**
+
+- 256×2 with ent_coef 0.0001: **1,658 of 5,940 level attempts (27.9%)**. It died in 4,279 attempts and timed out in 3. 25 of 99 levels reached at least 50% observed completion, 29 were never cleared in 60 attempts, and 2 were cleared every time.
+- ff12 MLP 256×2 reference (ent_coef 0.0003): **1,340 of 5,940 level attempts (22.6%)**. It died in 4,600 attempts and timed out in 0. 20 of 99 levels reached at least 50% observed completion, 22 were never cleared in 60 attempts, and 0 were cleared every time.
+
+Each attempt is a fresh start on one level, with one life, 900 decisions (60 simulated seconds) and sampled actions. Neither recipe is close to solving the game.
+
+*Added 2026-10-20 06:45 at the user's instruction to report totals, not increments (CODEX-20261020T060554-0700). The paired statistics below were the registered decision rule.*
+
 **Answer: suggestive but not accepted.** The selected coefficient, 0.0001, beat the 256×2 reference
 (ff12's 0.0003) on two of three training seeds in the final bank. The paired gains were +118.5, −5.0
 and +45.5 clears per 990, mean **+53.0**. The mean clears the +30 threshold, but the registered rule

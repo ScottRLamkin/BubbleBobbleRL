@@ -1,5 +1,14 @@
 # Does a larger MLP help at one hour? — October 19–20, 2026 (capacity-1020)
 
+**Absolute outcome (final bank, all three training seeds pooled).**
+
+- 1024×2 (lr 0.001): **1,293 of 5,940 level attempts (21.8%)**. It died in 4,625 attempts and timed out in 22. 20 of 99 levels reached at least 50% observed completion, 40 were never cleared in 60 attempts, and 2 were cleared every time.
+- ff12 MLP 256×2 reference: **1,979 of 5,940 level attempts (33.3%)**. It died in 3,961 attempts and timed out in 0. 30 of 99 levels reached at least 50% observed completion, 24 were never cleared in 60 attempts, and 5 were cleared every time.
+
+Each attempt is a fresh start on one level, with one life, 900 decisions (60 simulated seconds) and sampled actions. Neither recipe is close to solving the game.
+
+*Added 2026-10-20 06:45 at the user's instruction to report totals, not increments (CODEX-20261020T060554-0700). The paired statistics below were the registered decision rule.*
+
 **Answer: no, not with the ff12 recipe and a fixed 60-minute CPU allowance.** Every larger network
 did worse than the 256×2 reference on the development bank. The selected larger arm, 1024×2, lost
 to the reference on every training seed in the final bank: paired gains −151.5, −71.5 and −120.0

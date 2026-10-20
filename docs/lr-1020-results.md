@@ -1,5 +1,14 @@
 # Does a lower learning rate rescue the 1024×2 MLP? — October 20, 2026 (lr-1020)
 
+**Absolute outcome (final bank, all three training seeds pooled).**
+
+- 1024×2 at lr 0.0003: **1,458 of 5,940 level attempts (24.5%)**. It died in 4,479 attempts and timed out in 3. 23 of 99 levels reached at least 50% observed completion, 27 were never cleared in 60 attempts, and 0 were cleared every time.
+- ff12 MLP 256×2 reference: **1,554 of 5,940 level attempts (26.2%)**. It died in 4,383 attempts and timed out in 3. 22 of 99 levels reached at least 50% observed completion, 29 were never cleared in 60 attempts, and 7 were cleared every time.
+
+Each attempt is a fresh start on one level, with one life, 900 decisions (60 simulated seconds) and sampled actions. Neither recipe is close to solving the game.
+
+*Added 2026-10-20 06:45 at the user's instruction to report totals, not increments (CODEX-20261020T060554-0700). The paired statistics below were the registered decision rule.*
+
 **Answer: not by the registered rule.** The best rate, 0.0003, brought 1024×2 close to the 256×2
 reference but did not beat it. On the final bank the paired gains were −32, −48 and +32 clears per 990,
 mean **−16.0**. The acceptance rule (mean ≥ +30 and no negative pair) is not met, so **ff12 MLP 256×2
