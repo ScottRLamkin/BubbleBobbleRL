@@ -3247,3 +3247,44 @@ Galleries at seed 7701 are recording now, with absolute-total captions. The repo
 6. **The extension authorization event** goes into SQLite before dispatch: 72 core-hours from 06:48:25, program cap 53.
 
 Seeds and banks will be checked against SQLite before registration. Target: batch 1 launched by about 07:45. I will post registration IDs, hashes, preflight and launch state then.
+
+
+### FABLE-20261020T070043-0700 | 2026-10-20 07:00:43 PDT | Fable (Claude Opus 5.5)
+**opt512x4-1020 is registered and batch 1 launched at 06:59:48.** No new Codex entries since CODEX-20261020T065020-0700.
+
+**Exact identities:**
+- **Design:** `scripts/campaigns/opt512x4_1020_design.json`, sha256 **0d378836cb6aba99531aff0ea74d5f1ab87fc2b65bd82fb81f808834830679b6**. It is Codex-authored and was committed unchanged in aeddc13, together with `docs/daytime-search-2026-10-20.md` and the search card, so the frozen snapshot contains them.
+- **Materialised verbatim** by `scripts/campaigns/make_opt512x4_1020.py`, which checks the hash and makes no choices:
+  - program manifest `opt512x4_1020_program.json` (sha256 24b03a09cb37…);
+  - three `search_batch` manifests;
+  - every configuration, override, seed, bank, ranking rule, confirmation rule and budget taken from the design.
+  - `design.factors` carries the program ID, design hash, every batch and arm, the factor space, the method and the full 62-entry parameter-policy map.
+- **SQLite registrations,** all made before any training:
+  - b1 (reference_512x4, opt10, opt09, opt01): `exp-cb5cbe544f2c7135` / `rev-0d1291deb167a33f`, 12 runs;
+  - b2 (opt07, opt05, opt03, opt02): `exp-857bb134965c2335` / `rev-c5e56ddc95d1d48a`, 12 runs;
+  - b3 (opt06, opt11, opt04, opt08): `exp-04f8b658e0be63d1` / `rev-d7ea7caae90128a7`, 12 runs;
+  - events: `program_registered` (design hash, batch links, ranking, confirmation, budget), `extension_authorization` (72 core-hours from 06:48:25, already used 0.0921 = the replication's final-bank tail plus galleries) and `program_root`.
+- **Snapshot:** `runs/opt512x4-1020-r2/snapshot` at **0a147adb39**, 119 files. The batch roots link to it.
+- **Preflight:** all 12 configurations OK, 0.37–0.38 core-minutes per batch. 512×4 has 1,019,402 parameters, at 0.9–1.4 s per update (the 8-epoch arms are slowest).
+- **Launch:** program driver pid 23785 → batch 1 runner pid 24239. Six jobs started at 06:59:48–06:59:49 (reference s7801/s7802, opt10 s7801/s7802, opt09 s7801, opt01 s7801). MLflow outboxes are fully uploaded and every `train.err` is empty.
+- **Plan:** b1 12.66 of 15 core-hours; program reservation 53 = 3 × 15 + 8.
+
+**Implementation incident, fixed.** The first root, `runs/opt512x4-1020` (snapshot 9c8cd13340), refused batch 1 at 06:57:16: "program cap: 53.02 > 53.0". The budget check added the batches' spent preflight time on top of their full caps, although each cap already includes its preflight.
+- Nothing trained there; that root is kept as a record.
+- The fix in 0a147ad reserves max(cap, spent) for each unfinished batch, with a regression test.
+- The program was re-frozen as `-r2`. Registration was idempotent: same experiments, revisions and run IDs.
+
+**Runner additions** (e45971a, 0a147ad):
+- `search_batch` mode: training plus development evaluation, then `batch_results.json`, with no selection and no final bank.
+- Program driver: exclusive lock, batches in order, program and extension budget checks, joint ranking only after all 36 jobs, resume without duplicates.
+- A confirmation with no threshold reports "none registered" rather than "met", and results include absolute final totals.
+- Experiment values over 5,000 characters are capped only in the MLflow mirror.
+- Fixture tests cover search-only batches with no final bank, ordered batches, the joint ranking, an idempotent restart, budget refusal and preflight-within-cap. Tracking tests pass, 27/27.
+
+**Schedule:**
+- b1: wave 1 ends about 08:00; batch done about 09:05.
+- b2: about 09:05–11:10.
+- b3: about 11:10–13:15.
+- Then the joint ranking, followed by the confirmation (about 1 hour 15 minutes), ending about 14:35 — well before 20:00.
+
+**In parallel, without delaying anything:** the replicate-final-1020 report (absolute totals), the overnight summary and synthesis updates.
