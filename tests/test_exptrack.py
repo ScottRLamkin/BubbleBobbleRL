@@ -367,3 +367,31 @@ def test_larger_mlps_build_count_and_round_trip(tmp_path, hidden, layers, params
         assert ka == kb and torch.equal(va, vb)
     x = torch.as_tensor(env.reset(seed=1, options={"level": 1})[0]).unsqueeze(0)
     assert torch.equal(a.actor(a._encode(a.obs_in(x))), b.actor(b._encode(b.obs_in(x))))
+
+
+def test_budget_counts_each_reservation_once(tmp_path):
+    """A job that finished training but is still evaluating counts only its
+    unspent reservation (its training time is already in spent())."""
+    from exptrack.campaign import Campaign
+
+    root = tmp_path / "b"
+    m = _tiny_manifest("budget-test", "sqlite:///unused.db")
+    m["experiment"]["seeds.training"] = {"main": [11, 12]}
+    _fake_snapshot(root, m)
+    c = Campaign(root, tmp_path / "b.sqlite3", require_snapshot_code=False)
+    train = c.train_reservation("main")  # 3 s + 15 s grace + 90 s per development seed
+    c.status = {"jobs": {}, "parts": {"preflight": {"elapsed_seconds": 10.0}}, "final_state": "pending"}
+    for i, (arm, seed) in enumerate([("ref", 11), ("wide", 11), ("ref", 12), ("wide", 12)]):
+        c.status["jobs"][f"{arm}_s{seed}"] = {"state": "queued", "attempts": 0, "run_id": f"r{i}"}
+    full = 10.0 + 4 * train + c.final_reservation()
+    assert c.committed() == pytest.approx(full)
+    j = c.status["jobs"]["ref_s11"]
+    j.update(state="evaluating", attempt_id="r0-a1")
+    c.status["parts"]["r0-a1/train"] = {"elapsed_seconds": 3.5}
+    assert c.committed() == pytest.approx(full)  # 3.5 s moved from reservation to spent, not added twice
+    j["state"] = "done"
+    c.status["parts"]["r0-a1/eval/development/5"] = {"elapsed_seconds": 2.0}
+    assert c.committed() == pytest.approx(full - train + 5.5)
+    j2 = c.status["jobs"]["wide_s11"]
+    j2.update(state="not_run")
+    assert c.committed() == pytest.approx(full - 2 * train + 5.5)

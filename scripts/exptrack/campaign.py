@@ -49,6 +49,7 @@ from .mlflow_sink import client_for, ensure_experiment, find_run_by_tag, log_par
 
 THREADS = {k: "1" for k in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS")}
 PREFLIGHT_RESERVE_SECONDS = 600  # campaign preflight allowance, counted against the cap
+RUNNER_FILE = "scripts/exptrack/campaign.py"  # the only file a recorded runner snapshot may change
 
 
 def iso() -> str:
@@ -69,12 +70,14 @@ class Campaign:
     def __init__(self, root, db_path, require_snapshot_code: bool = True):
         self.root = Path(root).resolve()
         self.snap = self.root / "snapshot"
-        if require_snapshot_code and not Path(__file__).resolve().is_relative_to(self.snap.resolve()):
-            raise SystemExit(f"run me from the snapshot ({self.snap}), not {Path(__file__).resolve()}")
         self.info = json.loads((self.root / "snapshot.json").read_text())
         changed = [r for r, h in self.info["files"].items() if db.sha256_file(self.snap / r) != h]
         if changed:
             raise SystemExit(f"snapshot changed since it was frozen: {changed[:5]}")
+        self.runner_snapshot = None
+        here = Path(__file__).resolve()
+        if require_snapshot_code and not here.is_relative_to(self.snap.resolve()):
+            self.runner_snapshot = self._verify_runner_snapshot(here)
         mpath = self.snap / self.info["manifest"]
         if db.sha256_file(mpath) != self.info["manifest_sha256"]:
             raise SystemExit("manifest hash differs from snapshot.json")
@@ -102,6 +105,26 @@ class Campaign:
         self._local = threading.local()
         self.status_path = self.root / "status.json"
         self.status = json.loads(self.status_path.read_text()) if self.status_path.exists() else None
+
+    def _verify_runner_snapshot(self, here: Path) -> str:
+        """A corrected runner for a campaign whose frozen snapshot has a runner
+        defect: a copy of the snapshot in which only RUNNER_FILE differs,
+        recorded (with every file hash and the reason) in runner_snapshots.json.
+        Training and evaluation still run from the original snapshot."""
+        rec_path = self.root / "runner_snapshots.json"
+        recs = json.loads(rec_path.read_text()) if rec_path.exists() else {}
+        for name, rec in recs.items():
+            d = (self.root / name).resolve()
+            if not here.is_relative_to(d):
+                continue
+            files = {str(p.relative_to(d)): db.sha256_file(p) for p in sorted(d.rglob("*")) if p.is_file()}
+            if files != rec["files"]:
+                raise SystemExit(f"runner snapshot {name} changed since it was recorded")
+            differ = {k for k in set(files) | set(self.info["files"]) if files.get(k) != self.info["files"].get(k)}
+            if differ != {RUNNER_FILE}:
+                raise SystemExit(f"runner snapshot {name} differs from the frozen snapshot in {sorted(differ)[:5]}")
+            return name
+        raise SystemExit(f"run me from the snapshot ({self.snap}) or a recorded runner snapshot, not {here}")
 
     # ------------------------------------------------------------ plumbing
     def con(self):
@@ -176,20 +199,36 @@ class Campaign:
     def spent(self) -> float:
         return sum(p.get("elapsed_seconds", 0.0) for p in self.status["parts"].values())
 
-    def remaining_reservation(self) -> float:
-        r = 0.0
+    def committed(self) -> float:
+        """Allocated time so far plus the unspent part of every outstanding
+        reservation: a queued job counts in full; a running or evaluating job
+        counts its reservation minus what its current attempt has already used
+        (that part is in spent()); the final bank likewise. Before 2026-10-19
+        22:30 a job that had finished training but was still evaluating was
+        counted twice (spent plus its full reservation), which refused
+        capacity-1020's second wave."""
+        total = self.spent()
         for phase, arm, seed in self.jobs():
-            if self.status["jobs"][self.job_id(arm, seed)]["state"] not in ("done", "failed"):
-                r += self.train_reservation(phase)
+            j = self.status["jobs"][self.job_id(arm, seed)]
+            if j["state"] in ("done", "failed", "not_run"):
+                continue
+            used = 0.0
+            if j["state"] in ("running", "evaluating") and j.get("attempt_id"):
+                used = sum(p.get("elapsed_seconds", 0.0) for k, p in self.status["parts"].items()
+                           if k.startswith(j["attempt_id"] + "/"))
+            total += max(0.0, self.train_reservation(phase) - used)
         if self.status.get("final_state") != "done":
-            r += self.final_reservation()
-        return r
+            used = sum(p.get("elapsed_seconds", 0.0) for k, p in self.status["parts"].items() if "/eval/final/" in k)
+            total += max(0.0, self.final_reservation() - used)
+        return total
 
-    def fits(self, seconds: float, extra_committed: float = 0.0) -> str | None:
-        """None if a part needing `seconds` fits the deadline; a reason otherwise."""
+    def fits(self, seconds: float, committed: float) -> str | None:
+        """None if a part needing `seconds` fits the deadline and the total
+        `committed` (from committed(), which already includes that part) fits
+        the cap; a reason otherwise."""
         if self.cutoff and dt.datetime.now().astimezone() + dt.timedelta(seconds=seconds) > self.cutoff:
             return "its full reservation would end after the hard cutoff"
-        if self.spent() + extra_committed > self.cap_seconds:
+        if committed > self.cap_seconds:
             return "the aggregate core-hour cap would be exceeded"
         return None
 
@@ -208,18 +247,28 @@ class Campaign:
             self.status["jobs"].setdefault(self.job_id(arm, seed), {
                 "phase": phase, "arm": arm, "seed": seed, "state": "queued",
                 "run_id": ids["runs"][self.job_id(arm, seed)], "attempts": 0})
+        for jid, j in self.status["jobs"].items():  # never dispatched: reconsidered under current accounting
+            if j["state"] == "not_run" and j["attempts"] == 0:
+                store.add_event(self.con(), "requeued", {"previous_reason": j.get("error")}, run_id=j["run_id"])
+                j.update(state="queued", requeued_from=j.pop("error", None))
         for jid, j in self.status["jobs"].items():  # a previous runner stopped mid-job: an infrastructure failure
             if j["state"] in ("running", "evaluating"):
                 j.update(state="queued", retryable=True, error="runner stopped during this attempt")
                 store.add_event(self.con(), "failed", {"stage": "runner stopped", "infrastructure": True},
                                 run_id=j["run_id"], attempt_id=j.get("attempt_id"))
         self.save()
-        total = self.spent() + self.remaining_reservation()
+        total = self.committed()
         if total > self.cap_seconds:
             raise SystemExit(f"plan needs {total / 3600:.2f} reserved core-hours, cap "
                              f"{c['budget.aggregate_core_hours']}")
         con = self.con()
-        store.add_event(con, "campaign_run_started", {"pid": os.getpid(), "reserved_core_hours": total / 3600},
+        if self.runner_snapshot:
+            self.status.setdefault("runner_snapshots", [])
+            if self.runner_snapshot not in self.status["runner_snapshots"]:
+                self.status["runner_snapshots"].append(self.runner_snapshot)
+            self.save()
+        store.add_event(con, "campaign_run_started", {"pid": os.getpid(), "reserved_core_hours": total / 3600,
+                                                      "runner_snapshot": self.runner_snapshot},
                         experiment_id=ids["experiment_id"], revision_id=ids["revision_id"])
         self.log(f"{self.manifest['campaign_id']} start; snapshot {self.info['commit'][:10]}; "
                  f"{len(self.jobs())} training jobs; plan {total / 3600:.2f} of {c['budget.aggregate_core_hours']} "
@@ -246,7 +295,7 @@ class Campaign:
                         self.save()
                     return
                 with self.lock:
-                    reason = self.halted or self.fits(self.train_reservation(phase), self.remaining_reservation())
+                    reason = self.halted or self.fits(self.train_reservation(phase), self.committed())
                     if reason:
                         j.update(state="not_run", error=reason)
                         self.save()
@@ -588,7 +637,7 @@ class Campaign:
                             revision_id=self.status["revision_id"])
             self.log(f"selection frozen: {ranked[0]} (development mean {table[ranked[0]]['mean_cleared']:.1f}); "
                      f"opening final bank {c['evaluation.seed_banks']['final']}")
-        reason = self.fits(self.final_reservation(), self.final_reservation())
+        reason = self.fits(self.final_reservation(), self.committed())
         if reason and self.status.get("final_state") != "done":
             self.log(f"final evaluation not run: {reason}")
             return
