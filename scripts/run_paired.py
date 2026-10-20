@@ -7,7 +7,8 @@
 Every arm is a complete experiment file (no defaults) plus the manifest's
 overrides and a training seed. Each job trains in one thread, then runs the
 standard test on every evaluation seed; jobs run in parallel up to the
-manifest's limit. Must run from the snapshot. Checks: snapshot file hashes,
+manifest's limit. MLflow tracking is mandatory: the campaign refuses to start
+unless the service answers, and each job logs to experiment <campaign_id>. Must run from the snapshot. Checks: snapshot file hashes,
 exit codes, the exact evaluation schema (audit_hparam_campaign.check_eval_file),
 checkpoint hash unchanged through evaluation. Results: status.json (atomic),
 events.log, results.json with paired gains (arm minus the reference arm, per
@@ -84,6 +85,12 @@ def main() -> None:
     for arm, cfg_rel in m["arms"].items():
         cfg = {**json.loads((snap / cfg_rel).read_text()), **m["overrides"], "seed": m["training_seeds"][0]}
         validate(cfg)
+    # MLflow tracking is mandatory: no campaign starts unless the service answers.
+    from exptrack.mlflow_sink import preflight, resolve_uri
+
+    mlflow_uri = resolve_uri()
+    preflight(mlflow_uri)
+    status["mlflow_tracking_uri"] = mlflow_uri
     reserve = m["overrides"]["wall_minutes"] * 60 + b["save_grace_seconds"] + b["per_evaluation_hard_seconds"] * len(ev["seeds"])
     jobs = [(arm, s) for s in m["training_seeds"] for arm in m["arms"]]
     for arm, s in jobs:
@@ -109,7 +116,11 @@ def main() -> None:
         try:
             argv = [py, str(snap / "scripts" / "train_ppo.py"), "--config", str(snap / m["arms"][arm]),
                     "--seed", str(seed), "--run-dir", str(d), "--wall-start", repr(t0),
-                    "--no-mlflow", "--no-tensorboard", "--quiet"]
+                    "--no-tensorboard", "--quiet", "--mlflow-tracking-uri", mlflow_uri,
+                    "--experiment", m["campaign_id"]]
+            for tag in (f"campaign={m['campaign_id']}", f"arm={arm}", f"training_seed={seed}",
+                        f"snapshot_commit={info['commit']}"):
+                argv += ["--mlflow-tag", tag]
             for k, v in m["overrides"].items():
                 argv += [f"--{k.replace('_', '-')}", str(v)]
             (d / "argv.json").write_text(json.dumps(argv))

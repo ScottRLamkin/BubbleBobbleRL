@@ -113,7 +113,7 @@ Values shown are from `configs/hparam-1019_anchor_G_screen.json`.
 
 Total: 62 hyperparameters.
 
-Run controls (not hyperparameters; optional): `run_name`, `run_dir`, `experiment`, `mlflow_tag`, `log_every`, `quiet`, `no_tensorboard`, `no_mlflow`, `wall_start`.
+Run controls (not hyperparameters; optional): `run_name`, `run_dir`, `experiment`, `mlflow_tag`, `log_every`, `quiet`, `no_tensorboard`, `wall_start`, `mlflow_tracking_uri`, `mlflow_run_id`, `metric_outbox`.
 
 ## Evolutionary search settings (`scripts/evolve.py`)
 

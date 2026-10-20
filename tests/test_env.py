@@ -413,7 +413,7 @@ def test_continuation_records_the_parents_architecture_and_observation(tmp_path)
 
     base = str(Path(__file__).resolve().parents[1] / "configs" / "hparam-1019_anchor_G_screen.json")
     common = ["--config", base, "--total-steps", "32", "--num-envs", "2", "--rollout-len", "16",
-              "--eval-every", "0", "--wall-minutes", "0", "--no-mlflow", "--no-tensorboard", "--quiet"]
+              "--eval-every", "0", "--wall-minutes", "0", "--no-tensorboard", "--quiet"]
     parent = tmp_path / "parent"
     train(parse_args(common + ["--obs", "ego", "--control-obs", "--act", "relu", "--hidden", "32",
                                "--run-dir", str(parent)]))
@@ -533,7 +533,7 @@ def test_wall_limit_stops_between_updates_and_writes_a_summary(tmp_path):
 
     base = str(Path(__file__).resolve().parents[1] / "configs" / "hparam-1019_anchor_G_screen.json")
     train(parse_args(["--config", base, "--total-steps", "100000", "--num-envs", "2", "--rollout-len", "16",
-                      "--eval-every", "0", "--no-mlflow", "--no-tensorboard", "--quiet", "--wall-minutes", "0.0001",
+                      "--eval-every", "0", "--no-tensorboard", "--quiet", "--wall-minutes", "0.0001",
                       "--run-dir", str(tmp_path)]))
     s = json.loads((tmp_path / "train_summary.json").read_text())
     assert (s["updates"], s["steps"]) == (1, 32) and (tmp_path / "model.pt").exists()
@@ -608,7 +608,7 @@ def test_trainer_rollout_storage_is_aligned_end_to_end(tmp_path, monkeypatch):
         "--config", base, "--obs", "state", "--levels", "1", "--control-obs", "--max-episode-frames", "40",
         "--num-envs", str(N), "--rollout-len", str(T), "--total-steps", str(2 * T * N), "--eval-every", "0",
         "--grace-frames", "10000", "--wall-minutes", "0", "--seed", "1",
-        "--no-mlflow", "--no-tensorboard", "--quiet", "--run-dir", str(tmp_path)]))
+        "--no-tensorboard", "--quiet", "--run-dir", str(tmp_path)]))
     assert len(calls) == 2 and len(obs_seen) == 2 * T
     time_left = torch.stack(obs_seen)  # [2T, N]
     rew = torch.cat([c[0] for c in calls])
@@ -704,7 +704,7 @@ def test_trainer_rollout_storage_is_aligned_for_death_terminations(tmp_path, mon
         "--config", base, "--obs", "state", "--levels", "1", "--control-obs", "--max-episode-frames", "400",
         "--num-envs", str(N), "--rollout-len", str(T), "--total-steps", str(2 * T * N), "--eval-every", "0",
         "--seed", "3", "--grace-frames", "0", "--wall-minutes", "0",
-        "--no-mlflow", "--no-tensorboard", "--quiet", "--run-dir", str(tmp_path)]))
+        "--no-tensorboard", "--quiet", "--run-dir", str(tmp_path)]))
     o = torch.stack(obs_seen)  # [2T, N, 2]
     rew = torch.cat([c[0] for c in calls])
     done = torch.cat([c[1] for c in calls])

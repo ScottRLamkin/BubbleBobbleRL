@@ -1,20 +1,23 @@
 """Single-file PPO for BubbleBobble-v0 (CleanRL-style, readable over fancy).
 
     uv sync --extra train
-    uv run python scripts/train_ppo.py --total-steps 2_000_000
+    uv run python scripts/train_ppo.py --config configs/hparam-1019_ff12_confirm.json --run-dir runs/my_run
 
-Defaults train an MLP on the structured "state" observation of level 1,
-which learns on a laptop CPU. Pass --obs screen for the Atari-style
-pixels-in setup (use a GPU and more steps).
+Every hyperparameter comes from the experiment configuration (scripts/hyperparams.py;
+there are no defaults). Registered experiments are dispatched with
+`python -m exptrack dispatch` (scripts/exptrack), which records the run in
+experiments.sqlite3 and links it to MLflow before training starts.
 
-Watch progress:  uv run mlflow ui --backend-store-uri sqlite:///mlflow.db   (http://127.0.0.1:5000)
-                 uv run tensorboard --logdir runs/
-Watch the agent: uv run python scripts/train_ppo.py --play runs/<run>/model.pt
+Watch progress:  MLflow at http://127.0.0.1:5000 (`uv run mlflow ui --backend-store-uri sqlite:///mlflow.db`)
+Watch the agent: uv run python scripts/train_ppo.py --play runs/<run>/model.pt --level 1 --obs ego
 
-Both trackers get the same curves: episodic return and length, policy and
-value loss, entropy, approximate KL, clip fraction, explained variance,
-learning rate and steps per second. --no-tensorboard / --no-mlflow turn
-either off (evolve.py turns both off for its 30 children per generation).
+MLflow gets the learning curves: episodic return and length, policy and value
+loss, entropy, approximate KL, clip fraction, explained variance, learning
+rate, steps per second and every reward component. Metrics pass through a
+durable outbox (<run_dir>/mlflow_outbox.jsonl). MLflow tracking is mandatory:
+there is no option to turn it off, training does not start unless the service
+answers and the run is linked, and a service that stays unreachable during
+training stops the run with an error (scripts/exptrack/mlflow_sink.py).
 """
 
 from __future__ import annotations
@@ -71,13 +74,21 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--log-every", type=int, default=5, help="log metrics every N PPO updates")
     p.add_argument("--quiet", action="store_true", help="one progress line per ~1M steps")
     p.add_argument("--no-tensorboard", action="store_true")
-    p.add_argument("--no-mlflow", action="store_true")
+    p.add_argument("--mlflow-tracking-uri", default=None,
+                   help="MLflow service (otherwise $MLFLOW_TRACKING_URI, else the local UI on :5000); "
+                        "tracking is mandatory and an unreachable service is an error")
+    p.add_argument("--mlflow-run-id", default=None,
+                   help="log into this existing MLflow run (created and linked by the experiment dispatcher)")
+    p.add_argument("--metric-outbox", default=None,
+                   help="durable metric buffer (default <run_dir>/mlflow_outbox.jsonl)")
     p.add_argument("--wall-start", type=float, default=0.0,
                    help="epoch seconds the wall_minutes budget counts from (0: training start)")
     a = p.parse_args(argv)
     cfg: dict = {}
     for path in a.config:
         loaded = json.loads(Path(path).read_text())
+        if "no_mlflow" in loaded:
+            p.error(f"{path}: no_mlflow is not accepted; MLflow tracking is mandatory and cannot be turned off")
         stray = [k for k in loaded if k not in NAMES and k not in RUN_CONTROLS]
         if stray:
             p.error(f"{path}: unknown keys {stray}")
@@ -92,29 +103,23 @@ def parse_args(argv: list[str] | None = None):
         p.error(str(e))
     ns = argparse.Namespace(**cfg)
     for k in ("run_name", "run_dir", "experiment", "mlflow_tag", "log_every", "quiet", "no_tensorboard",
-              "no_mlflow", "wall_start"):
+              "wall_start", "mlflow_tracking_uri", "mlflow_run_id", "metric_outbox"):
         setattr(ns, k, getattr(a, k))
     ns.config_files = list(a.config)
     return ns
 
+
+from hyperparams import NAMES as HYPERPARAMETER_NAMES  # noqa: E402
 
 MLFLOW_URI = "sqlite:///mlflow.db"
 MLFLOW_UI = "http://127.0.0.1:5000"  # a running `mlflow ui` accepts logging too
 
 
 def mlflow_tracking_uri() -> str:
-    """Where to log: $MLFLOW_TRACKING_URI, else the UI on port 5000 if one is
-    up (several runs logging straight into the SQLite file collide; a server
-    serialises them), else the SQLite file directly."""
-    if os.environ.get("MLFLOW_TRACKING_URI"):
-        return os.environ["MLFLOW_TRACKING_URI"]
-    try:
-        import urllib.request
-
-        urllib.request.urlopen(MLFLOW_UI + "/health", timeout=0.5)
-        return MLFLOW_UI
-    except Exception:
-        return MLFLOW_URI
+    """Where to log: $MLFLOW_TRACKING_URI, else the UI on port 5000 (a server
+    serialises concurrent runs; several runs writing the SQLite file directly
+    collide). There is no fallback: if that service is down, training fails."""
+    return os.environ.get("MLFLOW_TRACKING_URI") or MLFLOW_UI
 
 
 def parse_levels(spec: str) -> list[int]:
@@ -398,12 +403,45 @@ def watch(model_path: str, level: int, obs: str, greedy: bool = False):
         print("wrote agent.gif")
 
 
+def open_tracker(args, run_name: str, run_dir: Path):
+    """The run's MLflow link. Mandatory: raises TrackingUnavailable unless the
+    service answers and the run is created (or the dispatcher's run is found)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from exptrack.mlflow_sink import TrackedRun
+
+    uri = args.mlflow_tracking_uri or mlflow_tracking_uri()
+    outbox = Path(args.metric_outbox) if args.metric_outbox else run_dir / "mlflow_outbox.jsonl"
+    if args.mlflow_run_id:
+        tracker = TrackedRun.attach(uri, args.mlflow_run_id, outbox)
+    else:
+        params = {k: v for k, v in vars(args).items() if k in HYPERPARAMETER_NAMES}
+        tracker = TrackedRun.create(uri, args.experiment, run_name,
+                                    dict(t.split("=", 1) for t in args.mlflow_tag), params, outbox)
+    (run_dir / "mlflow_run_id.txt").write_text(tracker.run_id)
+    return tracker
+
+
 def train(args) -> Path:
-    """Run PPO with the given parsed args; returns the path of the saved model."""
-    levels = parse_levels(args.levels)
+    """Run PPO with the given parsed args; returns the path of the saved model.
+    MLflow tracking is opened before anything else and cannot be skipped; if
+    training fails the MLflow run is marked FAILED when the service allows."""
     run_name = args.run_name or f"ppo_{args.obs}_L{args.levels}_{int(time.time())}"
     run_dir = Path(args.run_dir) if args.run_dir else Path("runs") / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
+    tracker = open_tracker(args, run_name, run_dir)
+    try:
+        model = _train(args, run_name, run_dir, tracker)
+    except BaseException:
+        state = tracker.abort()
+        (run_dir / "mlflow_status.json").write_text(json.dumps(state, indent=1))
+        raise
+    state = tracker.finish("FINISHED")
+    (run_dir / "mlflow_status.json").write_text(json.dumps(state, indent=1))
+    return model
+
+
+def _train(args, run_name: str, run_dir: Path, tracker) -> Path:
+    levels = parse_levels(args.levels)
     writer = None
     if not args.no_tensorboard:
         try:
@@ -412,45 +450,13 @@ def train(args) -> Path:
             writer = SummaryWriter(str(run_dir))
         except ImportError:
             pass
-    tracker = None
-    if not args.no_mlflow:
-        try:
-            os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
-            os.environ.setdefault("MLFLOW_DISABLE_TELEMETRY", "true")  # keep it fully local
-            import mlflow
-
-            # Local SQLite store in the repo root (gitignored); artifacts go to mlruns/.
-            mlflow.set_tracking_uri(mlflow_tracking_uri())
-            import random as _random
-
-            for attempt in range(5):  # concurrent starts race on creating the experiment
-                try:
-                    exp = mlflow.set_experiment(args.experiment)
-                    if exp.name == args.experiment:
-                        break
-                except Exception:
-                    pass
-                time.sleep(0.5 + _random.random())
-            else:
-                raise RuntimeError(f"could not select MLflow experiment {args.experiment!r}")
-            active = mlflow.start_run(run_name=run_name, experiment_id=exp.experiment_id)
-            assert active.info.experiment_id == exp.experiment_id
-            mlflow.log_params({k: v for k, v in vars(args).items() if k not in ("play", "greedy")})
-            mlflow.set_tags(dict(t.split("=", 1) for t in args.mlflow_tag))
-            (run_dir / "mlflow_run_id.txt").write_text(active.info.run_id)
-            tracker = mlflow
-        except Exception as exc:  # a tracker problem must never kill a run
-            print(f"mlflow disabled: {exc}", flush=True)
-
+    # MLflow holds the learning metrics (tracker opened by train()); an upload
+    # that keeps failing raises and stops training.
     def log_metrics(metrics: dict, step: int) -> None:
         if writer:
             for k, v in metrics.items():
                 writer.add_scalar(k, v, step)
-        if tracker:
-            try:  # a busy SQLite file or a hiccup in the server must not kill the run
-                tracker.log_metrics({k.replace("/", "_"): float(v) for k, v in metrics.items()}, step=step)
-            except Exception as exc:
-                print(f"mlflow log failed at step {step}: {exc}", flush=True)
+        tracker.log_metrics(metrics, step)
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -739,12 +745,8 @@ def train(args) -> Path:
         "slowest_update_seconds": round(slowest_update, 2), "total_steps": args.total_steps}, indent=1))
     if writer:
         writer.close()
-    if tracker:
-        tracker.log_artifact(str(run_dir / "model.pt"))
-        if (run_dir / "best.pt").exists():
-            tracker.log_artifact(str(run_dir / "best.pt"))
-            tracker.log_metrics({"eval/best_step": best_step}, step=global_step)
-        tracker.end_run()
+    if (run_dir / "best.pt").exists():
+        tracker.log_metrics({"eval/best_step": best_step}, step=global_step)
     print(f"saved {run_dir / 'model.pt'}")
     if best_step:
         print(f"best checkpoint: {run_dir / 'best.pt'} (cleared {best_cleared} at step {best_step})")

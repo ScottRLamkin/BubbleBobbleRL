@@ -176,6 +176,8 @@ def audit(root: Path, manifest: dict | None = None, parse_args=None) -> dict:
                 want = {**manifest["fixed_parameters"], **configs[j["config"]]["parameters"],
                         "seed": j["seed"], "wall_minutes": exp[j["phase"]]["minutes"], "run_dir": str(d)}
                 for k, v in want.items():
+                    if k == "no_mlflow" and k not in a:  # historical run control; tracking is now mandatory
+                        continue
                     if k not in a and k in LEGACY_RENAMES:  # a newer parser spells the switch positively
                         k, v = LEGACY_RENAMES[k][0], LEGACY_RENAMES[k][1](v)
                     if k not in a:

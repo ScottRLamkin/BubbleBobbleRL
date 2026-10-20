@@ -154,9 +154,17 @@ class Campaign:
             self.manifest["confirmation_training"]["minutes_per_policy"] = 0.2
             self.manifest["evaluation"]["episodes_per_level"] = 1
         self.python = self.info["interpreter"]
+        # MLflow tracking is mandatory: the manifest cannot switch it off and the
+        # campaign does not start unless the service answers.
+        if "no_mlflow" in self.manifest["fixed_parameters"]:
+            raise SystemExit("the manifest sets no_mlflow; MLflow tracking is mandatory and cannot be turned off")
+        from exptrack.mlflow_sink import preflight, resolve_uri
+
+        self.mlflow_uri = resolve_uri()
+        preflight(self.mlflow_uri)
         self.env = {**os.environ, **THREAD_ENV, "PYTHONPATH": f"{self.snap / 'src'}:{self.snap / 'scripts'}",
                     "PYTHONHASHSEED": "0", "PYTHONDONTWRITEBYTECODE": "1",
-                    "MLFLOW_TRACKING_URI": "file:///dev/null"}
+                    "MLFLOW_TRACKING_URI": self.mlflow_uri}
         b = self.manifest["budget"]
         self.cap_seconds = b["aggregate_allocated_core_hours"] * 3600
         self.cutoff = dt.datetime.fromisoformat(b["hard_cutoff"])
@@ -185,7 +193,7 @@ class Campaign:
         params = self.configs[cfg_id]["parameters"]
         argv = []
         for k, v in fixed.items():
-            if k in ("quiet", "no_tensorboard", "no_mlflow"):  # run controls
+            if k in ("quiet", "no_tensorboard"):  # run controls
                 if v:
                     argv.append(f"--{k.replace('_', '-')}")
                 continue
@@ -197,7 +205,11 @@ class Campaign:
         for k in PARAM_FLAGS:
             v = params[k]
             argv += [f"--{k.replace('_', '-')}", str(int(v)) if k in ("rollout_len", "epochs") else repr(float(v))]
-        argv += ["--seed", str(seed), "--wall-minutes", str(minutes), "--run-dir", str(run_dir)]
+        argv += ["--seed", str(seed), "--wall-minutes", str(minutes), "--run-dir", str(run_dir),
+                 "--mlflow-tracking-uri", self.mlflow_uri, "--experiment", self.campaign]
+        for tag in (f"campaign={self.campaign}", f"config={cfg_id}", f"training_seed={seed}",
+                    f"snapshot_commit={self.info['commit']}"):
+            argv += ["--mlflow-tag", tag]
         return argv  # the launcher appends --wall-start (its launch time)
 
     def eval_argv(self, model: Path, seed: int, out: Path) -> list[str]:

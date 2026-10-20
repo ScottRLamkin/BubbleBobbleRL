@@ -216,3 +216,8 @@ exports/
 mlruns/
 mlflow.db
 mlartifacts/
+
+# Experiment tracking store (authoritative local history; schema migrations live in scripts/exptrack/migrations)
+experiments.sqlite3
+experiments.sqlite3-wal
+experiments.sqlite3-shm

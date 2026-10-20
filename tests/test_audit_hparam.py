@@ -25,7 +25,7 @@ def _argv(cfg, seed, minutes, run_dir):
     no-defaults trainer and does not list every hyperparameter)."""
     argv = ["train_ppo.py", "--config", str(ROOT / "configs" / "hparam-1019_anchor_G_screen.json")]
     for k, v in {**MANIFEST["fixed_parameters"], **cfg["parameters"]}.items():
-        if v is None or v is False:
+        if v is None or v is False or k == "no_mlflow":  # historical; MLflow cannot be turned off now
             continue
         argv += [f"--{k.replace('_', '-')}"] + ([] if v is True else [str(v)])
     return argv + ["--seed", str(seed), "--wall-minutes", str(minutes), "--run-dir", str(run_dir),

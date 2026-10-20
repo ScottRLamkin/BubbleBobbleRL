@@ -101,8 +101,9 @@ SCHEMA: list[tuple] = [
 ]
 
 # Not hyperparameters: where results go and how they are logged. Optional.
+# MLflow tracking is mandatory, so there is deliberately no control to disable it.
 RUN_CONTROLS = ("run_name", "run_dir", "experiment", "mlflow_tag", "log_every", "quiet", "no_tensorboard",
-                "no_mlflow", "wall_start")
+                "wall_start", "mlflow_tracking_uri", "mlflow_run_id", "metric_outbox")
 
 NAMES = [s[0] for s in SCHEMA]
 GROUPS = {"task": "Task and episode", "reward": "Reward weights", "observation": "Observation",

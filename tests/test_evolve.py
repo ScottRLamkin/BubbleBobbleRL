@@ -147,7 +147,8 @@ def test_promotion_never_pairs_best_weights_with_final_optimizer(tmp_path):
     (parent / "arch.json").write_text(json.dumps({"obs": "ego", "control_obs": True, "nearest_first": False}))
     config = Path(__file__).resolve().parents[1] / "configs" / "hparam-1019_anchor_G_screen.json"
     spec = {"id": "t", "dir": str(member), "parent_model": str(parent / "model.pt"), "steps": 1, "seed": 1,
-            "genome": evolve.asdict(evolve.Genome()), "lineage": [], "config": str(config)}
+            "genome": evolve.asdict(evolve.Genome()), "lineage": [], "config": str(config),
+            "experiment": "evolve-test"}
     evolve.train = lambda *a, **k: None  # type: ignore[attr-defined]
     import train_ppo
 

@@ -13,11 +13,12 @@ the top --survivors are kept. Losers' model files are deleted.
 Everything lives in runs/evolve/<name>/. The run is resumable: re-running the
 same command skips members and generations that already finished.
 
-Tracking: every child is an MLflow run in experiment "evolve-<name>" (same
-local mlflow.db as plain training), with its genome as parameters, training
-curves, and after scoring its evaluation (eval_cleared, eval_rank, ...) and
-a "survived" tag. Each generation adds a summary run. Workers log through a
-local MLflow server that evolve.py starts and stops itself.
+Tracking: every child is an MLflow run in experiment "evolve-<name>", with its
+genome as parameters, training curves, and after scoring its evaluation
+(eval_cleared, eval_rank, ...) and a "survived" tag. Each generation adds a
+summary run. MLflow is mandatory: workers log through the project's service
+($MLFLOW_TRACKING_URI, else the UI on :5000), the run refuses to start if it does
+not answer, and a tracking failure stops the run.
 """
 
 from __future__ import annotations
@@ -245,14 +246,10 @@ def train_member(spec: dict) -> dict:
         experiment = member_dir / "experiment.json"
         experiment.write_text(json.dumps(cfg, indent=1))
         argv = ["--config", str(experiment), "--run-dir", str(member_dir), "--run-name", spec["id"],
-                "--no-tensorboard", "--quiet"]
-        if spec.get("experiment"):
-            argv += ["--experiment", spec["experiment"], "--log-every", "10"]
-            for k in ("generation", "parent"):
-                argv += ["--mlflow-tag", f"{k}={spec.get(k, '')}"]
-            argv += ["--mlflow-tag", "lineage=" + ">".join(spec["lineage"])]
-        else:
-            argv.append("--no-mlflow")
+                "--no-tensorboard", "--quiet", "--experiment", spec["experiment"], "--log-every", "10"]
+        for k in ("generation", "parent"):
+            argv += ["--mlflow-tag", f"{k}={spec.get(k, '')}"]
+        argv += ["--mlflow-tag", "lineage=" + ">".join(spec["lineage"])]
         with open(member_dir / "train.log", "w") as log, contextlib.redirect_stdout(log):
             train(parse_args(argv))
     except Exception:
@@ -296,56 +293,20 @@ def score_member(job: dict) -> dict:
 class Run:
     def __init__(self, args):
         self.args = args
-        self.mlflow = False
         self.dir = Path("runs") / "evolve" / args.name
         self.dir.mkdir(parents=True, exist_ok=True)
         self.state_path = self.dir / "state.json"
 
-    def start_mlflow_server(self):
-        """Workers log through a local MLflow server so SQLite sees one writer.
-        The server keeps the same mlflow.db that plain training runs use."""
-        self.mlflow = False
-        if self.args.no_mlflow:
-            return None
-        try:
-            import mlflow  # noqa: F401
-        except ImportError:
-            self.log("mlflow not installed: tracking off (uv sync --extra train)")
-            return None
-        import subprocess
-        import urllib.request
+    def require_mlflow(self) -> None:
+        """MLflow is mandatory: raise unless the project's service answers.
+        Workers inherit $MLFLOW_TRACKING_URI, so every child logs there."""
+        from exptrack.mlflow_sink import preflight, resolve_uri
 
-        from train_ppo import MLFLOW_UI, MLFLOW_URI, mlflow_tracking_uri
-
-        if mlflow_tracking_uri().startswith("http"):  # the UI (or $MLFLOW_TRACKING_URI) is up: use it
-            os.environ["MLFLOW_TRACKING_URI"] = mlflow_tracking_uri()
-            os.environ["MLFLOW_DISABLE_AGENT_HINT"] = "1"
-            self.mlflow = True
-            self.log(f"mlflow via {os.environ['MLFLOW_TRACKING_URI']} (experiment evolve-{self.args.name})")
-            return None
-        url = f"http://127.0.0.1:{self.args.mlflow_port}"
-        env = dict(os.environ, MLFLOW_DISABLE_AGENT_HINT="1", MLFLOW_DISABLE_TELEMETRY="true")
-        server = subprocess.Popen(
-            ["uv", "run", "mlflow", "server", "--backend-store-uri", MLFLOW_URI,
-             "--default-artifact-root", "./mlruns", "--host", "127.0.0.1",
-             "--port", str(self.args.mlflow_port), "--workers", "1"],
-            env=env, stdout=open(self.dir / "mlflow_server.log", "w"), stderr=subprocess.STDOUT,
-        )
-        for _ in range(60):
-            try:
-                urllib.request.urlopen(url + "/health", timeout=1)
-                break
-            except Exception:
-                time.sleep(1)
-        else:
-            self.log("mlflow server did not start: tracking off")
-            server.terminate()
-            return None
-        os.environ["MLFLOW_TRACKING_URI"] = url  # inherited by the spawned workers
+        uri = resolve_uri()
+        preflight(uri)
+        os.environ["MLFLOW_TRACKING_URI"] = uri
         os.environ["MLFLOW_DISABLE_AGENT_HINT"] = "1"
-        self.mlflow = True
-        self.log(f"mlflow server at {url} (experiment evolve-{self.args.name})")
-        return server
+        self.log(f"mlflow via {uri} (experiment evolve-{self.args.name})")
 
     def log(self, msg: str) -> None:
         line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}"
@@ -396,6 +357,8 @@ class Run:
         plan_path = gen_dir / "plan.json"
         if plan_path.exists():
             children = json.loads(plan_path.read_text())
+            for c in children:  # plans written before tracking was mandatory
+                c.setdefault("experiment", f"evolve-{a.name}")
         else:
             rng = random.Random(a.seed * 1000 + gen)
             children = plan_generation(gen, state["survivors"], a.population, a.steps, rng)
@@ -404,8 +367,7 @@ class Run:
                 c["model"] = str(gen_dir / c["id"] / "model.pt")
                 c["generation"] = gen
                 c["config"] = str(Path(a.config).resolve())
-                if self.mlflow:
-                    c["experiment"] = f"evolve-{a.name}"
+                c["experiment"] = f"evolve-{a.name}"
             plan_path.write_text(json.dumps(children, indent=2))
 
         self.log(f"generation {gen}: training {len(children)} children, {a.steps:,} steps each")
@@ -478,37 +440,32 @@ class Run:
     def track_generation(self, gen: int, ranked: list[dict], keep: set, base_result) -> None:
         """Attach the evaluation to each member's MLflow run and add a
         generation summary run, so curves and fitness live in one place."""
-        if not self.mlflow:
-            return
-        try:
-            import mlflow
-            from mlflow.tracking import MlflowClient
+        import mlflow
+        from mlflow.tracking import MlflowClient
 
-            client = MlflowClient()
-            for rank, m in enumerate(ranked, 1):
-                run_id_file = Path(m.get("dir", "")) / "mlflow_run_id.txt" if m.get("dir") else None
-                if not run_id_file or not run_id_file.exists():
-                    continue
-                run_id = run_id_file.read_text().strip()
-                r = m["result"]
-                for k in ("cleared", "died", "timeout", "levels_cleared", "mean_score"):
-                    client.log_metric(run_id, f"eval_{k}", float(r[k]), step=gen)
-                client.log_metric(run_id, "eval_rank", rank, step=gen)
-                client.set_tag(run_id, "survived", str(m["id"] in keep))
-            mlflow.set_experiment(f"evolve-{self.args.name}")
-            with mlflow.start_run(run_name=f"generation_{gen:02d}"):
-                mlflow.set_tags({"generation": gen, "summary": "true"})
-                cleared = [m["result"]["cleared"] for m in ranked]
-                mlflow.log_metrics({
-                    "best_cleared": max(cleared),
-                    "mean_cleared": sum(cleared) / len(cleared),
-                    "survivor_floor_cleared": min(m["result"]["cleared"] for m in ranked if m["id"] in keep),
-                    "baseline_cleared": (base_result or {}).get("cleared", float("nan")),
-                }, step=gen)
-                mlflow.log_dict({m["id"]: {"genome": m["genome"], "result": m["result"]} for m in ranked},
-                                f"generation_{gen:02d}.json")
-        except Exception as exc:  # tracking must never stop the evolution
-            self.log(f"  mlflow tracking failed: {exc}")
+        client = MlflowClient()
+        for rank, m in enumerate(ranked, 1):
+            run_id_file = Path(m.get("dir", "")) / "mlflow_run_id.txt" if m.get("dir") else None
+            if not run_id_file or not run_id_file.exists():
+                continue
+            run_id = run_id_file.read_text().strip()
+            r = m["result"]
+            for k in ("cleared", "died", "timeout", "levels_cleared", "mean_score"):
+                client.log_metric(run_id, f"eval_{k}", float(r[k]), step=gen)
+            client.log_metric(run_id, "eval_rank", rank, step=gen)
+            client.set_tag(run_id, "survived", str(m["id"] in keep))
+        mlflow.set_experiment(f"evolve-{self.args.name}")
+        with mlflow.start_run(run_name=f"generation_{gen:02d}"):
+            mlflow.set_tags({"generation": gen, "summary": "true"})
+            cleared = [m["result"]["cleared"] for m in ranked]
+            mlflow.log_metrics({
+                "best_cleared": max(cleared),
+                "mean_cleared": sum(cleared) / len(cleared),
+                "survivor_floor_cleared": min(m["result"]["cleared"] for m in ranked if m["id"] in keep),
+                "baseline_cleared": (base_result or {}).get("cleared", float("nan")),
+            }, step=gen)
+            mlflow.log_dict({m["id"]: {"genome": m["genome"], "result": m["result"]} for m in ranked},
+                            f"generation_{gen:02d}.json")
 
     def write_leaderboard(self, state: dict) -> None:
         lines = [f"# Evolution leaderboard: {self.args.name}", ""]
@@ -543,15 +500,11 @@ class Run:
         if state["generation"] >= a.generations:
             self.log(f"already complete ({state['generation']} generations)")
             return
-        server = self.start_mlflow_server()
-        try:
-            ctx = mp.get_context("spawn")
-            with ctx.Pool(a.workers, initializer=_init_worker) as pool:
-                for gen in range(state["generation"] + 1, a.generations + 1):
-                    self.generation(gen, state, pool)
-        finally:
-            if server:
-                server.terminate()
+        self.require_mlflow()
+        ctx = mp.get_context("spawn")
+        with ctx.Pool(a.workers, initializer=_init_worker) as pool:
+            for gen in range(state["generation"] + 1, a.generations + 1):
+                self.generation(gen, state, pool)
         champion = state["survivors"][0]
         self.log(f"finished. champion {champion['id']}: {champion['model']}")
         self.log(f"leaderboard: {self.dir / 'leaderboard.md'}")
@@ -572,8 +525,6 @@ def parse_args(argv: list[str] | None = None):
     p.add_argument("--eval-episodes", type=int, required=True, help="episodes per level when scoring")
     p.add_argument("--eval-max-steps", type=int, required=True)
     p.add_argument("--seed", type=int, required=True)
-    p.add_argument("--no-mlflow", action="store_true", help="skip MLflow tracking")
-    p.add_argument("--mlflow-port", type=int, default=5001)
     return p.parse_args(argv)
 
 
