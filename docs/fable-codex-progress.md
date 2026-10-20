@@ -2496,3 +2496,42 @@ ETA for launch is about 22:15–22:30. I will post readiness and launch evidence
 **Next round.** The default is learning-rate adaptation at the selected larger architecture, plus the retained reference, with three new matched seeds. I will register it before seeing capacity-1020 outcomes beyond what the selection rule needs. I will also record the overall authorization time and the six-times-remaining-wall core-hour ceiling, as the direction requires.
 
 **While this runs.** Historical import of v1, v2 and v3, the tracking documentation, and the v3 report wording fix.
+
+
+### FABLE-20261019T212808-0700 | 2026-10-19 21:28:08 PDT | Fable (Claude Opus 5.5)
+Milestone while capacity-1020 wave 1 trains. No new Codex entries since my 21:20 entry.
+
+**capacity-1020 progress at about 4M steps per job.** These are training-reward diagnostics only, not evaluation evidence:
+- 256×2: about 10.2–10.6k steps/s;
+- 512×2: about 9.2–9.5k;
+- 512×3: about 8.8k;
+- 1024×2: about 7.2k.
+
+Six single-thread jobs run on 8 performance cores, and all MLflow outboxes are fully uploaded.
+
+**Historical import done** (commit 750b7a8; `python -m exptrack import-historical`).
+- Imported hparam-1019-v1 (35 runs, 82 evaluations), hparam-1019-v2 (35, 82) and paired-1019-v3 (6, 12).
+- Game versions are hashed from each snapshot: v1 `game-7f2a09e10afd`, v2 `game-8fd76278d2ff`. v3 shares `game-67eaeefeb54a` with capacity-1020.
+- Each run's configuration comes from its own `config.json`. v1 is mapped with `from_legacy_run` because it predates the no-defaults trainer. Provenance is `historical`.
+- Arm overrides are the differences from anchor_G's recorded configuration.
+- All 176 evaluation records come from the raw files (exact schema check), with roles screen, tuning, final and paired_test. Every one matches the clears in the campaign's status.json.
+- MLflow has one labelled import run per training run, in experiments 15–17 (`<campaign> (historical import)`), tagged `origin=historical_import` and `learning_curves=not recorded (trained with --no-mlflow)`, with source start and end times. Each holds only single end-of-run values (steps, updates, seconds, evaluation results). No curves were fabricated, and a test asserts one point per metric.
+- The import is idempotent: a rerun creates no MLflow runs and no rows.
+- Artifacts: checkpoints, raw evaluations, configurations, reports, and the two versioned galleries matched by checkpoint hash.
+
+**Other deliveries:**
+- `docs/experiment-tracking.md` (977daf9): stores, mandatory MLflow, what is recorded, invariants, commands, import.
+- The v3 report wording fix (feef49e): "snapshot 2aa2548 with the Baron-timer correction".
+- New tests (1e5858e): concurrent idempotent registration from 4 processes, ConflictError on mismatch, immutability triggers on UPDATE/DELETE, full parameter coverage with gates and provenance, and larger-MLP parameter counts with exact save/load round-trips. The suite is 131/131.
+
+**Round 2 is pre-registered before capacity-1020 results** (52d2828, `scripts/campaigns/make_lr_1020.py`):
+- The architecture is capacity-1020's frozen selected arm.
+- The retained reference is ff12 256×2, unless capacity acceptance is met; in that case it is the selected arm at ff12's learning rate.
+- The candidates are that architecture at learning rates 0.0003, 0.001 and 0.003. "0.001" is ff12's exact 0.0010000000000000002.
+- A candidate identical to the reference is dropped, which leaves nine jobs if capacity is accepted and twelve otherwise.
+- Seeds 7401–7403; banks 84001/84002 and 94001/94002 (no collisions found).
+- Same protocol, ranking, selection, acceptance and 15 core-hour per-round cap.
+
+**Overall allowance** recorded in SQLite as event `overnight_authorization`: authorized at 20:52:52, deadline 08:00, ceiling 6 × 11.12 h = 66.71 core-hours, at most 6 workers. Rough schedule: round 2 at about 23:35–01:50, round 3 at about 01:55–04:10, round 4 at about 04:15–06:30.
+
+**Open item for Codex:** `docs/experiments.md:65` still mentions `--no-mlflow`. The file holds your uncommitted edits, so I have not changed it.
