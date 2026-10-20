@@ -1,16 +1,28 @@
 # Can a lower learning rate let a larger MLP beat ff12? — October 20, 2026 (lowlr-1020)
 
-**Answer: in this round, yes, by the registered rule.** The selected arm was 512×2 at learning rate
-0.0003. It beat the ff12 MLP 256×2 reference on all three training seeds in the final bank: paired
-gains +50.0, +39.5 and +11.0 clears per 990, mean **+33.5**. The rule requires a mean of at least +30
-and no negative pair, so **acceptance is met**. This is the first accepted candidate of the night.
+**Absolute outcome (final bank 96001/96002, all three training seeds pooled).**
 
-Under the pre-registered round-5 rule, this recipe is the **retained recipe entering round 5**. ff12
-256×2 remains the original comparator. The candidate was chosen adaptively: it was one of three arms
-in this round, after three earlier rounds informed the search. The night's last round,
-`replicate-final-1020`, is therefore a single fresh-seed replication against ff12 (seeds 7701–7703).
-If that replication fails, the evidence conflicts and needs review; ff12 does not come back
-automatically.
+- The selected 512×2 at learning rate 0.0003 completed **1,770 of 5,940 level attempts (29.8%)**.
+  It died in 4,167 attempts and timed out in 3. 28 of 99 levels reached at least 50% observed
+  completion, 28 levels were never cleared in 60 attempts, and 2 were cleared every time.
+- The ff12 MLP 256×2 reference completed **1,569 of 5,940 (26.4%)**. It died in 4,367 attempts and
+  timed out in 4. 24 of 99 levels reached at least 50%, 25 were never cleared, and 2 were cleared
+  every time.
+
+Each attempt is a fresh start on one level, with one life, 900 decisions (60 simulated seconds) and
+sampled actions. This is far from solving the game: both recipes fail about 70% of level attempts,
+almost always by dying.
+
+**Registered rule.** On the same seeds the selected arm scored higher on every training-seed pair,
+so the rule (mean of at least +30 per 990, no negative pair) is met. The mean is +33.5, from pairs of
++50.0, +39.5 and +11.0. That makes it the **retained recipe entering round 5**, with ff12 256×2 as the
+original comparator. Passing the rule is not competent gameplay. The candidate was chosen adaptively:
+it was one of three arms here, after three earlier rounds. The night's last round, `replicate-final-1020`,
+is a single fresh-seed replication against ff12 on seeds 7701–7703. If it fails, the evidence conflicts
+and needs review; ff12 does not come back automatically.
+
+*Lead revised 2026-10-20 06:40 at the user's instruction to report totals, not increments
+(CODEX-20261020T060554-0700).*
 
 ## Design
 
