@@ -112,21 +112,27 @@ class Program:
         return out
 
     # ------------------------------------------------------------- budget
+    def batch_spent(self, batch: dict) -> float:
+        sp = self.root / batch["id"] / "status.json"
+        if not sp.exists():
+            return 0.0
+        return sum(p.get("elapsed_seconds", 0.0) for p in json.loads(sp.read_text())["parts"].values()) / 3600
+
     def program_spent(self) -> float:
-        total = 0.0
-        for b in self.manifest["batches"]:
-            sp = self.root / b["id"] / "status.json"
-            if sp.exists():
-                total += sum(p.get("elapsed_seconds", 0.0) for p in json.loads(sp.read_text())["parts"].values())
-        return total / 3600
+        return sum(self.batch_spent(b) for b in self.manifest["batches"])
 
     def check_budget(self, batch: dict) -> str | None:
-        """The next batch's full cap plus every later batch's cap and the
-        confirmation cap must fit the program cap and the extension allowance."""
+        """Committed program cost: a finished batch counts what it spent; an
+        unfinished one counts the larger of its cap and what it has spent (its
+        cap already includes its own preflight); plus the confirmation cap. It
+        must fit the program cap and, with earlier use, the extension allowance.
+        (Before 2026-10-20 06:58 this added spent preflight time on top of the
+        full caps and refused batch 1 by 0.02 core-hours.)"""
         bud = self.manifest["budget"]
-        names = [b["id"] for b in self.manifest["batches"]]
-        later = names[names.index(batch["id"]) + 1:]
-        need = self.program_spent() + bud["batch_cap_core_hours"] * (1 + len(later)) + bud["confirmation_cap_core_hours"]
+        need = bud["confirmation_cap_core_hours"]
+        for b in self.manifest["batches"]:
+            spent = self.batch_spent(b)
+            need += spent if self.batch_done(b) else max(bud["batch_cap_core_hours"], spent)
         if need > bud["program_cap_core_hours"] + 1e-9:
             return f"program cap: {need:.2f} > {bud['program_cap_core_hours']}"
         if need + bud["extension_used_before_program_core_hours"] > bud["extension_core_hours"] + 1e-9:

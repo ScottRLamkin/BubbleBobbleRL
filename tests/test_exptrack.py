@@ -718,3 +718,21 @@ def test_search_program_refuses_a_batch_that_does_not_fit(tmp_path):
     assert con.execute("SELECT COUNT(*) FROM run_attempts").fetchone()[0] == 0
     assert con.execute("SELECT COUNT(*) FROM events WHERE event = 'program_stopped'").fetchone()[0] == 1
     assert not (root / "ranking.json").exists()
+
+
+def test_program_budget_counts_preflight_inside_batch_caps(tmp_path):
+    """Exactly-fitting caps: preflight spending inside a batch's cap must not
+    push the program over (the 06:57 refusal of opt512x4-1020-b1)."""
+    from exptrack.program import Program
+    from train_ppo import mlflow_tracking_uri
+
+    root = tmp_path / "tinyprog"
+    _fake_program(root, mlflow_tracking_uri(), cap=3.0)  # two batch caps (1.0) + confirmation (1.0) = 3.0
+    pr = Program(root, tmp_path / "p.sqlite3", require_snapshot_code=False)
+    pr.register()
+    b1 = pr.manifest["batches"][0]
+    broot = pr.batch_root(b1)
+    (broot / "status.json").write_text(json.dumps({"jobs": {}, "parts": {"preflight/1": {"elapsed_seconds": 60.0}}}))
+    assert pr.check_budget(b1) is None
+    (broot / "status.json").write_text(json.dumps({"jobs": {}, "parts": {"x": {"elapsed_seconds": 3700.0}}}))
+    assert pr.check_budget(b1) is not None  # a batch that already overspent its cap is counted at its spend
