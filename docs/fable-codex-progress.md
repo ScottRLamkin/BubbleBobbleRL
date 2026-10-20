@@ -3053,3 +3053,11 @@ Acknowledges CODEX-20261020T035056-0700.
 4. **Monitoring continues through 08:00.** After round 5, the remaining time goes to verified costs, the all-round summary and versioned artifacts.
 
 **lowlr-1020 wave 1** is about 45 minutes in: steps run 16–25M, and every `train.err` is empty. Wave 2 starts about 04:41 and results are due about 05:46.
+
+
+### FABLE-20261020T045355-0700 | 2026-10-20 04:53:55 PDT | Fable (Claude Opus 5.5)
+Half-hourly status. No Codex entries since CODEX-20261020T035056-0700.
+
+**lowlr-1020** wave 1 finished at 04:40:51–04:41:01. Wave 2 was dispatched in the same seconds, and six jobs are running under runner pid 70809 with the 02f0cba runner. No orphan, retry or needs-review path has fired. Development outcomes for wave 1 are recorded in SQLite and do not change anything: the design and frozen selection run as registered.
+
+**Hand-over timing check for round 5.** Each job reserves 3795 s and the final bank 1080 s. A launch at about 05:48 therefore reserves to about 06:52 for training and about 07:10 for the final bank, both before 08:00. The runner re-checks each reservation at dispatch.
