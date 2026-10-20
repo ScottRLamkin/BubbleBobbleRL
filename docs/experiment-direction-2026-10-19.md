@@ -2,7 +2,9 @@
 
 User-directed requirements for the next implementation. This document replaces
 the proposed restriction of architecture testing to a later, diagnosed limitation.
-It does not modify completed campaigns or authorize a new training launch.
+The subsequent bedtime instruction authorizes the bounded experiment round below
+after the necessary tracking implementation is ready. Completed campaigns remain
+unchanged.
 Codex owns direction/review; Claude owns implementation/execution.
 
 ## Goal and division of responsibility
@@ -107,8 +109,8 @@ Capacity comparisons should report completion outcomes across training seeds,
 per-level results, throughput and steps achieved under the same one-hour CPU
 allowance. More capacity might help or hurt at that budget. This does not require
 proving a particular behavioral defect before trying larger networks.
-Exact campaign cost, seeds, acceptance rules and dispatch remain a separate
-pre-launch specification; the proposed widths are not a launched search.
+The overnight specification below supplies campaign cost, seeds, acceptance
+rules and dispatch requirements. Authorization is not evidence of launch.
 
 ## Implementation acceptance
 
@@ -128,3 +130,133 @@ pre-launch specification; the proposed widths are not a launched search.
   with synthetic inputs. No performance campaign is required for plumbing tests.
 - Return implementation changes and validation evidence for Codex review.
   Preserve existing checkpoints, frozen sources and versioned galleries.
+
+## Authorized overnight experiment round
+
+The user subsequently instructed Codex to ensure experiments happen after the
+tracking work, without further overnight supervision. This supersedes the
+implementation-only restriction in the earlier handoff.
+
+Claude should finish the essential SQLite/MLflow integration and its checks,
+then execute this round without waiting for another human approval or a polling
+tick. Historical import polish and optional presentation work must not delay
+tracked new experiments. Record readiness evidence and launch in the shared
+ledger; Codex reviews at 30-minute intervals.
+
+- **Question:** does increased MLP capacity improve broad level completion
+  under the same one-hour CPU allowance and current ff12 training recipe?
+- **Campaign:** `capacity-1020`; new root `runs/capacity-1020`. Register its
+  exact experiment revision and full run configurations in SQLite before launch.
+  Freeze its machine-readable manifest and all executable source.
+- **Arms:** `mlp256x2` reference, `mlp512x2`, `mlp512x3`, `mlp1024x2`.
+  Inherit the complete ff12 configuration; vary only hidden width and layer
+  count, plus the matched training seed. Use tanh and fresh initialization.
+  No reward, observation, game-mechanics or PPO retuning during this round.
+- **Game:** use the v3 game mechanics with the Baron-timer fix. Record the exact
+  source identity in SQLite; verify subsequent infrastructure edits do not
+  silently alter game behavior. No new fidelity campaign is a prerequisite.
+- **Replication:** three fresh policies per arm, training seeds 7301–7303.
+  Twelve training jobs, 60 minutes each. CPU only, one thread per job, at most
+  six concurrent jobs. Record actual steps, updates, parameter count and
+  elapsed allocation; larger networks need not achieve equal step counts.
+- **Development evaluation:** seeds 83001/83002, all 99 levels, ten episodes
+  per level, sampled actions, one life, 900 decisions at frame skip four,
+  matching observation flags. Evaluate fixed endpoint checkpoints only.
+  Rank larger-network arms by mean completed clears across training seeds
+  and evaluation seeds; break exact ties by mean number of levels cleared
+  at least once, then smaller parameter count, then arm ID.
+- **Final evaluation:** freeze the selected larger-network arm, all three of
+  its endpoint checkpoint hashes and all three reference hashes before opening
+  seeds 93001/93002. Same evaluation protocol. Do not switch candidates or
+  retune using this bank. If seed IDs collide with existing evaluation provenance,
+  choose the first unused subsequent pair before launch and record the change.
+  The initial IDs were checked against current campaign manifests/configs,
+  not exhaustively against all historical artifacts.
+- **Decision:** recommend replacement only if final mean paired improvement
+  is at least 30 completions per 990 and no training-seed pair is negative.
+  This is an operational threshold, not statistical significance or proof of
+  broad competence. Report all pairs and per-level gains/regressions, including
+  how many levels reach at least 50% observed completion, as descriptive
+  coverage/reliability measures. Retain the reference if the criterion fails.
+- **Budget:** maximum 15 aggregate allocated single-thread core-hours on the
+  local M4 Pro, including this campaign's preflight, training, evaluation,
+  retries and gallery recording. Reserve 12 hours for training, at most
+  90 seconds per evaluation invocation and 15 seconds save grace per training
+  job; reserve allowances before dispatch. Preflight cap ten aggregate
+  core-minutes. Track MLflow service overhead separately rather than calling
+  job allocations measured whole-machine CPU use.
+- **Deadline:** no campaign execution after October 20, 2026 08:00
+  America/Los_Angeles. Do not launch jobs that cannot fit their full reservation.
+  No silent shortening or extension of an individual registered round. Fix routine setup
+  problems autonomously within these limits; stop on unresolved systemic
+  correctness errors. A failed/incomplete seed cannot be omitted to declare
+  success. At most one infrastructure-failure retry per job, only if the
+  remaining full budget and deadline allow it; no performance-based retries.
+- **Tracking:** MLflow on for all training jobs, SQLite experiment/run settings
+  registered, reciprocal IDs present, raw evaluations and status preserved.
+  Use an exclusive runner lock, idempotent dispatch and checked subprocess
+  exits. Do not create a duplicate runner during monitoring or recovery.
+- **Delivery:** a results report with all arms/seeds, measured outcomes and
+  allocated costs, links to SQLite identities and MLflow runs, and a newly
+  dated gameplay gallery using the existing generator. Display the chosen
+  larger arm and reference at the predeclared seed 7301, one unselected episode
+  per level; preserve all earlier gallery versions. If budget prevents recording,
+  report the missing artifact rather than exceeding the cap.
+
+This round tests capacity under one recipe and budget, not the best achievable
+larger-network policy. Transformers remain a later branch.
+
+## Continued experiment loop until 08:00
+
+The user's latest instruction is explicit: if experiments finish earlier, run
+more experiments. This supersedes the earlier one-round restriction, 06:00
+cutoff and post-completion quiet-monitoring plan. Continue designing, running
+and reviewing successive bounded experiments until October 20, 2026 **08:00
+America/Los_Angeles**, while a complete useful comparison still fits.
+
+- The 15-core-hour cap above applies to the FIRST capacity round, not the whole
+  night. Each following round gets its own registered budget including preflight,
+  evaluations, retries and recording, at most 15 allocated core-hours per round.
+  Across all rounds, at most six single-thread workers run concurrently on the
+  local M4 Pro. The overall allocation ceiling is six times the remaining wall
+  interval from this authorization to 08:00 (approximately 66 core-hours);
+  register the exact authorization time and ceiling before subsequent dispatch.
+  Sum actual costs across rounds as well as within each round.
+- Codex directs subsequent questions from results through the ledger. Claude
+  need not wait for the human or a monitor tick to continue a prespecified
+  useful next step. The default next question is whether the best tested larger
+  architecture benefits from learning-rate adaptation: compare 0.0003, 0.001
+  and 0.003 at that fixed architecture, plus the currently retained reference,
+  three matched fresh training seeds and one-hour endpoints. Deduplicate an
+  identical candidate/reference arm. Hold other settings fixed. This tests a
+  capacity/optimization question rather than declaring all larger nets bad
+  from one recipe.
+- After that, select a distinct, evidence-backed follow-up: a local capacity
+  comparison where results suggest room, entropy/exploration tuning where
+  learning diagnostics justify it, or fresh-seed replication of the strongest
+  candidate when uncertainty between training seeds is the main limitation.
+  Record the question and rationale before seeing that round's outcomes.
+  Do not repeatedly rerun a failed acceptance test until it passes.
+- Every round must register its exact arms, reference, settings, seeds, metric,
+  selection rule, acceptance rule, budget and stop condition in SQLite and
+  freeze a manifest before dispatch. Use the preceding round's retained
+  reference, not automatically its best observed score. Reuse the first-round
+  selection/acceptance protocol unless the next protocol explicitly explains
+  a change before launch. Keep game version and evaluation definition stable
+  for comparable rounds; no reward simplification or transformer detour.
+- Fresh training and evaluation banks for each round; mark all consumed banks.
+  Never retune or try another candidate on an opened final bank. Later rounds
+  informed by earlier results are adaptive search, not independent confirmation
+  of the whole search procedure. Report that limitation and all failed rounds.
+- Reserve the complete training, evaluation and reporting allowance against
+  08:00 before dispatch. Do not launch a one-hour comparison when it cannot
+  finish. A shorter run would be a separately declared exploratory question,
+  never mislabeled as one-hour evidence. When no useful complete experiment
+  fits, finish analysis, reconciliation and report delivery through 08:00.
+- Keep MLflow enabled, both levels of hyperparameters in SQLite and versioned
+  gameplay available for retained improvements. Historical import/presentation
+  polish must not displace feasible, useful experiments.
+
+Codex keeps the 30-minute review loop active and performs the final assessment
+at 08:00, then pauses it. Completion of one round is a trigger to plan/dispatch
+the next useful round, not a reason to stop.
