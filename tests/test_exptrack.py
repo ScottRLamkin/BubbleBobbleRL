@@ -395,3 +395,116 @@ def test_budget_counts_each_reservation_once(tmp_path):
     j2 = c.status["jobs"]["wide_s11"]
     j2.update(state="not_run")
     assert c.committed() == pytest.approx(full - 2 * train + 5.5)
+
+
+# ------------------------------------------------ runner failure paths (mocked)
+
+def _campaign_with_status(tmp_path, name="fp-test"):
+    """A registered tiny campaign whose two runs each have attempt 1, and a
+    status with both jobs (ids: c.ids['ref'], c.ids['wide'])."""
+    from exptrack import store
+    from exptrack.campaign import Campaign
+
+    root = tmp_path / name
+    _fake_snapshot(root, _tiny_manifest(name, "sqlite:///unused.db"))
+    c = Campaign(root, tmp_path / f"{name}.sqlite3", require_snapshot_code=False)
+    ids = c.register()
+    c.ids = {}
+    c.status = {"jobs": {}, "parts": {}, "final_state": "pending", "game_version_id": ids["game_version_id"]}
+    for arm in ("ref", "wide"):
+        run_id = ids["runs"][f"{arm}_s11"]
+        store.create_attempt(c.con(), run_id, str(root / f"{arm}_s11"), "sqlite:///unused.db", "0", "m" + arm)
+        c.ids[arm] = (run_id, f"{run_id}-a1")
+        c.status["jobs"][f"{arm}_s11"] = {"phase": "main", "arm": arm, "seed": 11, "state": "done", "attempts": 1,
+                                          "run_id": run_id, "attempt_id": f"{run_id}-a1"}
+    return c, root
+
+
+def test_restart_refuses_to_redispatch_a_live_orphan(tmp_path):
+    import subprocess
+
+    from exptrack.campaign import process_start
+
+    c, root = _campaign_with_status(tmp_path)
+    d = root / "ref_s11"
+    d.mkdir()
+    sleeper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", str(d)])
+    try:
+        j = c.status["jobs"]["ref_s11"]
+        j.update(state="running", dir=str(d), child={"pid": sleeper.pid, "start": process_start(sleeper.pid),
+                                                      "kind": "train", "since": 0.0})
+        before = c.committed()
+        c.reconcile("ref_s11", j)
+        assert j["state"] == "orphaned" and sleeper.pid in [int(x) for x in j["error"].split("[")[1].split("]")[0]
+                                                            .split(",")]
+        assert c.committed() == pytest.approx(before)  # full reservation still committed
+        c.train_job("main", "ref", 11)  # does nothing: no second trainer for the same attempt
+        assert j["state"] == "orphaned" and j["attempts"] == 1
+        # Fallback identity: no recorded child, but a live process names the run directory.
+        j2 = c.status["jobs"]["wide_s11"]
+        j2.update(state="running", dir=str(d))
+        c.reconcile("wide_s11", j2)
+        assert j2["state"] == "orphaned"
+    finally:
+        sleeper.kill()
+        sleeper.wait()
+
+
+def test_restart_charges_a_dead_child_and_resumes_evaluation(tmp_path):
+    import time
+
+    from exptrack.db import sha256_file
+
+    c, root = _campaign_with_status(tmp_path)
+    d = root / "ref_s11"
+    d.mkdir()
+    (d / "model.pt").write_bytes(b"weights")
+    gone = {"pid": 999999, "start": "Mon Jan  1 00:00:00 2001", "kind": "train", "since": time.time() - 100}
+    j = c.status["jobs"]["ref_s11"]
+    j.update(state="running", dir=str(d), child=dict(gone))
+    c.reconcile("ref_s11", j)
+    assert j["state"] == "queued" and j["retryable"] and "child" not in j
+    charged = [p for k, p in c.status["parts"].items() if k.startswith(c.ids["ref"][1] + "/train/interrupted")]
+    assert len(charged) == 1 and 99 <= charged[0]["elapsed_seconds"] <= 110
+    j3 = c.status["jobs"]["wide_s11"]
+    j3.update(state="evaluating", dir=str(d), model_sha256=sha256_file(d / "model.pt"), child={**gone, "kind": "eval"})
+    c.reconcile("wide_s11", j3)
+    assert j3["state"] == "evaluating" and j3["resume_evaluation"]  # endpoint verified: evaluate, do not retrain
+    assert any(k.startswith(c.ids["wide"][1] + "/eval/interrupted") for k in c.status["parts"])
+
+
+def test_evaluation_retry_is_budgeted_and_keeps_each_try(tmp_path):
+    c, root = _campaign_with_status(tmp_path)
+    d = root / "ref_s11"
+    d.mkdir()
+    j = c.status["jobs"]["ref_s11"]
+    j.update(state="evaluating", dir=str(d), mlflow_run_id="m", model_sha256="x", steps=1)
+    calls = []
+
+    def fake(run_id, attempt_id, ml_run, model, sha, eff, role, seed, out, step, try_n=1, job=None):
+        calls.append((out.name, try_n))
+        return None if try_n == 1 else {"cleared": 1}
+
+    c.evaluate = fake
+    assert c.evaluate_with_retry(j, "final", 6, {}, d / "eval_final_6.json") == {"cleared": 1}
+    assert calls == [("eval_final_6.json", 1), ("eval_final_6.try2.json", 2)]
+    calls.clear()
+    c.cap_seconds = 0.0  # no budget left: the retry is refused, not run
+    assert c.evaluate_with_retry(j, "final", 6, {}, d / "eval_final_6.json") is None
+    assert calls == [("eval_final_6.json", 1)]
+
+
+def test_preflight_is_bounded_by_the_remaining_allowance(tmp_path, monkeypatch):
+    from exptrack import campaign
+    from exptrack.campaign import Campaign, SystemicError
+    from train_ppo import mlflow_tracking_uri
+
+    root = tmp_path / "pf"
+    _fake_snapshot(root, _tiny_manifest("pf-test", mlflow_tracking_uri()))
+    monkeypatch.setattr(campaign, "PREFLIGHT_RESERVE_SECONDS", 0.5)
+    c = Campaign(root, tmp_path / "pf.sqlite3", require_snapshot_code=False)
+    with pytest.raises(SystemicError):
+        c.preflight()
+    parts = json.loads((root / "status.json").read_text())["parts"]
+    cost = [p["elapsed_seconds"] for k, p in parts.items() if k.startswith("preflight/")]
+    assert len(cost) == 1 and 0.4 <= cost[0] <= 5  # recorded although the subprocess was cut off

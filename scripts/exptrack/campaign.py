@@ -66,6 +66,20 @@ class SystemicError(RuntimeError):
     """A correctness failure that must stop the campaign (not retried)."""
 
 
+def process_start(pid: int) -> str | None:
+    """The process's start time as ps reports it (None if it is not running);
+    with the pid it identifies one process, since pids are reused."""
+    out = subprocess.run(["ps", "-o", "lstart=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
+    return out or None
+
+
+def live_processes_mentioning(path: Path) -> list[int]:
+    """Pids of running processes whose command line contains `path` (a run
+    directory): the fallback identity when no child was recorded."""
+    out = subprocess.run(["pgrep", "-f", str(path)], capture_output=True, text=True).stdout.split()
+    return [int(x) for x in out if int(x) != os.getpid()]
+
+
 class Campaign:
     def __init__(self, root, db_path, require_snapshot_code: bool = True):
         self.root = Path(root).resolve()
@@ -251,11 +265,9 @@ class Campaign:
             if j["state"] == "not_run" and j["attempts"] == 0:
                 store.add_event(self.con(), "requeued", {"previous_reason": j.get("error")}, run_id=j["run_id"])
                 j.update(state="queued", requeued_from=j.pop("error", None))
-        for jid, j in self.status["jobs"].items():  # a previous runner stopped mid-job: an infrastructure failure
+        for jid, j in self.status["jobs"].items():  # a previous runner stopped mid-job
             if j["state"] in ("running", "evaluating"):
-                j.update(state="queued", retryable=True, error="runner stopped during this attempt")
-                store.add_event(self.con(), "failed", {"stage": "runner stopped", "infrastructure": True},
-                                run_id=j["run_id"], attempt_id=j.get("attempt_id"))
+                self.reconcile(jid, j)
         self.save()
         total = self.committed()
         if total > self.cap_seconds:
@@ -284,11 +296,77 @@ class Campaign:
             return
         self.select_and_finalize()
 
+    def reconcile(self, jid: str, j: dict) -> None:
+        """A job a previous runner left running or evaluating. A child that is
+        still alive (recorded pid and start time, or any process naming the run
+        directory) makes the job "orphaned": it is not dispatched again and its
+        full reservation stays committed until someone reviews it. A dead
+        child's elapsed time, never recorded, is charged from its recorded start.
+        A job that was evaluating a verified endpoint resumes evaluation instead
+        of retraining; otherwise the attempt counts as an infrastructure failure."""
+        con = self.con()
+        child = j.get("child")
+        alive = []
+        if child and child.get("start") and process_start(child["pid"]) == child["start"]:
+            alive.append(child["pid"])
+        if j.get("dir"):
+            alive += [p for p in live_processes_mentioning(Path(j["dir"])) if p not in alive]
+        if alive:
+            j.update(state="orphaned", error=f"processes {alive} from a previous runner are still alive; "
+                                             "not dispatched again")
+            store.add_event(con, "orphan_detected", {"pids": alive, "child": child}, run_id=j["run_id"],
+                            attempt_id=j.get("attempt_id"))
+            self.log(f"ORPHAN {jid}: live processes {alive}; not dispatched again, reservation kept")
+            return
+        if child:
+            phase = j["phase"]
+            cap = self.train_reservation(phase) if child["kind"] == "train" else self.eval_hard
+            charged = round(min(max(0.0, time.time() - child["since"]), cap), 1)
+            self.status["parts"][f"{j['attempt_id']}/{child['kind']}/interrupted-{int(child['since'])}"] = {
+                "elapsed_seconds": charged, "estimated": "from the recorded child start; the child is gone"}
+            j.pop("child", None)
+        model = Path(j["dir"]) / "model.pt" if j.get("dir") else None
+        if (j["state"] == "evaluating" and j.get("model_sha256") and model and model.exists()
+                and db.sha256_file(model) == j["model_sha256"]):
+            j["resume_evaluation"] = True
+            store.add_event(con, "evaluation_resumed", {"model_sha256": j["model_sha256"]}, run_id=j["run_id"],
+                            attempt_id=j.get("attempt_id"))
+            return
+        j.update(state="queued", retryable=True, error="runner stopped during this attempt")
+        store.add_event(con, "failed", {"stage": "runner stopped", "infrastructure": True},
+                        run_id=j["run_id"], attempt_id=j.get("attempt_id"))
+
+    def run_child(self, j: dict | None, kind: str, argv: list[str], out: Path, err: Path, timeout: float):
+        """Run one trainer or evaluator, recording its identity in status.json
+        before waiting, so a restarted runner can recognise it."""
+        with open(out, "w") as o, open(err, "w") as e:
+            proc = subprocess.Popen(argv, env=self.env, stdout=o, stderr=e)
+            if j is not None:
+                with self.lock:
+                    j["child"] = {"pid": proc.pid, "start": process_start(proc.pid), "kind": kind,
+                                  "since": time.time()}
+                    self.save()
+            try:
+                rc = proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+                rc = "timeout"
+        if j is not None:
+            with self.lock:
+                j.pop("child", None)
+                self.save()
+        return rc
+
     def train_job(self, phase: str, arm: str, seed: int) -> None:
         jid = self.job_id(arm, seed)
         j = self.status["jobs"][jid]
         try:
-            while j["state"] != "done":
+            if j["state"] == "orphaned":
+                return
+            if j["state"] == "evaluating" and j.get("resume_evaluation"):
+                self.dev_evaluations(phase, arm, seed, j)
+            while j["state"] not in ("done", "failed", "orphaned"):
                 if j["attempts"] >= 2 or (j["attempts"] == 1 and not j.get("retryable")):
                     with self.lock:
                         j["state"] = "failed"
@@ -376,11 +454,7 @@ class Campaign:
                         attempt_id=attempt_id)
         self.log(f"start {jid} attempt {n} (mlflow {ml_run[:8]})")
         timeout = eff["wall_minutes"] * 60 + self.grace
-        try:
-            with open(d / "train.out", "w") as o, open(d / "train.err", "w") as e:
-                rc = subprocess.run(argv, env=self.env, stdout=o, stderr=e, timeout=timeout).returncode
-        except subprocess.TimeoutExpired:
-            rc = "timeout"
+        rc = self.run_child(j, "train", argv, d / "train.out", d / "train.err", timeout)
         train_seconds = round(time.time() - t0, 1)
         with self.lock:
             self.status["parts"][f"{attempt_id}/train"] = {"elapsed_seconds": train_seconds}
@@ -415,22 +489,52 @@ class Campaign:
             j.update(state="evaluating", model_sha256=model_sha, steps=summary["steps"], updates=summary["updates"],
                      train_seconds=train_seconds)
             self.save()
+        self.dev_evaluations(phase, arm, seed, j)
+
+    def dev_evaluations(self, phase: str, arm: str, seed: int, j: dict) -> None:
+        """The development bank on the job's verified endpoint. An evaluation
+        that fails (after its one retry) fails the job; the trained endpoint is
+        never discarded and retrained because an evaluation failed."""
+        con, c = self.con(), self.cfg
+        jid, run_id, d = self.job_id(arm, seed), j["run_id"], Path(j["dir"])
+        if db.sha256_file(d / "model.pt") != j["model_sha256"]:
+            raise SystemicError(f"{jid}: endpoint changed after training")
+        eff = store.reconstruct_run_config(con, run_id)
         dev = {}
         for s in c["evaluation.seed_banks"]["development"]:
-            dev[s] = self.evaluate(run_id, attempt_id, ml_run, d / "model.pt", model_sha, eff, "development", s,
-                                   d / f"eval_development_{s}.json", summary["steps"])
+            dev[s] = self.evaluate_with_retry(j, "development", s, eff, d / f"eval_development_{s}.json")
             if dev[s] is None:
                 with self.lock:
-                    j.update(state="queued", error=f"development evaluation {s} failed", retryable=True)
+                    j.update(state="failed", error=f"development evaluation {s} failed twice", retryable=False)
                     self.save()
+                self.log(f"FAILED {jid}: development evaluation {s} failed twice (endpoint kept)")
                 return
         store.add_event(con, "finished", {"development": {s: r["cleared"] for s, r in dev.items()}},
-                        run_id=run_id, attempt_id=attempt_id)
+                        run_id=run_id, attempt_id=j["attempt_id"])
         with self.lock:
             j.update(state="done", finished=iso(), development={str(s): r["cleared"] for s, r in dev.items()})
+            j.pop("resume_evaluation", None)
             self.save()
-        self.log(f"done {jid}: {summary['steps']:,} steps; development clears "
+        self.log(f"done {jid}: {j['steps']:,} steps; development clears "
                  f"{', '.join(str(r['cleared']) for r in dev.values())}")
+
+    def evaluate_with_retry(self, j: dict, role: str, seed: int, eff: dict, out: Path) -> dict | None:
+        """At most two tries. A retry goes beyond the job's reservation, so it
+        is checked against the remaining budget and the deadline first; each
+        try keeps its own output files and elapsed-time record."""
+        for n in (1, 2):
+            if n > 1:
+                with self.lock:
+                    reason = self.halted or self.fits(self.eval_hard, self.committed() + self.eval_hard)
+                if reason:
+                    self.log(f"evaluation retry {role} {seed} for {j['attempt_id']} not run: {reason}")
+                    return None
+            target = out if n == 1 else out.with_name(f"{out.stem}.try{n}{out.suffix}")
+            r = self.evaluate(j["run_id"], j["attempt_id"], j["mlflow_run_id"], Path(j["dir"]) / "model.pt",
+                              j["model_sha256"], eff, role, seed, target, j["steps"], try_n=n, job=j)
+            if r is not None:
+                return r
+        return None
 
     # ---------------------------------------------------------- evaluation
     def protocol(self, eff: dict, role: str, seed: int) -> dict:
@@ -445,7 +549,7 @@ class Campaign:
                 "evaluator_sha256": db.sha256_file(self.snap / "scripts" / "evaluate.py")}
 
     def evaluate(self, run_id, attempt_id, ml_run, model: Path, model_sha: str, eff: dict, role: str, seed: int,
-                 out: Path, step: int) -> dict | None:
+                 out: Path, step: int, try_n: int = 1, job: dict | None = None) -> dict | None:
         """One standard test; None on an infrastructure failure. Recorded in
         SQLite (full protocol) and MLflow."""
         from audit_hparam_campaign import check_eval_file
@@ -464,14 +568,11 @@ class Campaign:
         argv += ["--control-obs"] if proto["control_obs"] else []
         argv += ["--nearest-first"] if proto["nearest_first"] else []
         t0 = time.time()
-        try:
-            with open(out.with_suffix(".out"), "w") as o, open(out.with_suffix(".err"), "w") as e:
-                rc = subprocess.run(argv, env=self.env, stdout=o, stderr=e, timeout=self.eval_hard).returncode
-        except subprocess.TimeoutExpired:
-            rc = "timeout"
+        rc = self.run_child(job, "eval", argv, out.with_suffix(".out"), out.with_suffix(".err"), self.eval_hard)
         seconds = round(time.time() - t0, 1)
+        key = f"{attempt_id}/eval/{role}/{seed}" + (f"/try{try_n}" if try_n > 1 else "")
         with self.lock:
-            self.status["parts"][f"{attempt_id}/eval/{role}/{seed}"] = {"elapsed_seconds": seconds}
+            self.status["parts"][key] = {"elapsed_seconds": seconds}
             self.save()
         if rc != 0 or not out.exists():
             store.add_event(con, "failed", {"stage": f"evaluation {role} {seed}", "rc": rc}, run_id=run_id,
@@ -528,7 +629,30 @@ class Campaign:
         exp_id = ensure_experiment(client, c["tracking.mlflow_experiment"] + "-preflight")
         smoke_root = self.root / "preflight_smoke"
         smoke_root.mkdir(exist_ok=True)
-        spent = 0.0
+        if self.status is None:
+            self.status = {"campaign": self.manifest["campaign_id"], "snapshot_commit": self.info["commit"],
+                           "manifest_sha256": self.info["manifest_sha256"], "created": iso(),
+                           "db": str(self.db_path), "mlflow_tracking_uri": self.uri, **ids,
+                           "jobs": {}, "parts": {}, "final_state": "pending"}
+        key = f"preflight/{int(time.time())}"
+        used = [0.0]
+
+        def bounded(argv: list[str]):
+            """One preflight subprocess, bounded by what is left of the aggregate
+            preflight allowance; its cost is recorded even if it fails."""
+            remaining = PREFLIGHT_RESERVE_SECONDS - used[0]
+            if remaining <= 0:
+                raise SystemicError("preflight allowance exhausted")
+            t = time.time()
+            try:
+                return subprocess.run(argv, env=self.env, capture_output=True, text=True, timeout=remaining)
+            except subprocess.TimeoutExpired:
+                raise SystemicError(f"a preflight subprocess exceeded the remaining allowance ({remaining:.0f} s)")
+            finally:
+                used[0] += time.time() - t
+                self.status["parts"][key] = {"elapsed_seconds": round(used[0], 1)}
+                self.save()
+
         for arm in self.arm_order():
             run_id = ids["runs"][self.job_id(arm, c["seeds.training"][c["design.phases"][0]][0])]
             eff = store.reconstruct_run_config(con, run_id)
@@ -540,28 +664,24 @@ class Campaign:
             ml = client.create_run(exp_id, run_name=f"preflight-{arm}", tags={
                 "exptrack.run_id": run_id, "campaign": self.manifest["campaign_id"], "arm": arm, "preflight": "true"})
             t0 = time.time()
-            tr = subprocess.run([self.python, str(self.snap / "scripts" / "train_ppo.py"), "--config",
-                                 str(d / "run_config.json"), "--run-dir", str(d), "--mlflow-tracking-uri", self.uri,
-                                 "--mlflow-run-id", ml.info.run_id, "--log-every", "1", "--no-tensorboard",
-                                 "--quiet"],
-                                env=self.env, capture_output=True, text=True, timeout=600)
+            tr = bounded([self.python, str(self.snap / "scripts" / "train_ppo.py"), "--config",
+                          str(d / "run_config.json"), "--run-dir", str(d), "--mlflow-tracking-uri", self.uri,
+                          "--mlflow-run-id", ml.info.run_id, "--log-every", "1", "--no-tensorboard", "--quiet"])
             train_s = time.time() - t0
             summ = json.loads((d / "train_summary.json").read_text()) if (d / "train_summary.json").exists() else {}
             run = client.get_run(ml.info.run_id)
             ok = (tr.returncode == 0 and summ.get("updates") == 2 and run.info.status == "FINISHED"
                   and "losses_policy_loss" in run.data.metrics)
             t1 = time.time()
-            ev = subprocess.run([self.python, str(self.snap / "scripts" / "evaluate.py"), str(d / "model.pt"),
-                                 "--levels", c["evaluation.levels"], "--episodes", "1", "--max-steps",
-                                 str(c["evaluation.max_steps"]), "--frame-skip", str(c["evaluation.frame_skip"]),
-                                 "--obs", eff["obs"], "--seed", "1", "--lives", str(c["evaluation.lives"]),
-                                 "--action-selection", c["evaluation.action_selection"],
-                                 "--per-level-out", str(d / "eval_smoke.json")]
-                                + (["--control-obs"] if eff["control_obs"] else [])
-                                + (["--nearest-first"] if eff["nearest_first"] else []),
-                                env=self.env, capture_output=True, text=True, timeout=self.eval_hard)
+            ev = bounded([self.python, str(self.snap / "scripts" / "evaluate.py"), str(d / "model.pt"),
+                          "--levels", c["evaluation.levels"], "--episodes", "1", "--max-steps",
+                          str(c["evaluation.max_steps"]), "--frame-skip", str(c["evaluation.frame_skip"]),
+                          "--obs", eff["obs"], "--seed", "1", "--lives", str(c["evaluation.lives"]),
+                          "--action-selection", c["evaluation.action_selection"],
+                          "--per-level-out", str(d / "eval_smoke.json")]
+                         + (["--control-obs"] if eff["control_obs"] else [])
+                         + (["--nearest-first"] if eff["nearest_first"] else []))
             eval_s = time.time() - t1
-            spent += train_s + eval_s
             proto = json.loads((d / "eval_smoke.json").read_text())["protocol"] if ev.returncode == 0 else {}
             report["arms"][arm] = {
                 "ok": ok and ev.returncode == 0 and proto.get("lives") == c["evaluation.lives"]
@@ -573,14 +693,7 @@ class Campaign:
                 "seconds_per_update": round(summ.get("seconds", float("nan")) / 2, 2),
                 "smoke_eval_seconds_99_episodes": round(eval_s, 1), "mlflow_run_id": ml.info.run_id,
                 "stderr_tail": tr.stderr[-300:] if tr.returncode else ""}
-        if self.status is None:
-            self.status = {"campaign": self.manifest["campaign_id"], "snapshot_commit": self.info["commit"],
-                           "manifest_sha256": self.info["manifest_sha256"], "created": iso(),
-                           "db": str(self.db_path), "mlflow_tracking_uri": self.uri, **ids,
-                           "jobs": {}, "parts": {}, "final_state": "pending"}
-        self.status["parts"]["preflight"] = {"elapsed_seconds": round(spent, 1)}
-        self.save()
-        report["preflight_core_minutes"] = round(spent / 60, 2)
+        report["preflight_core_minutes"] = round(used[0] / 60, 2)
         report["ok"] = all(a["ok"] for a in report["arms"].values())
         write_json_atomic(self.root / "preflight.json", report)
         store.add_event(con, "campaign_preflight", report, experiment_id=ids["experiment_id"],
@@ -650,15 +763,9 @@ class Campaign:
                     raise SystemicError(f"{arm} s{s}: checkpoint differs from the frozen selection")
                 eff = store.reconstruct_run_config(con, j["run_id"])
                 for fs in c["evaluation.seed_banks"]["final"]:
-                    out = Path(j["dir"]) / f"eval_final_{fs}.json"
-                    r = None
-                    for _ in range(2):  # one infrastructure retry
-                        r = self.evaluate(j["run_id"], j["attempt_id"], j["mlflow_run_id"], Path(j["dir"]) / "model.pt",
-                                          j["model_sha256"], eff, "final", fs, out, j["steps"])
-                        if r is not None:
-                            break
+                    r = self.evaluate_with_retry(j, "final", fs, eff, Path(j["dir"]) / f"eval_final_{fs}.json")
                     if r is None:
-                        raise SystemicError(f"final evaluation {arm} s{s} {fs} failed twice")
+                        raise SystemicError(f"final evaluation {arm} s{s} {fs} failed (retry refused or failed)")
                     final[(arm, s, fs)] = r
         with self.lock:
             self.status["final_state"] = "done"
