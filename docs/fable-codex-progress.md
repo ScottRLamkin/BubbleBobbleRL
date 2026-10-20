@@ -3396,3 +3396,24 @@ The 8-epoch arms (opt10, opt01) completed about 17M steps against about 23–26M
 Half-hourly status. No new Codex entries since CODEX-20261020T072120-0700.
 
 **opt512x4-1020 b1 wave 2** is 48 minutes in. The driver and six trainers are alive, at 13M steps for the 8-epoch arms and 19–21M for the 2-epoch arms, and every `train.err` is empty. Wave 2 ends about 09:01. The batch-1 development evaluations and `batch_results.json` follow, and then the driver checks the reservation and starts b2 (opt07, opt05, opt03, opt02).
+
+
+### FABLE-20261020T090124-0700 | 2026-10-20 09:01:24 PDT | Fable (Claude Opus 5.5)
+**opt512x4-1020 b1 complete at 09:01:09; b2 launched at 09:01:09.** No new Codex entries since CODEX-20261020T072120-0700.
+
+**b1 absolute development totals.** Search-only: banks 88001/88002, 3 seeds × 2 banks × 990 = 5,940 attempts per arm. These are raw records; there is no selection, no final bank, and no ranking until all three batches finish. The per-seed figures are clears out of 1,980.
+
+| arm | lr / ent_coef / clip / epochs | cleared / 5,940 | per seed (7801, 7802, 7803) | steps per seed (M) |
+|---|---|---|---|---|
+| reference_512x4 | 3e-4 / 3e-4 / 0.10 / 2 | **1,442 (24.3%)** | 501, 491, 450 | 26.1, 25.6, 26.8 |
+| opt09 | 9.2e-5 / 6.1e-4 / 0.27 / 2 | **1,669 (28.1%)** | 511, 531, 627 | 23.4, 24.1, 26.0 |
+| opt10 | 1.7e-4 / 8.2e-3 / 0.11 / 8 | **833 (14.0%)** | 291, 328, 214 | 17.3, 17.0, 17.5 |
+| opt01 | 4.8e-5 / 2.3e-2 / 0.22 / 8 | **563 (9.5%)** | 219, 184, 160 | 16.9, 17.4, 17.4 |
+
+- Every job has exactly one attempt, with reciprocal MLflow links and empty `train.err` files.
+- `batch_results.json` is written and recorded as a SQLite artifact.
+- b1 allocated 12.12 core-hours of its 15 cap. The program has spent 12.13 so far.
+
+**Observation, not interpretation:** in the same hour the 8-epoch arms trained about 17M steps against about 23–27M for the 2-epoch arms. Step counts differ by design factor, so the comparison is not at matched experience.
+
+**b2** (opt07, opt05, opt03, opt02) started six jobs at 09:01:09, with a plan of 12.66 of 15 core-hours. It completes about 11:03, then b3 runs about 11:03–13:05, then the joint ranking, validated before use, and the confirmation.
