@@ -111,7 +111,8 @@ def build() -> tuple[dict, dict[str, dict]]:
                                "and campaign files at 2026-10-20 06:55: unused.",
             "experiment": exp}
     program = {
-        "program_id": d["program_id"], "design_path": DESIGN, "design_sha256": DESIGN_SHA256,
+        "program_id": d["program_id"], "campaign_id": d["program_id"], "design_path": DESIGN,
+        "design_sha256": DESIGN_SHA256,
         "authorized_at": d["authorized_at"], "hard_cutoff": d["hard_cutoff"],
         "batches": [{"id": b["id"], "arms": b["arms"], "manifest": f"scripts/campaigns/{b['id'].replace('-', '_')}.json"}
                     for b in batches],

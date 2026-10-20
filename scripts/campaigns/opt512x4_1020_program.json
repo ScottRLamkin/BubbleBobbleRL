@@ -1,5 +1,6 @@
 {
  "program_id": "opt512x4-1020",
+ "campaign_id": "opt512x4-1020",
  "design_path": "scripts/campaigns/opt512x4_1020_design.json",
  "design_sha256": "0d378836cb6aba99531aff0ea74d5f1ab87fc2b65bd82fb81f808834830679b6",
  "authorized_at": "2026-10-20T06:48:25-07:00",
