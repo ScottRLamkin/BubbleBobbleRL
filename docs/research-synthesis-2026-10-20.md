@@ -3,7 +3,8 @@
 This was written at 06:45, from existing artifacts only: SQLite, MLflow histories, raw evaluation
 files and galleries. No new evaluations were run. The final replication's results are reported
 separately (`docs/replicate-final-1020-results.md`). Its training curves are included here, but
-they were extracted at about 06:35, before its runs ended.
+they were extracted at about 06:35, before its runs ended. The per-level table was refreshed at 07:10
+to include its evaluation files.
 Supporting data: `docs/synthesis-2026-10-20/`.
 
 ## 1. Where performance stands (absolute)
@@ -15,10 +16,10 @@ from the five rounds is pooled below:
 
 | recipe (game 2aa2548) | runs × eval files | attempts | cleared | died | timed out | levels ≥ 50% | levels never cleared | levels always cleared |
 |---|---|---|---|---|---|---|---|---|
-| 512×2, lr 0.0003 | 3 × 4 | 11,880 | **3,578 (30.1%)** | 69.9% | 0.0% | 29/99 | 24/99 | 1/99 |
+| 512×2, lr 0.0003 | 6 × 4 | 23,760 | **7,405 (31.2%)** | 68.7% | 0.1% | 26/99 | 12/99 | 1/99 |
 | 256×2, ent_coef 0.0001 | 3 × 4 | 11,880 | 3,322 (28.0%) | 72.0% | 0.1% | 26/99 | 25/99 | 2/99 |
 | 256×2, ent_coef 0.001 | 3 × 2 | 5,940 | 1,647 (27.7%) | 72.2% | 0.1% | 26/99 | 33/99 | 6/99 |
-| **ff12 256×2** (reference, all rounds) | 12 × 4 | 47,520 | 12,847 (27.0%) | 72.9% | 0.0% | 24/99 | 7/99 | 0/99 |
+| **ff12 256×2** (reference, all rounds) | 15 × 4 | 59,400 | 16,307 (27.5%) | 72.5% | 0.0% | 24/99 | 6/99 | 0/99 |
 | 1024×2, lr 0.0001 | 3 × 2 | 5,940 | 1,590 (26.8%) | 73.2% | 0.0% | 24/99 | 27/99 | 0/99 |
 | 256×2, ent_coef 0.003 | 3 × 2 | 5,940 | 1,526 (25.7%) | 74.3% | 0.0% | 23/99 | 22/99 | 0/99 |
 | 1024×2, lr 0.0003 | 6 × 3 | 17,820 | 4,350 (24.4%) | 75.5% | 0.1% | 22/99 | 19/99 | 0/99 |
@@ -28,15 +29,15 @@ from the five rounds is pooled below:
 | 1024×2, lr 0.003 | 3 × 2 | 5,940 | 0 (0.0%) | 99.1% | 0.9% | 0/99 | 99/99 | 0/99 |
 
 **How to read the level columns.** The counts depend on how many attempts each recipe had: from
-60 per level up to 480 for ff12. A recipe with more attempts is less likely to have "never cleared"
+60 per level up to 600 for ff12. A recipe with more attempts is less likely to have "never cleared"
 levels. Rows are pooled over the development and final banks, so they are descriptive and not a
 ranking. The development banks were also selection banks.
 
 **What fails is survival.**
 - Nearly every failed attempt is a death; timeouts are essentially zero for every working recipe.
 - Five levels were never cleared by any working recipe tonight: **63, 67, 71, 73 and 85**. ff12 also
-  never cleared levels 21 and 60, in 480 attempts each.
-- No recipe clears any level reliably. ff12 cleared no level in all 480 of its attempts on it.
+  never cleared level 21, in 600 attempts.
+- No recipe clears any level reliably. ff12 cleared no level in all 600 of its attempts on it.
 - In the newest galleries (seed 7601, one episode per level), most deaths came early:
   - deaths at a median of 105 decisions (reference) and 127 decisions (512×2 lr 0.0003), about 7–8.5
     simulated seconds;

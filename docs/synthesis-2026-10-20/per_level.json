@@ -1,17 +1,16 @@
 {
  "ff12 256x2": {
-  "evaluation_files": 48,
-  "episodes": 47520,
-  "cleared": 12847,
-  "died": 34660,
-  "timed_out": 13,
-  "clear_pct": 27.0,
-  "death_pct": 72.9,
+  "evaluation_files": 60,
+  "episodes": 59400,
+  "cleared": 16307,
+  "died": 43077,
+  "timed_out": 16,
+  "clear_pct": 27.5,
+  "death_pct": 72.5,
   "timeout_pct": 0.0,
-  "episodes_per_level": 480,
+  "episodes_per_level": 600,
   "levels_never_cleared": [
    21,
-   60,
    63,
    67,
    71,
@@ -22,499 +21,499 @@
   "levels_at_least_half": 24,
   "per_level": {
    "1": {
-    "clear": 474,
-    "death": 6,
+    "clear": 591,
+    "death": 9,
     "timeout": 0
    },
    "2": {
-    "clear": 419,
-    "death": 61,
+    "clear": 524,
+    "death": 76,
     "timeout": 0
    },
    "3": {
-    "clear": 308,
-    "death": 172,
+    "clear": 419,
+    "death": 181,
     "timeout": 0
    },
    "4": {
-    "clear": 199,
-    "death": 281,
+    "clear": 271,
+    "death": 329,
     "timeout": 0
    },
    "5": {
-    "clear": 326,
-    "death": 154,
+    "clear": 423,
+    "death": 177,
     "timeout": 0
    },
    "6": {
-    "clear": 111,
-    "death": 369,
+    "clear": 156,
+    "death": 444,
     "timeout": 0
    },
    "7": {
-    "clear": 288,
-    "death": 192,
+    "clear": 346,
+    "death": 254,
     "timeout": 0
    },
    "8": {
-    "clear": 293,
-    "death": 187,
+    "clear": 348,
+    "death": 252,
     "timeout": 0
    },
    "9": {
-    "clear": 81,
-    "death": 399,
+    "clear": 100,
+    "death": 500,
     "timeout": 0
    },
    "10": {
-    "clear": 107,
-    "death": 373,
+    "clear": 118,
+    "death": 482,
     "timeout": 0
    },
    "11": {
-    "clear": 77,
-    "death": 403,
+    "clear": 87,
+    "death": 513,
     "timeout": 0
    },
    "12": {
-    "clear": 54,
-    "death": 426,
+    "clear": 57,
+    "death": 543,
     "timeout": 0
    },
    "13": {
     "clear": 6,
-    "death": 474,
+    "death": 594,
     "timeout": 0
    },
    "14": {
-    "clear": 201,
-    "death": 279,
+    "clear": 219,
+    "death": 381,
     "timeout": 0
    },
    "15": {
-    "clear": 101,
-    "death": 379,
+    "clear": 142,
+    "death": 458,
     "timeout": 0
    },
    "16": {
-    "clear": 52,
-    "death": 428,
+    "clear": 61,
+    "death": 539,
     "timeout": 0
    },
    "17": {
-    "clear": 38,
-    "death": 442,
+    "clear": 45,
+    "death": 555,
     "timeout": 0
    },
    "18": {
-    "clear": 103,
-    "death": 377,
+    "clear": 117,
+    "death": 483,
     "timeout": 0
    },
    "19": {
-    "clear": 413,
-    "death": 67,
+    "clear": 512,
+    "death": 88,
     "timeout": 0
    },
    "20": {
-    "clear": 41,
-    "death": 439,
+    "clear": 50,
+    "death": 550,
     "timeout": 0
    },
    "21": {
     "clear": 0,
-    "death": 480,
+    "death": 600,
     "timeout": 0
    },
    "22": {
     "clear": 2,
-    "death": 478,
+    "death": 598,
     "timeout": 0
    },
    "23": {
-    "clear": 262,
-    "death": 218,
+    "clear": 373,
+    "death": 227,
     "timeout": 0
    },
    "24": {
-    "clear": 328,
-    "death": 152,
+    "clear": 432,
+    "death": 168,
     "timeout": 0
    },
    "25": {
-    "clear": 387,
-    "death": 93,
+    "clear": 480,
+    "death": 120,
     "timeout": 0
    },
    "26": {
-    "clear": 169,
-    "death": 311,
+    "clear": 208,
+    "death": 392,
     "timeout": 0
    },
    "27": {
-    "clear": 399,
-    "death": 81,
+    "clear": 476,
+    "death": 124,
     "timeout": 0
    },
    "28": {
-    "clear": 82,
-    "death": 398,
+    "clear": 118,
+    "death": 482,
     "timeout": 0
    },
    "29": {
-    "clear": 49,
-    "death": 431,
+    "clear": 57,
+    "death": 543,
     "timeout": 0
    },
    "30": {
-    "clear": 27,
-    "death": 453,
+    "clear": 29,
+    "death": 571,
     "timeout": 0
    },
    "31": {
-    "clear": 74,
-    "death": 406,
+    "clear": 102,
+    "death": 498,
     "timeout": 0
    },
    "32": {
-    "clear": 389,
-    "death": 91,
+    "clear": 491,
+    "death": 109,
     "timeout": 0
    },
    "33": {
-    "clear": 59,
-    "death": 421,
+    "clear": 86,
+    "death": 514,
     "timeout": 0
    },
    "34": {
     "clear": 11,
-    "death": 469,
+    "death": 589,
     "timeout": 0
    },
    "35": {
     "clear": 26,
-    "death": 454,
+    "death": 574,
     "timeout": 0
    },
    "36": {
-    "clear": 430,
-    "death": 50,
+    "clear": 547,
+    "death": 53,
     "timeout": 0
    },
    "37": {
-    "clear": 58,
-    "death": 422,
+    "clear": 72,
+    "death": 528,
     "timeout": 0
    },
    "38": {
-    "clear": 68,
-    "death": 412,
+    "clear": 100,
+    "death": 500,
     "timeout": 0
    },
    "39": {
     "clear": 3,
-    "death": 477,
+    "death": 597,
     "timeout": 0
    },
    "40": {
-    "clear": 44,
-    "death": 436,
+    "clear": 51,
+    "death": 549,
     "timeout": 0
    },
    "41": {
-    "clear": 232,
-    "death": 248,
+    "clear": 321,
+    "death": 279,
     "timeout": 0
    },
    "42": {
-    "clear": 149,
-    "death": 331,
+    "clear": 179,
+    "death": 421,
     "timeout": 0
    },
    "43": {
     "clear": 15,
-    "death": 465,
+    "death": 585,
     "timeout": 0
    },
    "44": {
-    "clear": 22,
-    "death": 458,
+    "clear": 23,
+    "death": 577,
     "timeout": 0
    },
    "45": {
-    "clear": 337,
-    "death": 143,
+    "clear": 420,
+    "death": 180,
     "timeout": 0
    },
    "46": {
-    "clear": 332,
-    "death": 148,
+    "clear": 429,
+    "death": 171,
     "timeout": 0
    },
    "47": {
-    "clear": 1,
-    "death": 479,
+    "clear": 2,
+    "death": 598,
     "timeout": 0
    },
    "48": {
     "clear": 7,
-    "death": 473,
+    "death": 593,
     "timeout": 0
    },
    "49": {
-    "clear": 49,
-    "death": 431,
+    "clear": 89,
+    "death": 511,
     "timeout": 0
    },
    "50": {
     "clear": 73,
-    "death": 407,
+    "death": 527,
     "timeout": 0
    },
    "51": {
-    "clear": 29,
-    "death": 451,
+    "clear": 30,
+    "death": 570,
     "timeout": 0
    },
    "52": {
     "clear": 13,
-    "death": 467,
+    "death": 587,
     "timeout": 0
    },
    "53": {
-    "clear": 118,
-    "death": 362,
+    "clear": 146,
+    "death": 454,
     "timeout": 0
    },
    "54": {
-    "clear": 7,
-    "death": 473,
+    "clear": 9,
+    "death": 591,
     "timeout": 0
    },
    "55": {
-    "clear": 10,
-    "death": 470,
+    "clear": 14,
+    "death": 586,
     "timeout": 0
    },
    "56": {
-    "clear": 35,
-    "death": 445,
+    "clear": 48,
+    "death": 552,
     "timeout": 0
    },
    "57": {
-    "clear": 14,
-    "death": 466,
+    "clear": 27,
+    "death": 573,
     "timeout": 0
    },
    "58": {
-    "clear": 68,
-    "death": 412,
+    "clear": 76,
+    "death": 524,
     "timeout": 0
    },
    "59": {
-    "clear": 183,
-    "death": 297,
+    "clear": 230,
+    "death": 370,
     "timeout": 0
    },
    "60": {
-    "clear": 0,
-    "death": 480,
+    "clear": 35,
+    "death": 565,
     "timeout": 0
    },
    "61": {
-    "clear": 104,
-    "death": 376,
+    "clear": 151,
+    "death": 449,
     "timeout": 0
    },
    "62": {
-    "clear": 215,
-    "death": 265,
+    "clear": 268,
+    "death": 332,
     "timeout": 0
    },
    "63": {
     "clear": 0,
-    "death": 480,
+    "death": 600,
     "timeout": 0
    },
    "64": {
-    "clear": 307,
-    "death": 173,
+    "clear": 381,
+    "death": 219,
     "timeout": 0
    },
    "65": {
-    "clear": 150,
-    "death": 330,
+    "clear": 177,
+    "death": 423,
     "timeout": 0
    },
    "66": {
-    "clear": 10,
-    "death": 470,
+    "clear": 11,
+    "death": 589,
     "timeout": 0
    },
    "67": {
     "clear": 0,
-    "death": 480,
+    "death": 600,
     "timeout": 0
    },
    "68": {
-    "clear": 7,
-    "death": 473,
+    "clear": 9,
+    "death": 591,
     "timeout": 0
    },
    "69": {
-    "clear": 58,
-    "death": 422,
+    "clear": 65,
+    "death": 535,
     "timeout": 0
    },
    "70": {
-    "clear": 169,
-    "death": 311,
+    "clear": 260,
+    "death": 340,
     "timeout": 0
    },
    "71": {
     "clear": 0,
-    "death": 480,
+    "death": 600,
     "timeout": 0
    },
    "72": {
-    "clear": 224,
-    "death": 256,
+    "clear": 282,
+    "death": 318,
     "timeout": 0
    },
    "73": {
     "clear": 0,
-    "death": 480,
+    "death": 600,
     "timeout": 0
    },
    "74": {
-    "clear": 45,
-    "death": 435,
+    "clear": 57,
+    "death": 543,
     "timeout": 0
    },
    "75": {
     "clear": 14,
-    "death": 466,
+    "death": 586,
     "timeout": 0
    },
    "76": {
-    "clear": 33,
-    "death": 447,
+    "clear": 47,
+    "death": 553,
     "timeout": 0
    },
    "77": {
-    "clear": 124,
-    "death": 356,
+    "clear": 151,
+    "death": 449,
     "timeout": 0
    },
    "78": {
-    "clear": 311,
-    "death": 169,
+    "clear": 401,
+    "death": 199,
     "timeout": 0
    },
    "79": {
-    "clear": 305,
-    "death": 175,
+    "clear": 345,
+    "death": 255,
     "timeout": 0
    },
    "80": {
-    "clear": 440,
-    "death": 40,
+    "clear": 512,
+    "death": 88,
     "timeout": 0
    },
    "81": {
-    "clear": 125,
-    "death": 355,
+    "clear": 181,
+    "death": 419,
     "timeout": 0
    },
    "82": {
     "clear": 1,
-    "death": 479,
+    "death": 599,
     "timeout": 0
    },
    "83": {
-    "clear": 5,
-    "death": 475,
+    "clear": 6,
+    "death": 594,
     "timeout": 0
    },
    "84": {
-    "clear": 68,
-    "death": 412,
+    "clear": 74,
+    "death": 526,
     "timeout": 0
    },
    "85": {
     "clear": 0,
-    "death": 480,
+    "death": 600,
     "timeout": 0
    },
    "86": {
-    "clear": 324,
+    "clear": 444,
     "death": 156,
     "timeout": 0
    },
    "87": {
-    "clear": 365,
-    "death": 115,
+    "clear": 432,
+    "death": 168,
     "timeout": 0
    },
    "88": {
     "clear": 1,
-    "death": 479,
+    "death": 599,
     "timeout": 0
    },
    "89": {
-    "clear": 190,
-    "death": 290,
+    "clear": 248,
+    "death": 352,
     "timeout": 0
    },
    "90": {
     "clear": 2,
-    "death": 478,
+    "death": 598,
     "timeout": 0
    },
    "91": {
-    "clear": 301,
-    "death": 179,
+    "clear": 406,
+    "death": 194,
     "timeout": 0
    },
    "92": {
-    "clear": 158,
-    "death": 322,
+    "clear": 219,
+    "death": 381,
     "timeout": 0
    },
    "93": {
-    "clear": 274,
+    "clear": 394,
     "death": 206,
     "timeout": 0
    },
    "94": {
-    "clear": 240,
-    "death": 240,
+    "clear": 293,
+    "death": 307,
     "timeout": 0
    },
    "95": {
     "clear": 17,
-    "death": 463,
+    "death": 583,
     "timeout": 0
    },
    "96": {
-    "clear": 3,
-    "death": 477,
+    "clear": 10,
+    "death": 590,
     "timeout": 0
    },
    "97": {
-    "clear": 1,
-    "death": 479,
-    "timeout": 0
+    "clear": 3,
+    "death": 596,
+    "timeout": 1
    },
    "98": {
     "clear": 1,
-    "death": 479,
+    "death": 599,
     "timeout": 0
    },
    "99": {
     "clear": 2,
-    "death": 465,
-    "timeout": 13
+    "death": 583,
+    "timeout": 15
    }
   }
  },
@@ -5484,540 +5483,528 @@
   }
  },
  "512x2 lr0.0003": {
-  "evaluation_files": 12,
-  "episodes": 11880,
-  "cleared": 3578,
-  "died": 8299,
-  "timed_out": 3,
-  "clear_pct": 30.1,
-  "death_pct": 69.9,
-  "timeout_pct": 0.0,
-  "episodes_per_level": 120,
+  "evaluation_files": 24,
+  "episodes": 23760,
+  "cleared": 7405,
+  "died": 16330,
+  "timed_out": 25,
+  "clear_pct": 31.2,
+  "death_pct": 68.7,
+  "timeout_pct": 0.1,
+  "episodes_per_level": 240,
   "levels_never_cleared": [
    22,
-   23,
-   39,
-   42,
-   48,
-   50,
-   52,
-   56,
-   57,
    63,
-   64,
    66,
    67,
-   68,
    71,
    73,
    75,
    82,
-   83,
    85,
    88,
-   90,
    95,
    99
   ],
   "levels_cleared_every_time": [
    93
   ],
-  "levels_at_least_half": 29,
+  "levels_at_least_half": 26,
   "per_level": {
    "1": {
-    "clear": 115,
-    "death": 5,
-    "timeout": 0
-   },
-   "2": {
-    "clear": 112,
-    "death": 8,
-    "timeout": 0
-   },
-   "3": {
-    "clear": 113,
+    "clear": 233,
     "death": 7,
     "timeout": 0
    },
+   "2": {
+    "clear": 226,
+    "death": 14,
+    "timeout": 0
+   },
+   "3": {
+    "clear": 208,
+    "death": 32,
+    "timeout": 0
+   },
    "4": {
-    "clear": 112,
-    "death": 8,
+    "clear": 201,
+    "death": 39,
     "timeout": 0
    },
    "5": {
-    "clear": 112,
-    "death": 8,
+    "clear": 218,
+    "death": 22,
     "timeout": 0
    },
    "6": {
-    "clear": 23,
-    "death": 97,
+    "clear": 37,
+    "death": 203,
     "timeout": 0
    },
    "7": {
-    "clear": 80,
-    "death": 40,
+    "clear": 159,
+    "death": 81,
     "timeout": 0
    },
    "8": {
-    "clear": 51,
-    "death": 69,
+    "clear": 117,
+    "death": 123,
     "timeout": 0
    },
    "9": {
-    "clear": 6,
-    "death": 114,
+    "clear": 29,
+    "death": 211,
     "timeout": 0
    },
    "10": {
-    "clear": 31,
-    "death": 89,
+    "clear": 69,
+    "death": 171,
     "timeout": 0
    },
    "11": {
-    "clear": 36,
-    "death": 84,
+    "clear": 55,
+    "death": 185,
     "timeout": 0
    },
    "12": {
-    "clear": 10,
-    "death": 110,
+    "clear": 21,
+    "death": 219,
     "timeout": 0
    },
    "13": {
-    "clear": 34,
-    "death": 86,
+    "clear": 40,
+    "death": 200,
     "timeout": 0
    },
    "14": {
-    "clear": 28,
-    "death": 92,
+    "clear": 89,
+    "death": 151,
     "timeout": 0
    },
    "15": {
-    "clear": 5,
-    "death": 115,
+    "clear": 54,
+    "death": 186,
     "timeout": 0
    },
    "16": {
-    "clear": 14,
-    "death": 106,
+    "clear": 33,
+    "death": 207,
     "timeout": 0
    },
    "17": {
-    "clear": 1,
-    "death": 119,
+    "clear": 26,
+    "death": 214,
     "timeout": 0
    },
    "18": {
-    "clear": 36,
-    "death": 84,
+    "clear": 64,
+    "death": 176,
     "timeout": 0
    },
    "19": {
-    "clear": 24,
-    "death": 96,
+    "clear": 112,
+    "death": 128,
     "timeout": 0
    },
    "20": {
-    "clear": 29,
-    "death": 91,
+    "clear": 46,
+    "death": 194,
     "timeout": 0
    },
    "21": {
-    "clear": 2,
-    "death": 118,
+    "clear": 5,
+    "death": 235,
     "timeout": 0
    },
    "22": {
     "clear": 0,
-    "death": 120,
+    "death": 240,
     "timeout": 0
    },
    "23": {
-    "clear": 0,
-    "death": 120,
+    "clear": 49,
+    "death": 191,
     "timeout": 0
    },
    "24": {
-    "clear": 111,
-    "death": 9,
+    "clear": 193,
+    "death": 47,
     "timeout": 0
    },
    "25": {
-    "clear": 119,
-    "death": 1,
+    "clear": 223,
+    "death": 17,
     "timeout": 0
    },
    "26": {
-    "clear": 40,
-    "death": 80,
+    "clear": 102,
+    "death": 138,
     "timeout": 0
    },
    "27": {
-    "clear": 107,
-    "death": 13,
+    "clear": 185,
+    "death": 55,
     "timeout": 0
    },
    "28": {
-    "clear": 2,
-    "death": 118,
+    "clear": 45,
+    "death": 195,
     "timeout": 0
    },
    "29": {
-    "clear": 4,
-    "death": 116,
+    "clear": 7,
+    "death": 233,
     "timeout": 0
    },
    "30": {
     "clear": 2,
-    "death": 118,
+    "death": 238,
     "timeout": 0
    },
    "31": {
-    "clear": 18,
-    "death": 102,
+    "clear": 37,
+    "death": 203,
     "timeout": 0
    },
    "32": {
-    "clear": 111,
-    "death": 9,
+    "clear": 228,
+    "death": 12,
     "timeout": 0
    },
    "33": {
-    "clear": 43,
-    "death": 77,
+    "clear": 72,
+    "death": 168,
     "timeout": 0
    },
    "34": {
     "clear": 2,
-    "death": 118,
+    "death": 238,
     "timeout": 0
    },
    "35": {
-    "clear": 2,
-    "death": 118,
+    "clear": 13,
+    "death": 227,
     "timeout": 0
    },
    "36": {
-    "clear": 114,
+    "clear": 234,
     "death": 6,
     "timeout": 0
    },
    "37": {
-    "clear": 72,
-    "death": 48,
+    "clear": 99,
+    "death": 141,
     "timeout": 0
    },
    "38": {
-    "clear": 99,
-    "death": 21,
+    "clear": 142,
+    "death": 98,
     "timeout": 0
    },
    "39": {
-    "clear": 0,
-    "death": 120,
+    "clear": 2,
+    "death": 238,
     "timeout": 0
    },
    "40": {
-    "clear": 4,
-    "death": 116,
+    "clear": 28,
+    "death": 212,
     "timeout": 0
    },
    "41": {
-    "clear": 90,
-    "death": 30,
-    "timeout": 0
-   },
-   "42": {
-    "clear": 0,
-    "death": 120,
-    "timeout": 0
-   },
-   "43": {
-    "clear": 2,
-    "death": 118,
-    "timeout": 0
-   },
-   "44": {
-    "clear": 5,
-    "death": 115,
-    "timeout": 0
-   },
-   "45": {
-    "clear": 87,
-    "death": 33,
-    "timeout": 0
-   },
-   "46": {
-    "clear": 60,
-    "death": 60,
-    "timeout": 0
-   },
-   "47": {
-    "clear": 36,
+    "clear": 156,
     "death": 84,
     "timeout": 0
    },
+   "42": {
+    "clear": 44,
+    "death": 196,
+    "timeout": 0
+   },
+   "43": {
+    "clear": 5,
+    "death": 235,
+    "timeout": 0
+   },
+   "44": {
+    "clear": 21,
+    "death": 219,
+    "timeout": 0
+   },
+   "45": {
+    "clear": 192,
+    "death": 48,
+    "timeout": 0
+   },
+   "46": {
+    "clear": 160,
+    "death": 80,
+    "timeout": 0
+   },
+   "47": {
+    "clear": 37,
+    "death": 203,
+    "timeout": 0
+   },
    "48": {
-    "clear": 0,
-    "death": 120,
+    "clear": 3,
+    "death": 237,
     "timeout": 0
    },
    "49": {
-    "clear": 38,
-    "death": 82,
+    "clear": 60,
+    "death": 180,
     "timeout": 0
    },
    "50": {
-    "clear": 0,
-    "death": 120,
+    "clear": 7,
+    "death": 233,
     "timeout": 0
    },
    "51": {
-    "clear": 20,
-    "death": 100,
+    "clear": 52,
+    "death": 188,
     "timeout": 0
    },
    "52": {
-    "clear": 0,
-    "death": 120,
+    "clear": 15,
+    "death": 225,
     "timeout": 0
    },
    "53": {
-    "clear": 29,
-    "death": 91,
+    "clear": 80,
+    "death": 160,
     "timeout": 0
    },
    "54": {
-    "clear": 2,
-    "death": 118,
+    "clear": 6,
+    "death": 234,
     "timeout": 0
    },
    "55": {
-    "clear": 3,
-    "death": 117,
+    "clear": 9,
+    "death": 231,
     "timeout": 0
    },
    "56": {
-    "clear": 0,
-    "death": 120,
+    "clear": 4,
+    "death": 236,
     "timeout": 0
    },
    "57": {
-    "clear": 0,
-    "death": 120,
+    "clear": 3,
+    "death": 237,
     "timeout": 0
    },
    "58": {
-    "clear": 13,
-    "death": 107,
+    "clear": 19,
+    "death": 221,
     "timeout": 0
    },
    "59": {
-    "clear": 38,
-    "death": 82,
+    "clear": 111,
+    "death": 129,
     "timeout": 0
    },
    "60": {
-    "clear": 53,
-    "death": 67,
+    "clear": 75,
+    "death": 165,
     "timeout": 0
    },
    "61": {
-    "clear": 45,
-    "death": 75,
+    "clear": 79,
+    "death": 161,
     "timeout": 0
    },
    "62": {
-    "clear": 44,
-    "death": 76,
+    "clear": 115,
+    "death": 125,
     "timeout": 0
    },
    "63": {
     "clear": 0,
-    "death": 120,
+    "death": 240,
     "timeout": 0
    },
    "64": {
-    "clear": 0,
-    "death": 120,
+    "clear": 80,
+    "death": 160,
     "timeout": 0
    },
    "65": {
-    "clear": 8,
-    "death": 112,
+    "clear": 43,
+    "death": 197,
     "timeout": 0
    },
    "66": {
     "clear": 0,
-    "death": 120,
+    "death": 240,
     "timeout": 0
    },
    "67": {
     "clear": 0,
-    "death": 120,
+    "death": 240,
     "timeout": 0
    },
    "68": {
-    "clear": 0,
-    "death": 120,
+    "clear": 4,
+    "death": 236,
     "timeout": 0
    },
    "69": {
-    "clear": 3,
-    "death": 117,
+    "clear": 15,
+    "death": 225,
     "timeout": 0
    },
    "70": {
-    "clear": 97,
-    "death": 23,
+    "clear": 146,
+    "death": 94,
     "timeout": 0
    },
    "71": {
     "clear": 0,
-    "death": 120,
+    "death": 240,
     "timeout": 0
    },
    "72": {
-    "clear": 67,
-    "death": 53,
+    "clear": 130,
+    "death": 110,
     "timeout": 0
    },
    "73": {
     "clear": 0,
-    "death": 120,
+    "death": 240,
     "timeout": 0
    },
    "74": {
-    "clear": 18,
-    "death": 102,
+    "clear": 26,
+    "death": 214,
     "timeout": 0
    },
    "75": {
     "clear": 0,
-    "death": 120,
+    "death": 240,
     "timeout": 0
    },
    "76": {
-    "clear": 26,
-    "death": 94,
+    "clear": 50,
+    "death": 190,
     "timeout": 0
    },
    "77": {
-    "clear": 9,
-    "death": 111,
+    "clear": 45,
+    "death": 195,
     "timeout": 0
    },
    "78": {
-    "clear": 107,
-    "death": 13,
+    "clear": 215,
+    "death": 25,
     "timeout": 0
    },
    "79": {
-    "clear": 63,
-    "death": 57,
+    "clear": 150,
+    "death": 90,
     "timeout": 0
    },
    "80": {
-    "clear": 109,
-    "death": 11,
+    "clear": 209,
+    "death": 31,
     "timeout": 0
    },
    "81": {
-    "clear": 62,
-    "death": 58,
+    "clear": 92,
+    "death": 148,
     "timeout": 0
    },
    "82": {
     "clear": 0,
-    "death": 120,
+    "death": 240,
     "timeout": 0
    },
    "83": {
-    "clear": 0,
-    "death": 120,
+    "clear": 2,
+    "death": 238,
     "timeout": 0
    },
    "84": {
-    "clear": 22,
-    "death": 98,
+    "clear": 47,
+    "death": 193,
     "timeout": 0
    },
    "85": {
     "clear": 0,
-    "death": 120,
+    "death": 240,
     "timeout": 0
    },
    "86": {
-    "clear": 119,
+    "clear": 239,
     "death": 1,
     "timeout": 0
    },
    "87": {
-    "clear": 60,
-    "death": 60,
+    "clear": 148,
+    "death": 92,
     "timeout": 0
    },
    "88": {
     "clear": 0,
-    "death": 120,
+    "death": 240,
     "timeout": 0
    },
    "89": {
-    "clear": 75,
-    "death": 45,
+    "clear": 130,
+    "death": 110,
     "timeout": 0
    },
    "90": {
-    "clear": 0,
-    "death": 120,
+    "clear": 1,
+    "death": 239,
     "timeout": 0
    },
    "91": {
-    "clear": 96,
-    "death": 24,
+    "clear": 203,
+    "death": 37,
     "timeout": 0
    },
    "92": {
-    "clear": 1,
-    "death": 119,
+    "clear": 8,
+    "death": 232,
     "timeout": 0
    },
    "93": {
-    "clear": 120,
+    "clear": 240,
     "death": 0,
     "timeout": 0
    },
    "94": {
-    "clear": 63,
-    "death": 57,
+    "clear": 129,
+    "death": 111,
     "timeout": 0
    },
    "95": {
     "clear": 0,
-    "death": 120,
+    "death": 240,
     "timeout": 0
    },
    "96": {
-    "clear": 2,
-    "death": 118,
+    "clear": 8,
+    "death": 232,
     "timeout": 0
    },
    "97": {
-    "clear": 61,
-    "death": 58,
-    "timeout": 1
+    "clear": 86,
+    "death": 150,
+    "timeout": 4
    },
    "98": {
     "clear": 1,
-    "death": 119,
+    "death": 239,
     "timeout": 0
    },
    "99": {
     "clear": 0,
-    "death": 118,
-    "timeout": 2
+    "death": 219,
+    "timeout": 21
    }
   }
  }
