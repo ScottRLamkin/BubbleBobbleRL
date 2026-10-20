@@ -118,3 +118,112 @@ def test_attach_requires_an_open_run(tmp_path):
         TrackedRun.attach(uri, run.info.run_id, tmp_path / "o.jsonl")
     with pytest.raises(TrackingUnavailable):
         TrackedRun.attach(uri, "0" * 32, tmp_path / "o.jsonl")
+
+
+# ------------------------------------------------------- campaign plumbing
+
+def _fake_snapshot(root: Path, manifest: dict) -> None:
+    """A snapshot directory like run_hyperparameter_search.py's (copied source,
+    snapshot.json with file hashes), for a tiny campaign."""
+    import shutil
+
+    from exptrack.db import sha256_file
+
+    snap = root / "snapshot"
+    ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")
+    shutil.copytree(REPO / "src", snap / "src", ignore=ignore)
+    shutil.copytree(REPO / "scripts", snap / "scripts", ignore=ignore)
+    (snap / "scripts" / "campaigns" / "tiny.json").write_text(json.dumps(manifest, indent=1))
+    files = {str(p.relative_to(snap)): sha256_file(p) for p in sorted(snap.rglob("*")) if p.is_file()}
+    (root / "snapshot.json").write_text(json.dumps({
+        "campaign": manifest["campaign_id"], "manifest": "scripts/campaigns/tiny.json", "commit": "test",
+        "interpreter": sys.executable, "manifest_sha256": files["scripts/campaigns/tiny.json"], "files": files}))
+
+
+def _tiny_manifest(name: str, uri: str, lives: int = 1, wide: int = 64) -> dict:
+    m = json.loads((REPO / "scripts" / "campaigns" / "capacity_1020.json").read_text())
+    e = m["experiment"]
+    e["shared.training"].update(num_envs=2, rollout_len=16, hidden=32, levels="1-3")
+    e.update({
+        "design.arms": {"ref": {}, "wide": {"hidden": wide}},
+        "design.reference_arm": "ref", "search.order": ["ref", "wide"],
+        "seeds.training": {"main": [11]}, "budget.per_run_wall_minutes": {"main": 0.05},
+        "evaluation.episodes_per_level": 1, "evaluation.max_steps": 20, "evaluation.cap_frames": 80,
+        "evaluation.seed_banks": {"development": [5], "final": [6]}, "evaluation.lives": lives,
+        "budget.max_concurrent_jobs": 1, "budget.aggregate_core_hours": 1.0, "budget.hard_cutoff": None,
+        "tracking.mlflow_uri": uri, "tracking.mlflow_experiment": name,
+    })
+    from exptrack.db import canonical, sha256_text
+    from hyperparams import validate
+
+    e["reference.config_sha256"] = sha256_text(canonical(validate(dict(e["shared.training"]))))
+    m["campaign_id"] = name
+    return m
+
+
+def test_tracked_campaign_end_to_end(tmp_path):
+    """Registration, MLflow links, training, development evaluation, frozen
+    selection, final evaluation and results, with real subprocesses."""
+    from exptrack import db, store
+    from exptrack.campaign import Campaign
+    from exptrack.mlflow_sink import client_for
+    from train_ppo import mlflow_tracking_uri
+
+    uri = mlflow_tracking_uri()
+    root = tmp_path / "tiny"
+    _fake_snapshot(root, _tiny_manifest("tiny-campaign", uri))
+    dbp = tmp_path / "exp.sqlite3"
+    c = Campaign(root, dbp, require_snapshot_code=False)
+    pre = c.preflight()
+    assert pre["ok"], pre
+    Campaign(root, dbp, require_snapshot_code=False).run()
+
+    con = db.connect(dbp)
+    status = json.loads((root / "status.json").read_text())
+    assert all(j["state"] == "done" for j in status["jobs"].values()), status["jobs"]
+    results = json.loads((root / "results.json").read_text())
+    assert results["selected_arm"] == "wide" and set(results["paired_gain_per_training_seed"]) == {"11"}
+    sel = json.loads((root / "selection.json").read_text())
+    client = client_for(uri)
+    for jid, j in status["jobs"].items():
+        run = con.execute("SELECT * FROM runs WHERE id = ?", (j["run_id"],)).fetchone()
+        cfg = store.reconstruct_run_config(con, j["run_id"])
+        trained = json.loads((Path(j["dir"]) / "config.json").read_text())
+        assert all(trained[k] == v for k, v in cfg.items())
+        att = store.find_attempt(con, j["run_id"], 1)
+        ml = client.get_run(att["mlflow_run_id"])  # reciprocal links
+        assert ml.data.tags["exptrack.run_id"] == run["id"] and ml.data.tags["exptrack.attempt_id"] == att["id"]
+        assert ml.info.status == "FINISHED" and "losses_policy_loss" in ml.data.metrics
+        assert "eval_development_s5_cleared" in ml.data.metrics
+        assert ml.data.params["network.mlp.hidden"] == str(cfg["hidden"])
+        roles = {r["role"] for r in con.execute("SELECT role FROM evaluations WHERE run_id = ?", (j["run_id"],))}
+        assert roles == {"development", "final"}  # two arms: the selected one and the reference both get final
+        assert j["model_sha256"] == sel["checkpoints"][j["arm"]]["11"]
+    events = [r["event"] for r in con.execute("SELECT event FROM events")]
+    for e in ("revision_registered", "run_registered", "attempt_created", "training_started", "training_finished",
+              "evaluated", "selection_frozen", "campaign_results"):
+        assert e in events, e
+    # Rerunning is idempotent: nothing new is trained or evaluated.
+    n_eval = con.execute("SELECT COUNT(*) FROM evaluations").fetchone()[0]
+    Campaign(root, dbp, require_snapshot_code=False).run()
+    assert con.execute("SELECT COUNT(*) FROM evaluations").fetchone()[0] == n_eval
+    assert con.execute("SELECT COUNT(*) FROM run_attempts").fetchone()[0] == 2
+
+    # A new revision: an experiment-level evaluation setting and a run-level
+    # architecture setting change; the old revision and its results remain and
+    # the new values reach the evaluator and the trainer.
+    root2 = tmp_path / "tiny2"
+    _fake_snapshot(root2, _tiny_manifest("tiny-campaign", uri, lives=2, wide=48))
+    c2 = Campaign(root2, dbp, require_snapshot_code=False)
+    pre2 = c2.preflight()
+    assert pre2["ok"], pre2
+    revs = con.execute("SELECT revision, id FROM experiment_revisions ORDER BY revision").fetchall()
+    assert [r["revision"] for r in revs] == [1, 2]
+    assert json.loads((root2 / "preflight_smoke" / "wide" / "arch.json").read_text())["hidden"] == 48
+    assert json.loads((root2 / "preflight_smoke" / "wide" / "eval_smoke.json").read_text())["protocol"]["lives"] == 2
+    lives = {r["revision"]: json.loads(r["value_json"]) for r in store.query_params(con, "experiment", "evaluation.lives")}
+    assert lives == {1: 1, 2: 2}
+    hidden = {r["run_id"]: json.loads(r["value_json"])
+              for r in store.query_params(con, "run", "network.mlp.hidden")}
+    assert sorted(hidden.values()) == [32, 32, 48, 64]
+    assert con.execute("SELECT COUNT(*) FROM evaluations").fetchone()[0] == n_eval  # old results untouched

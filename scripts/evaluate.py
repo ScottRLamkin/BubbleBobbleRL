@@ -2,9 +2,10 @@
 
     uv run python scripts/evaluate.py runs/<run>/model.pt
 
-Plays every level in --levels for --episodes episodes each (1 life, sampled
-actions, fixed seeds) and counts how each episode ended. This is the fitness
-measure used by evolve.py: it ignores the reward the model was trained on.
+Plays every level in --levels for --episodes episodes each (by default one
+life and sampled actions; --lives and --action-selection make both explicit)
+with fixed seeds, and counts how each episode ended. It ignores the reward the
+model was trained on. The output records the full protocol it ran under.
 """
 
 from __future__ import annotations
@@ -39,6 +40,8 @@ def evaluate(
     frame_skip: int = 4,
     nearest_first: bool = False,
     control_obs: bool = False,
+    lives: int = 1,
+    greedy: bool = False,
 ) -> dict:
     """The standard test: every level in `levels`, `episodes` times each, one
     life, `max_steps` agent steps (900 = one minute), sampled actions. One
@@ -47,7 +50,7 @@ def evaluate(
     time left sees the same clock it trained with when the caps match."""
     envs = [
         gym.make("BubbleBobble-v0", obs_type=obs, frame_skip=frame_skip, nearest_first=nearest_first,
-                 control_obs=control_obs, max_episode_frames=max_steps * frame_skip)
+                 control_obs=control_obs, max_episode_frames=max_steps * frame_skip, lives=lives)
         for _ in levels
     ]
     # Invariant: evaluation must not disturb the caller's RNG streams (the
@@ -56,10 +59,16 @@ def evaluate(
     torch_state = torch.get_rng_state()
     np_state = np.random.get_state()
     try:
-        return _evaluate(envs, model_path, levels, episodes, max_steps, seed)
+        r = _evaluate(envs, model_path, levels, episodes, max_steps, seed, greedy)
     finally:
         torch.set_rng_state(torch_state)
         np.random.set_state(np_state)
+    r["protocol"] = {"levels": levels, "episodes_per_level": episodes, "seed": seed, "lives": lives,
+                     "max_steps": max_steps, "frame_skip": frame_skip, "cap_frames": max_steps * frame_skip,
+                     "action_selection": "greedy" if greedy else "sampled", "obs": obs,
+                     "control_obs": control_obs, "nearest_first": nearest_first,
+                     "completion_definition": "level_complete event fired during the episode"}
+    return r
 
 
 def classify_outcome(completed: bool, game) -> str:
@@ -73,7 +82,7 @@ def classify_outcome(completed: bool, game) -> str:
     return "death" if game.game_over else "timeout"
 
 
-def _evaluate(envs, model_path, levels, episodes, max_steps, seed) -> dict:
+def _evaluate(envs, model_path, levels, episodes, max_steps, seed, greedy) -> dict:
     agent = Agent.load(model_path, envs[0].observation_space, envs[0].action_space.n, env=envs[0])
     # Own generator, so results do not depend on the caller's torch RNG state.
     gen = torch.Generator().manual_seed(seed)
@@ -99,7 +108,10 @@ def _evaluate(envs, model_path, levels, episodes, max_steps, seed) -> dict:
                 break
             with torch.no_grad():
                 logits = agent.actor(agent._encode(torch.as_tensor(agent.obs_in(obs_batch[idx]))))
-            actions = torch.multinomial(torch.softmax(logits, -1), 1, generator=gen).squeeze(1)
+            if greedy:
+                actions = logits.argmax(-1)
+            else:
+                actions = torch.multinomial(torch.softmax(logits, -1), 1, generator=gen).squeeze(1)
             for j, i in enumerate(idx):
                 o, _, term, trunc, info = envs[i].step(int(actions[j]))
                 obs_batch[i] = o
@@ -151,13 +163,16 @@ def main() -> None:
     p.add_argument("--frame-skip", type=int, default=4, help="must match the model's training")
     p.add_argument("--nearest-first", action="store_true", help="must match the model's training")
     p.add_argument("--control-obs", action="store_true", help="must match the model's training")
+    p.add_argument("--lives", type=int, default=1, help="lives per episode")
+    p.add_argument("--action-selection", choices=["sampled", "greedy"], default="sampled")
     p.add_argument("--per-level-out", default=None, help="write per-level outcomes to this JSON file")
     args = p.parse_args()
     import time
 
     t0 = time.time()
     r = evaluate(args.model, parse_levels(args.levels), args.episodes, args.max_steps, args.seed,
-                 args.obs, args.frame_skip, args.nearest_first, args.control_obs)
+                 args.obs, args.frame_skip, args.nearest_first, args.control_obs, args.lives,
+                 args.action_selection == "greedy")
     r["seconds"] = round(time.time() - t0, 1)
     if args.per_level_out:
         import json

@@ -1,0 +1,668 @@
+"""Tracked campaign runner: paired arms with a frozen selection, registered in
+SQLite, MLflow mandatory.
+
+    python scripts/run_hyperparameter_search.py snapshot --root runs/<id> --manifest scripts/campaigns/<id>.json
+    PYTHONPATH=runs/<id>/snapshot/src:runs/<id>/snapshot/scripts .venv/bin/python -m exptrack \\
+        campaign run --root runs/<id> --db experiments.sqlite3
+
+The manifest's "experiment" block is a complete experiment configuration
+(schema.EXPERIMENT_SCHEMA). Before anything trains, the runner registers the
+game version (hashed from the snapshot), the experiment, an immutable revision
+and every run with its complete effective configuration, and refuses to start
+unless MLflow answers. For each training job it then:
+
+1. creates the MLflow run (tags exptrack.*, campaign, arm, seed, game) and a
+   run_attempts row holding its id (reciprocal links), mirrors the run and
+   experiment parameters into it;
+2. materialises the configuration from the SQLite rows, checks its hash, and
+   launches the snapshot's trainer with --mlflow-run-id;
+3. checks the exit code, the summary and that the trainer parsed exactly the
+   registered configuration; records artifacts;
+4. runs the development evaluations (all protocol settings explicit, checked
+   against what the evaluator reports), records them in SQLite and MLflow.
+
+When every training job is done, the best non-reference arm is chosen on the
+development bank by the registered rule and frozen (selection.json, with all
+checkpoint hashes) before the final bank is opened for that arm and the
+reference. results.json then applies the acceptance rule. Budget: every job's
+full reservation is checked against the aggregate cap and the hard cutoff
+before dispatch; actual elapsed single-thread time is recorded per part. One
+infrastructure retry per job at most, never a performance-based one. An
+exclusive lock prevents a second runner.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import fcntl
+import json
+import os
+import subprocess
+import sys
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+from . import db, schema, store
+from .mlflow_sink import client_for, ensure_experiment, find_run_by_tag, log_params, preflight
+
+THREADS = {k: "1" for k in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS")}
+PREFLIGHT_RESERVE_SECONDS = 600  # campaign preflight allowance, counted against the cap
+
+
+def iso() -> str:
+    return dt.datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def write_json_atomic(path: Path, obj) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(obj, indent=1))
+    os.replace(tmp, path)
+
+
+class SystemicError(RuntimeError):
+    """A correctness failure that must stop the campaign (not retried)."""
+
+
+class Campaign:
+    def __init__(self, root, db_path, require_snapshot_code: bool = True):
+        self.root = Path(root).resolve()
+        self.snap = self.root / "snapshot"
+        if require_snapshot_code and not Path(__file__).resolve().is_relative_to(self.snap.resolve()):
+            raise SystemExit(f"run me from the snapshot ({self.snap}), not {Path(__file__).resolve()}")
+        self.info = json.loads((self.root / "snapshot.json").read_text())
+        changed = [r for r, h in self.info["files"].items() if db.sha256_file(self.snap / r) != h]
+        if changed:
+            raise SystemExit(f"snapshot changed since it was frozen: {changed[:5]}")
+        mpath = self.snap / self.info["manifest"]
+        if db.sha256_file(mpath) != self.info["manifest_sha256"]:
+            raise SystemExit("manifest hash differs from snapshot.json")
+        self.manifest = json.loads(mpath.read_text())
+        self.cfg = schema.validate_experiment(self.manifest["experiment"])
+        c = self.cfg
+        if c["design.type"] != "paired_arms_with_selection":
+            raise SystemExit(f"this runner implements paired_arms_with_selection, not {c['design.type']}")
+        if not c["tracking.required"] or not c["tracking.mlflow_uri"] or not c["tracking.mlflow_experiment"]:
+            raise SystemExit("MLflow tracking is mandatory: tracking.required, mlflow_uri and mlflow_experiment")
+        if c["evaluation.cap_frames"] != c["evaluation.max_steps"] * c["evaluation.frame_skip"]:
+            raise SystemExit("evaluation.cap_frames != max_steps * frame_skip")
+        self.db_path = Path(db_path).resolve()
+        self.uri = c["tracking.mlflow_uri"]
+        self.python = self.info["interpreter"]
+        self.env = {**os.environ, **THREADS, "PYTHONPATH": f"{self.snap / 'src'}:{self.snap / 'scripts'}",
+                    "PYTHONDONTWRITEBYTECODE": "1", "MLFLOW_TRACKING_URI": self.uri,
+                    "MLFLOW_DISABLE_TELEMETRY": "true", "MLFLOW_DISABLE_AGENT_HINT": "1"}
+        self.cutoff = dt.datetime.fromisoformat(c["budget.hard_cutoff"]) if c["budget.hard_cutoff"] else None
+        self.cap_seconds = c["budget.aggregate_core_hours"] * 3600
+        self.eval_hard = c["budget.per_evaluation_hard_seconds"]
+        self.grace = c["budget.save_grace_seconds"]
+        self.lock = threading.Lock()
+        self.halted: str | None = None  # set by a systemic error: nothing new is dispatched
+        self._local = threading.local()
+        self.status_path = self.root / "status.json"
+        self.status = json.loads(self.status_path.read_text()) if self.status_path.exists() else None
+
+    # ------------------------------------------------------------ plumbing
+    def con(self):
+        if not hasattr(self._local, "con"):
+            self._local.con = db.connect(self.db_path)
+        return self._local.con
+
+    def log(self, msg: str) -> None:
+        line = f"{iso()} {msg}"
+        print(line, flush=True)
+        with self.lock, open(self.root / "events.log", "a") as f:
+            f.write(line + "\n")
+
+    def save(self) -> None:
+        self.status["updated"] = iso()
+        write_json_atomic(self.status_path, self.status)
+
+    def acquire_runner_lock(self):
+        self._lock_file = open(self.root / "runner.lock", "a+")
+        try:
+            fcntl.flock(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise SystemExit("another runner holds runner.lock; refusing to start a duplicate")
+        self._lock_file.seek(0)
+        self._lock_file.truncate()
+        self._lock_file.write(f"{os.getpid()} {iso()}\n")
+        self._lock_file.flush()
+
+    # -------------------------------------------------------- registration
+    def register(self) -> dict:
+        """Idempotent: the game version, experiment, revision and every run."""
+        c, con = self.cfg, self.con()
+        ref = c["design.reference_arm"]
+        ref_cfg = schema.validate_trainer_config({**c["shared.training"], **c["design.arms"][ref]})
+        if db.sha256_text(db.canonical(ref_cfg)) != c["reference.config_sha256"]:
+            raise SystemicError("reference.config_sha256 does not match the reference arm's configuration")
+        gid = store.register_game_version(con, c["game.name"], self.snap / "src" / "bubblebobblerl",
+                                          c["game.source_commit"], self.manifest["game_description"])
+        eid = store.register_experiment(con, self.manifest["campaign_id"], c["experiment.question"])
+        rid = store.register_revision(con, eid, c, gid, self.manifest["change_note"])
+        runs = {}
+        for phase in c["design.phases"]:
+            for seed in c["seeds.training"][phase]:
+                for arm in self.arm_order():
+                    runs[self.job_id(arm, seed)] = store.register_run(con, rid, arm, seed, phase=phase)
+        return {"game_version_id": gid, "experiment_id": eid, "revision_id": rid, "runs": runs}
+
+    def arm_order(self) -> list[str]:
+        order = self.cfg["search.order"] or list(self.cfg["design.arms"])
+        if sorted(order) != sorted(self.cfg["design.arms"]):
+            raise SystemicError("search.order must list every arm exactly once")
+        return order
+
+    @staticmethod
+    def job_id(arm: str, seed: int) -> str:
+        return f"{arm}_s{seed}"
+
+    def jobs(self) -> list[tuple[str, str, int]]:
+        c = self.cfg
+        return [(phase, arm, seed) for phase in c["design.phases"] for seed in c["seeds.training"][phase]
+                for arm in self.arm_order()]
+
+    # -------------------------------------------------------------- budget
+    def train_reservation(self, phase: str) -> float:
+        n_dev = len(self.cfg["evaluation.seed_banks"]["development"])
+        return self.cfg["budget.per_run_wall_minutes"][phase] * 60 + self.grace + self.eval_hard * n_dev
+
+    def final_reservation(self) -> float:
+        return 2 * len(self.cfg["seeds.training"][self.cfg["design.phases"][0]]) * \
+            len(self.cfg["evaluation.seed_banks"]["final"]) * self.eval_hard
+
+    def spent(self) -> float:
+        return sum(p.get("elapsed_seconds", 0.0) for p in self.status["parts"].values())
+
+    def remaining_reservation(self) -> float:
+        r = 0.0
+        for phase, arm, seed in self.jobs():
+            if self.status["jobs"][self.job_id(arm, seed)]["state"] not in ("done", "failed"):
+                r += self.train_reservation(phase)
+        if self.status.get("final_state") != "done":
+            r += self.final_reservation()
+        return r
+
+    def fits(self, seconds: float, extra_committed: float = 0.0) -> str | None:
+        """None if a part needing `seconds` fits the deadline; a reason otherwise."""
+        if self.cutoff and dt.datetime.now().astimezone() + dt.timedelta(seconds=seconds) > self.cutoff:
+            return "its full reservation would end after the hard cutoff"
+        if self.spent() + extra_committed > self.cap_seconds:
+            return "the aggregate core-hour cap would be exceeded"
+        return None
+
+    # ----------------------------------------------------------------- run
+    def run(self) -> None:
+        self.acquire_runner_lock()
+        preflight(self.uri)
+        ids = self.register()
+        c = self.cfg
+        if self.status is None:
+            self.status = {"campaign": self.manifest["campaign_id"], "snapshot_commit": self.info["commit"],
+                           "manifest_sha256": self.info["manifest_sha256"], "created": iso(),
+                           "db": str(self.db_path), "mlflow_tracking_uri": self.uri, **ids,
+                           "jobs": {}, "parts": {}, "final_state": "pending"}
+        for phase, arm, seed in self.jobs():
+            self.status["jobs"].setdefault(self.job_id(arm, seed), {
+                "phase": phase, "arm": arm, "seed": seed, "state": "queued",
+                "run_id": ids["runs"][self.job_id(arm, seed)], "attempts": 0})
+        for jid, j in self.status["jobs"].items():  # a previous runner stopped mid-job: an infrastructure failure
+            if j["state"] in ("running", "evaluating"):
+                j.update(state="queued", retryable=True, error="runner stopped during this attempt")
+                store.add_event(self.con(), "failed", {"stage": "runner stopped", "infrastructure": True},
+                                run_id=j["run_id"], attempt_id=j.get("attempt_id"))
+        self.save()
+        total = self.spent() + self.remaining_reservation()
+        if total > self.cap_seconds:
+            raise SystemExit(f"plan needs {total / 3600:.2f} reserved core-hours, cap "
+                             f"{c['budget.aggregate_core_hours']}")
+        con = self.con()
+        store.add_event(con, "campaign_run_started", {"pid": os.getpid(), "reserved_core_hours": total / 3600},
+                        experiment_id=ids["experiment_id"], revision_id=ids["revision_id"])
+        self.log(f"{self.manifest['campaign_id']} start; snapshot {self.info['commit'][:10]}; "
+                 f"{len(self.jobs())} training jobs; plan {total / 3600:.2f} of {c['budget.aggregate_core_hours']} "
+                 f"core-hours; pid {os.getpid()}")
+        with ThreadPoolExecutor(c["budget.max_concurrent_jobs"]) as pool:
+            for f in [pool.submit(self.train_job, *j) for j in self.jobs()]:
+                f.result()
+        states = {k: j["state"] for k, j in self.status["jobs"].items()}
+        if any(s != "done" for s in states.values()):
+            self.log(f"training incomplete {states}; no selection, no final bank opened")
+            store.add_event(con, "campaign_incomplete", {"states": states}, experiment_id=ids["experiment_id"],
+                            revision_id=ids["revision_id"])
+            return
+        self.select_and_finalize()
+
+    def train_job(self, phase: str, arm: str, seed: int) -> None:
+        jid = self.job_id(arm, seed)
+        j = self.status["jobs"][jid]
+        try:
+            while j["state"] != "done":
+                if j["attempts"] >= 2 or (j["attempts"] == 1 and not j.get("retryable")):
+                    with self.lock:
+                        j["state"] = "failed"
+                        self.save()
+                    return
+                with self.lock:
+                    reason = self.halted or self.fits(self.train_reservation(phase), self.remaining_reservation())
+                    if reason:
+                        j.update(state="not_run", error=reason)
+                        self.save()
+                if reason:
+                    self.log(f"not run {jid}: {reason}")
+                    store.add_event(self.con(), "not_run", {"reason": reason}, run_id=j["run_id"])
+                    return
+                self.attempt(phase, arm, seed, j)
+        except SystemicError as e:
+            with self.lock:
+                self.halted = f"campaign halted by a systemic error in {jid}"
+                j.update(state="failed", error=f"systemic: {e}", retryable=False)
+                self.save()
+            self.log(f"SYSTEMIC {jid}: {e}")
+            raise
+
+    def mlflow_run_for(self, run_id: str, attempt_n: int, phase: str, arm: str, seed: int):
+        """The attempt's MLflow run: found by tag if an earlier dispatch created
+        it (idempotent), otherwise created with parameters mirrored."""
+        con, c = self.con(), self.cfg
+        attempt_id = f"{run_id}-a{attempt_n}"
+        client = client_for(self.uri)
+        exp_id = ensure_experiment(client, c["tracking.mlflow_experiment"])
+        found = find_run_by_tag(client, exp_id, "exptrack.attempt_id", attempt_id)
+        if found:
+            return client, exp_id, found.info.run_id, attempt_id
+        rev = con.execute("SELECT experiment_id, revision_id FROM runs r JOIN experiment_revisions v "
+                          "ON v.id = r.revision_id WHERE r.id = ?", (run_id,)).fetchone()
+        run_key = con.execute("SELECT run_key FROM runs WHERE id = ?", (run_id,)).fetchone()["run_key"]
+        tags = {"exptrack.db": str(self.db_path), "exptrack.experiment_id": rev["experiment_id"],
+                "exptrack.revision_id": rev["revision_id"], "exptrack.run_id": run_id,
+                "exptrack.run_key": run_key, "exptrack.attempt": str(attempt_n), "exptrack.attempt_id": attempt_id,
+                "campaign": self.manifest["campaign_id"], "phase": phase, "arm": arm, "training_seed": str(seed),
+                "game_version": c["game.name"], "game_source_hash": c["game.source_hash"],
+                "snapshot_commit": self.info["commit"], "origin": "registered"}
+        run = client.create_run(exp_id, run_name=f"{self.job_id(arm, seed)}-a{attempt_n}", tags=tags)
+        params = {r["key"]: json.loads(r["value_json"]) for r in con.execute(
+            "SELECT key, value_json FROM run_params WHERE run_id = ?", (run_id,))}
+        params.update({f"experiment.{k}": v for k, v in c.items() if k != "shared.training"})
+        log_params(client, run.info.run_id, params)
+        return client, exp_id, run.info.run_id, attempt_id
+
+    def attempt(self, phase: str, arm: str, seed: int, j: dict) -> None:
+        con, c = self.con(), self.cfg
+        jid, run_id = self.job_id(arm, seed), j["run_id"]
+        n = con.execute("SELECT COALESCE(MAX(attempt), 0) + 1 FROM run_attempts WHERE run_id = ?",
+                        (run_id,)).fetchone()[0]
+        d = self.root / jid if n == 1 else self.root / f"{jid}_a{n}"
+        d.mkdir(exist_ok=True)
+        preflight(self.uri)
+        client, exp_id, ml_run, attempt_id = self.mlflow_run_for(run_id, n, phase, arm, seed)
+        existing = store.find_attempt(con, run_id, n)
+        if existing is None:
+            store.create_attempt(con, run_id, str(d), self.uri, exp_id, ml_run)
+        elif existing["mlflow_run_id"] != ml_run:
+            raise SystemicError(f"{attempt_id}: SQLite and MLflow disagree on the run id")
+        with self.lock:
+            j.update(state="running", attempts=n, dir=str(d), mlflow_run_id=ml_run, attempt_id=attempt_id,
+                     started=iso(), retryable=False)
+            j.pop("error", None)
+            self.save()
+        # The configuration the trainer gets is rebuilt from the SQLite rows and
+        # checked against the registered hash.
+        eff = store.reconstruct_run_config(con, run_id)
+        cfg_path = d / "run_config.json"
+        cfg_path.write_text(json.dumps(eff, indent=1))
+        registered = con.execute("SELECT config_sha256 FROM runs WHERE id = ?", (run_id,)).fetchone()[0]
+        if db.sha256_text(db.canonical(json.loads(cfg_path.read_text()))) != registered:
+            raise SystemicError(f"{jid}: materialised configuration does not match the registered hash")
+        t0 = time.time()
+        argv = [self.python, str(self.snap / "scripts" / "train_ppo.py"), "--config", str(cfg_path),
+                "--run-dir", str(d), "--run-name", f"{jid}-a{n}", "--wall-start", repr(t0),
+                "--mlflow-tracking-uri", self.uri, "--mlflow-run-id", ml_run,
+                "--metric-outbox", str(d / "mlflow_outbox.jsonl"), "--log-every", "5", "--no-tensorboard",
+                "--quiet"]
+        (d / "argv.json").write_text(json.dumps(argv))
+        store.add_event(con, "training_started", {"argv": argv, "mlflow_run_id": ml_run}, run_id=run_id,
+                        attempt_id=attempt_id)
+        self.log(f"start {jid} attempt {n} (mlflow {ml_run[:8]})")
+        timeout = eff["wall_minutes"] * 60 + self.grace
+        try:
+            with open(d / "train.out", "w") as o, open(d / "train.err", "w") as e:
+                rc = subprocess.run(argv, env=self.env, stdout=o, stderr=e, timeout=timeout).returncode
+        except subprocess.TimeoutExpired:
+            rc = "timeout"
+        train_seconds = round(time.time() - t0, 1)
+        with self.lock:
+            self.status["parts"][f"{attempt_id}/train"] = {"elapsed_seconds": train_seconds}
+            self.save()
+        summary_path = d / "train_summary.json"
+        if rc != 0 or not summary_path.exists() or not (d / "model.pt").exists():
+            err = (d / "train.err").read_text()[-600:]
+            infra = rc == "timeout" or "TrackingUnavailable" in err or rc in (-9, -15, 137)
+            store.add_event(con, "failed", {"stage": "training", "rc": rc, "stderr_tail": err,
+                                            "infrastructure": infra}, run_id=run_id, attempt_id=attempt_id)
+            with self.lock:
+                j.update(state="queued" if infra else "failed", error=f"training exit {rc}", retryable=infra)
+                self.save()
+            self.log(f"FAILED {jid} attempt {n}: training exit {rc} ({'infrastructure' if infra else 'not retried'})")
+            return
+        trained = json.loads((d / "config.json").read_text())
+        drift = {k: (trained.get(k), v) for k, v in eff.items() if trained.get(k) != v}
+        if drift:
+            raise SystemicError(f"{jid}: trainer ran a different configuration {drift}")
+        summary = json.loads(summary_path.read_text())
+        model_sha = db.sha256_file(d / "model.pt")
+        for kind, name in (("checkpoint", "model.pt"), ("optimizer", "optimizer.pt"), ("trainer_config", "config.json"),
+                           ("architecture", "arch.json"), ("train_summary", "train_summary.json"),
+                           ("mlflow_status", "mlflow_status.json"), ("metric_outbox", "mlflow_outbox.jsonl")):
+            if (d / name).exists():
+                store.add_artifact(con, kind, d / name, db.sha256_file(d / name), run_id=run_id,
+                                   attempt_id=attempt_id)
+        store.add_event(con, "training_finished", {"summary": summary, "model_sha256": model_sha,
+                                                   "elapsed_seconds": train_seconds},
+                        run_id=run_id, attempt_id=attempt_id)
+        with self.lock:
+            j.update(state="evaluating", model_sha256=model_sha, steps=summary["steps"], updates=summary["updates"],
+                     train_seconds=train_seconds)
+            self.save()
+        dev = {}
+        for s in c["evaluation.seed_banks"]["development"]:
+            dev[s] = self.evaluate(run_id, attempt_id, ml_run, d / "model.pt", model_sha, eff, "development", s,
+                                   d / f"eval_development_{s}.json", summary["steps"])
+            if dev[s] is None:
+                with self.lock:
+                    j.update(state="queued", error=f"development evaluation {s} failed", retryable=True)
+                    self.save()
+                return
+        store.add_event(con, "finished", {"development": {s: r["cleared"] for s, r in dev.items()}},
+                        run_id=run_id, attempt_id=attempt_id)
+        with self.lock:
+            j.update(state="done", finished=iso(), development={str(s): r["cleared"] for s, r in dev.items()})
+            self.save()
+        self.log(f"done {jid}: {summary['steps']:,} steps; development clears "
+                 f"{', '.join(str(r['cleared']) for r in dev.values())}")
+
+    # ---------------------------------------------------------- evaluation
+    def protocol(self, eff: dict, role: str, seed: int) -> dict:
+        c = self.cfg
+        return {"role": role, "seed": seed, "levels": c["evaluation.levels"],
+                "episodes_per_level": c["evaluation.episodes_per_level"], "lives": c["evaluation.lives"],
+                "max_steps": c["evaluation.max_steps"], "frame_skip": c["evaluation.frame_skip"],
+                "cap_frames": c["evaluation.cap_frames"], "action_selection": c["evaluation.action_selection"],
+                "completion_definition": c["evaluation.completion_definition"], "obs": eff["obs"],
+                "control_obs": eff["control_obs"], "nearest_first": eff["nearest_first"],
+                "game_source_hash": c["game.source_hash"],
+                "evaluator_sha256": db.sha256_file(self.snap / "scripts" / "evaluate.py")}
+
+    def evaluate(self, run_id, attempt_id, ml_run, model: Path, model_sha: str, eff: dict, role: str, seed: int,
+                 out: Path, step: int) -> dict | None:
+        """One standard test; None on an infrastructure failure. Recorded in
+        SQLite (full protocol) and MLflow."""
+        from audit_hparam_campaign import check_eval_file
+
+        con, c = self.con(), self.cfg
+        proto = self.protocol(eff, role, seed)
+        done = con.execute("SELECT results_json FROM evaluations WHERE run_id = ? AND checkpoint_sha256 = ? AND "
+                           "protocol_sha256 = ?", (run_id, model_sha, db.sha256_text(db.canonical(proto)))).fetchone()
+        if done:  # already recorded (a restarted runner): the same checkpoint and protocol are not rerun
+            return json.loads(done["results_json"])
+        argv = [self.python, str(self.snap / "scripts" / "evaluate.py"), str(model), "--levels", proto["levels"],
+                "--episodes", str(proto["episodes_per_level"]), "--max-steps", str(proto["max_steps"]),
+                "--frame-skip", str(proto["frame_skip"]), "--obs", proto["obs"], "--seed", str(seed),
+                "--lives", str(proto["lives"]), "--action-selection", proto["action_selection"],
+                "--per-level-out", str(out)]
+        argv += ["--control-obs"] if proto["control_obs"] else []
+        argv += ["--nearest-first"] if proto["nearest_first"] else []
+        t0 = time.time()
+        try:
+            with open(out.with_suffix(".out"), "w") as o, open(out.with_suffix(".err"), "w") as e:
+                rc = subprocess.run(argv, env=self.env, stdout=o, stderr=e, timeout=self.eval_hard).returncode
+        except subprocess.TimeoutExpired:
+            rc = "timeout"
+        seconds = round(time.time() - t0, 1)
+        with self.lock:
+            self.status["parts"][f"{attempt_id}/eval/{role}/{seed}"] = {"elapsed_seconds": seconds}
+            self.save()
+        if rc != 0 or not out.exists():
+            store.add_event(con, "failed", {"stage": f"evaluation {role} {seed}", "rc": rc}, run_id=run_id,
+                            attempt_id=attempt_id)
+            self.log(f"evaluation failed {model} {role} {seed}: exit {rc}")
+            return None
+        if db.sha256_file(model) != model_sha:
+            raise SystemicError(f"{model} changed during evaluation")
+        summary, problems = check_eval_file(out, proto["episodes_per_level"])
+        if problems:
+            raise SystemicError(f"{out}: {problems[:3]}")
+        reported = json.loads(out.read_text())["protocol"]
+        want = {"lives": proto["lives"], "max_steps": proto["max_steps"], "frame_skip": proto["frame_skip"],
+                "action_selection": proto["action_selection"], "episodes_per_level": proto["episodes_per_level"],
+                "seed": seed, "obs": proto["obs"], "control_obs": proto["control_obs"],
+                "nearest_first": proto["nearest_first"], "cap_frames": proto["cap_frames"]}
+        if {k: reported[k] for k in want} != want:
+            raise SystemicError(f"{out}: evaluator ran {reported}, expected {want}")
+        raw = json.loads(out.read_text())
+        results = {"cleared": summary["cleared"], "died": summary["died"], "timeout": summary["timeout"],
+                   "episodes": raw["episodes"], "levels_cleared": raw["levels_cleared"],
+                   "kills_per_episode": raw["kills_per_episode"], "mean_score": raw["mean_score"],
+                   "per_level_clears": {str(lv): v["clear"] for lv, v in summary["per_level"].items()}}
+        eval_id = store.register_evaluation(con, run_id, attempt_id, self.status["game_version_id"], str(model),
+                                            model_sha, proto, role, c["evaluation.metric"],
+                                            c["evaluation.metric_version"], results, str(out))
+        store.add_artifact(con, "evaluation_raw", out, db.sha256_file(out), run_id=run_id, attempt_id=attempt_id,
+                           evaluation_id=eval_id)
+        from mlflow.entities import Metric
+
+        ts = int(time.time() * 1000)
+        client_for(self.uri).log_batch(ml_run, metrics=[
+            Metric(f"eval_{role}_s{seed}_{k}", float(results[k]), ts, int(step))
+            for k in ("cleared", "died", "timeout", "levels_cleared", "kills_per_episode")])
+        client_for(self.uri).set_tag(ml_run, f"exptrack.evaluation.{role}.{seed}", eval_id)
+        return results
+
+    # ----------------------------------------------------------- preflight
+    def preflight(self) -> dict:
+        """Readiness evidence, no performance inference: MLflow answers,
+        registration is idempotent, and per arm a two-update training (MLflow
+        on, attached to a dispatcher-created run in <experiment>-preflight)
+        saves a loadable model that the evaluator accepts. Reports seconds per
+        update for each network. Elapsed time counts against the cap."""
+        c, con = self.cfg, self.con()
+        self.acquire_runner_lock()
+        preflight(self.uri)
+        ids = self.register()
+        again = self.register()
+        if again != ids:
+            raise SystemicError("registration is not idempotent")
+        report = {"registered": ids, "mlflow": self.uri, "arms": {}}
+        client = client_for(self.uri)
+        exp_id = ensure_experiment(client, c["tracking.mlflow_experiment"] + "-preflight")
+        smoke_root = self.root / "preflight_smoke"
+        smoke_root.mkdir(exist_ok=True)
+        spent = 0.0
+        for arm in self.arm_order():
+            run_id = ids["runs"][self.job_id(arm, c["seeds.training"][c["design.phases"][0]][0])]
+            eff = store.reconstruct_run_config(con, run_id)
+            steps = eff["num_envs"] * eff["rollout_len"] * 2
+            smoke = {**eff, "total_steps": steps, "wall_minutes": 0.0}
+            d = smoke_root / arm
+            d.mkdir(exist_ok=True)
+            (d / "run_config.json").write_text(json.dumps(smoke, indent=1))
+            ml = client.create_run(exp_id, run_name=f"preflight-{arm}", tags={
+                "exptrack.run_id": run_id, "campaign": self.manifest["campaign_id"], "arm": arm, "preflight": "true"})
+            t0 = time.time()
+            tr = subprocess.run([self.python, str(self.snap / "scripts" / "train_ppo.py"), "--config",
+                                 str(d / "run_config.json"), "--run-dir", str(d), "--mlflow-tracking-uri", self.uri,
+                                 "--mlflow-run-id", ml.info.run_id, "--log-every", "1", "--no-tensorboard",
+                                 "--quiet"],
+                                env=self.env, capture_output=True, text=True, timeout=600)
+            train_s = time.time() - t0
+            summ = json.loads((d / "train_summary.json").read_text()) if (d / "train_summary.json").exists() else {}
+            run = client.get_run(ml.info.run_id)
+            ok = (tr.returncode == 0 and summ.get("updates") == 2 and run.info.status == "FINISHED"
+                  and "losses_policy_loss" in run.data.metrics)
+            t1 = time.time()
+            ev = subprocess.run([self.python, str(self.snap / "scripts" / "evaluate.py"), str(d / "model.pt"),
+                                 "--levels", c["evaluation.levels"], "--episodes", "1", "--max-steps",
+                                 str(c["evaluation.max_steps"]), "--frame-skip", str(c["evaluation.frame_skip"]),
+                                 "--obs", eff["obs"], "--seed", "1", "--lives", str(c["evaluation.lives"]),
+                                 "--action-selection", c["evaluation.action_selection"],
+                                 "--per-level-out", str(d / "eval_smoke.json")]
+                                + (["--control-obs"] if eff["control_obs"] else [])
+                                + (["--nearest-first"] if eff["nearest_first"] else []),
+                                env=self.env, capture_output=True, text=True, timeout=self.eval_hard)
+            eval_s = time.time() - t1
+            spent += train_s + eval_s
+            proto = json.loads((d / "eval_smoke.json").read_text())["protocol"] if ev.returncode == 0 else {}
+            report["arms"][arm] = {
+                "ok": ok and ev.returncode == 0 and proto.get("lives") == c["evaluation.lives"]
+                and proto.get("action_selection") == c["evaluation.action_selection"],
+                "parameter_count": json.loads(con.execute(
+                    "SELECT value_json FROM run_params WHERE run_id = ? AND key = 'network.parameter_count'",
+                    (run_id,)).fetchone()[0]),
+                "train_seconds_two_updates": round(train_s, 1),
+                "seconds_per_update": round(summ.get("seconds", float("nan")) / 2, 2),
+                "smoke_eval_seconds_99_episodes": round(eval_s, 1), "mlflow_run_id": ml.info.run_id,
+                "stderr_tail": tr.stderr[-300:] if tr.returncode else ""}
+        if self.status is None:
+            self.status = {"campaign": self.manifest["campaign_id"], "snapshot_commit": self.info["commit"],
+                           "manifest_sha256": self.info["manifest_sha256"], "created": iso(),
+                           "db": str(self.db_path), "mlflow_tracking_uri": self.uri, **ids,
+                           "jobs": {}, "parts": {}, "final_state": "pending"}
+        self.status["parts"]["preflight"] = {"elapsed_seconds": round(spent, 1)}
+        self.save()
+        report["preflight_core_minutes"] = round(spent / 60, 2)
+        report["ok"] = all(a["ok"] for a in report["arms"].values())
+        write_json_atomic(self.root / "preflight.json", report)
+        store.add_event(con, "campaign_preflight", report, experiment_id=ids["experiment_id"],
+                        revision_id=ids["revision_id"])
+        fcntl.flock(self._lock_file, fcntl.LOCK_UN)
+        return report
+
+    # --------------------------------------------------- selection and final
+    def dev_table(self) -> dict:
+        """arm -> {seed: mean development clears, ...} plus pooled ranking keys."""
+        c = self.cfg
+        table = {}
+        for arm in self.arm_order():
+            rows = [self.status["jobs"][self.job_id(arm, s)] for s in c["seeds.training"][c["design.phases"][0]]]
+            con = self.con()
+            clears, levels = [], []
+            for j in rows:
+                for r in con.execute("SELECT results_json FROM evaluations WHERE run_id = ? AND role = 'development' "
+                                     "AND checkpoint_sha256 = ?", (j["run_id"], j["model_sha256"])):
+                    res = json.loads(r["results_json"])
+                    clears.append(res["cleared"])
+                    levels.append(res["levels_cleared"])
+            n_expected = len(rows) * len(c["evaluation.seed_banks"]["development"])
+            if len(clears) != n_expected:
+                raise SystemicError(f"{arm}: {len(clears)} development evaluations, expected {n_expected}")
+            params = con.execute("SELECT value_json FROM run_params WHERE run_id = ? AND key = "
+                                 "'network.parameter_count'", (rows[0]["run_id"],)).fetchone()[0]
+            table[arm] = {"mean_cleared": sum(clears) / len(clears), "mean_levels_cleared": sum(levels) / len(levels),
+                          "parameter_count": json.loads(params), "clears": clears}
+        return table
+
+    def select_and_finalize(self) -> None:
+        c, con = self.cfg, self.con()
+        ref = c["design.reference_arm"]
+        sel_path = self.root / "selection.json"
+        if sel_path.exists():
+            selection = json.loads(sel_path.read_text())
+        else:
+            table = self.dev_table()
+            candidates = [a for a in self.arm_order() if a != ref]
+            ranked = sorted(candidates, key=lambda a: (-table[a]["mean_cleared"], -table[a]["mean_levels_cleared"],
+                                                       table[a]["parameter_count"], a))
+            seeds = c["seeds.training"][c["design.phases"][0]]
+            selection = {
+                "selected_arm": ranked[0], "reference_arm": ref, "ranking": ranked, "development": table,
+                "rule": c["selection.rule"], "tiebreak": c["ranking.tiebreak"], "frozen": iso(),
+                "checkpoints": {a: {str(s): self.status["jobs"][self.job_id(a, s)]["model_sha256"] for s in seeds}
+                                for a in (ranked[0], ref)},
+                "final_bank": c["evaluation.seed_banks"]["final"]}
+            write_json_atomic(sel_path, selection)
+            store.add_artifact(con, "selection", sel_path, db.sha256_file(sel_path),
+                               experiment_id=self.status["experiment_id"])
+            store.add_event(con, "selection_frozen", selection, experiment_id=self.status["experiment_id"],
+                            revision_id=self.status["revision_id"])
+            self.log(f"selection frozen: {ranked[0]} (development mean {table[ranked[0]]['mean_cleared']:.1f}); "
+                     f"opening final bank {c['evaluation.seed_banks']['final']}")
+        reason = self.fits(self.final_reservation(), self.final_reservation())
+        if reason and self.status.get("final_state") != "done":
+            self.log(f"final evaluation not run: {reason}")
+            return
+        seeds = c["seeds.training"][c["design.phases"][0]]
+        final = {}
+        for arm in (selection["selected_arm"], ref):
+            for s in seeds:
+                j = self.status["jobs"][self.job_id(arm, s)]
+                if j["model_sha256"] != selection["checkpoints"][arm][str(s)]:
+                    raise SystemicError(f"{arm} s{s}: checkpoint differs from the frozen selection")
+                eff = store.reconstruct_run_config(con, j["run_id"])
+                for fs in c["evaluation.seed_banks"]["final"]:
+                    out = Path(j["dir"]) / f"eval_final_{fs}.json"
+                    r = None
+                    for _ in range(2):  # one infrastructure retry
+                        r = self.evaluate(j["run_id"], j["attempt_id"], j["mlflow_run_id"], Path(j["dir"]) / "model.pt",
+                                          j["model_sha256"], eff, "final", fs, out, j["steps"])
+                        if r is not None:
+                            break
+                    if r is None:
+                        raise SystemicError(f"final evaluation {arm} s{s} {fs} failed twice")
+                    final[(arm, s, fs)] = r
+        with self.lock:
+            self.status["final_state"] = "done"
+            self.save()
+        self.results(selection, final)
+
+    def results(self, selection: dict, final: dict) -> None:
+        c, con = self.cfg, self.con()
+        sel, ref = selection["selected_arm"], selection["reference_arm"]
+        seeds = c["seeds.training"][c["design.phases"][0]]
+        fseeds = c["evaluation.seed_banks"]["final"]
+        pairs = {}
+        for s in seeds:
+            gain = sum(final[(sel, s, fs)]["cleared"] - final[(ref, s, fs)]["cleared"] for fs in fseeds) / len(fseeds)
+            pairs[str(s)] = gain
+        mean_gain = sum(pairs.values()) / len(pairs)
+        lo_mean, lo_each = c["acceptance.mean_paired_gain_min"], c["acceptance.each_paired_gain_min"]
+        accepted = (lo_mean is None or mean_gain >= lo_mean) and (lo_each is None or min(pairs.values()) >= lo_each)
+
+        def per_level(arm):
+            tot = {}
+            for s in seeds:
+                for fs in fseeds:
+                    for lv, n in final[(arm, s, fs)]["per_level_clears"].items():
+                        tot[lv] = tot.get(lv, 0) + n
+            return tot
+
+        n_ep = len(seeds) * len(fseeds) * c["evaluation.episodes_per_level"]
+        pl_sel, pl_ref = per_level(sel), per_level(ref)
+        out = {
+            "campaign": self.manifest["campaign_id"], "experiment_id": self.status["experiment_id"],
+            "revision_id": self.status["revision_id"], "selected_arm": sel, "reference_arm": ref,
+            "final_bank": fseeds, "paired_gain_per_training_seed": pairs, "mean_paired_gain": mean_gain,
+            "acceptance": {"mean_paired_gain_min": lo_mean, "each_paired_gain_min": lo_each, "met": accepted},
+            "final": {f"{a}_s{s}_e{fs}": {k: v for k, v in r.items() if k != "per_level_clears"}
+                      for (a, s, fs), r in final.items()},
+            "per_level_clears": {sel: pl_sel, ref: pl_ref, "episodes_per_level_pooled": n_ep},
+            "levels_gained": sorted((int(lv) for lv in pl_sel if pl_sel[lv] > pl_ref[lv])),
+            "levels_regressed": sorted((int(lv) for lv in pl_sel if pl_sel[lv] < pl_ref[lv])),
+            "levels_at_least_half": {sel: sum(v * 2 >= n_ep for v in pl_sel.values()),
+                                     ref: sum(v * 2 >= n_ep for v in pl_ref.values())},
+            "development": selection["development"],
+            "allocated_core_hours": self.spent() / 3600, "cap_core_hours": c["budget.aggregate_core_hours"],
+            "jobs": {k: {x: j.get(x) for x in ("arm", "seed", "steps", "updates", "train_seconds", "model_sha256",
+                                                "mlflow_run_id", "run_id", "attempts", "development")}
+                     for k, j in self.status["jobs"].items()},
+            "written": iso()}
+        path = self.root / "results.json"
+        write_json_atomic(path, out)
+        store.add_artifact(con, "results", path, db.sha256_file(path), experiment_id=self.status["experiment_id"])
+        store.add_event(con, "campaign_results", {k: out[k] for k in ("selected_arm", "paired_gain_per_training_seed",
+                                                                     "mean_paired_gain", "acceptance",
+                                                                     "allocated_core_hours")},
+                        experiment_id=self.status["experiment_id"], revision_id=self.status["revision_id"])
+        self.log(f"results: {sel} vs {ref} paired gains {pairs}, mean {mean_gain:+.1f}; acceptance "
+                 f"{'met' if accepted else 'not met'}; allocated {out['allocated_core_hours']:.2f} core-hours")
