@@ -1,0 +1,179 @@
+{
+ "campaign_id": "lowlr-1020",
+ "authorized": "CODEX-20261019T205252-0700 relaying the user's bedtime instruction (docs/experiment-direction-2026-10-19.md, 'Authorized overnight experiment round'); the user told Fable at ~21:03 to continue the work Codex assigns; continued loop: CODEX-20261019T205553-0700",
+ "change_note": "generated from entropy-1020 selection (ent0.0001) and acceptance (not met) by scripts/campaigns/make_round4_1020.py",
+ "game_description": "game package identical to the paired-1019-v3 snapshot (2aa2548), including the Baron-timer correction 63f0a72; unchanged in src/ since",
+ "seed_provenance": "training seeds 7601-7606 and evaluation seeds 86001/86002, 96001/96002 appear in no campaign manifest, config or run directory name in this repository (checked 2026-10-20 01:45)",
+ "derived_from": {
+  "entropy-1020 selection_frozen": "2026-10-20T03:35:54-07:00",
+  "selected_arm": "ent0.0001",
+  "acceptance_met": false
+ },
+ "experiment": {
+  "experiment.question": "Can a lower learning rate let a larger MLP (1024x2 at 0.0001 or 0.0003, 512x2 at 0.0003) reach or beat ff12 256x2 at one hour?",
+  "game.name": "2aa2548-baron-timer",
+  "game.source_hash": "67eaeefeb54af78652aa90ca7fe41046c987a69b5604512411b984cc786107af",
+  "game.source_commit": "2aa25480f32c003bc4b2d64167eb241c7f55d677",
+  "reference.name": "retained reference after entropy-1020: reference_mlp256x2",
+  "reference.config_sha256": "a8aaebb870a21dfa81ee38b258f70a5d01cabeae5a4f63149f0869eb95adca71",
+  "design.type": "paired_arms_with_selection",
+  "design.arms": {
+   "reference_mlp256x2": {},
+   "mlp1024x2_lr0.0001": {
+    "hidden": 1024,
+    "lr": 0.0001
+   },
+   "mlp512x2_lr0.0003": {
+    "hidden": 512,
+    "lr": 0.0003
+   },
+   "mlp1024x2_lr0.0003": {
+    "hidden": 1024,
+    "lr": 0.0003
+   }
+  },
+  "design.factors": {
+   "network.mlp.hidden x lr": [
+    "1024 x 0.0001",
+    "512 x 0.0003",
+    "1024 x 0.0003"
+   ],
+   "held_fixed": "every other ff12 setting (2 layers, tanh, ent_coef 0.0003, ...)"
+  },
+  "design.reference_arm": "reference_mlp256x2",
+  "design.phases": [
+   "main"
+  ],
+  "shared.training": {
+   "levels": "1-99",
+   "level_sampling": "uniform",
+   "hard_sampling_weight": 9.0,
+   "hard_sampling_window": 20,
+   "curriculum": 0.0,
+   "max_episode_frames": 3600,
+   "frame_skip": 4,
+   "lives": 1,
+   "random_start": false,
+   "grace_frames": 0,
+   "grace_anneal": 0.0,
+   "score_reward": false,
+   "score_scale": 0.01,
+   "pop_reward": true,
+   "clear_bonus": 10.0,
+   "kill_bonus": 2.0,
+   "capture_bonus": 0.1,
+   "death_penalty": 5.0,
+   "timeout_penalty": 4.0,
+   "time_penalty": 0.01,
+   "stationary_penalty": 0.005,
+   "stationary_window": 120,
+   "stationary_band": 32,
+   "explore_bonus": 0.0,
+   "explore_band": 8,
+   "obs": "ego",
+   "control_obs": true,
+   "nearest_first": false,
+   "gamma": 0.9990234375,
+   "gae_lambda": 0.95,
+   "bootstrap_truncation": false,
+   "num_envs": 16,
+   "rollout_len": 512,
+   "epochs": 2,
+   "minibatches": 4,
+   "clip": 0.1,
+   "ent_coef": 0.0003000000000000001,
+   "vf_coef": 0.5,
+   "norm_adv": true,
+   "max_grad_norm": 0.5,
+   "lr": 0.0010000000000000002,
+   "anneal_lr": false,
+   "adam_eps": 1e-05,
+   "adam_beta1": 0.9,
+   "adam_beta2": 0.999,
+   "arch": "mlp",
+   "hidden": 256,
+   "layers": 2,
+   "act": "tanh",
+   "init_hidden_gain": 1.4142135623730951,
+   "init_actor_gain": 0.01,
+   "init_critic_gain": 1.0,
+   "seed": 4201,
+   "init_model": null,
+   "fresh_optimizer": false,
+   "total_steps": 1000000000,
+   "max_minutes": 0.0,
+   "wall_minutes": 60.0,
+   "eval_every": 0,
+   "eval_episodes": 10,
+   "futility_steps": 0,
+   "save_every": 0
+  },
+  "seeds.training": {
+   "main": [
+    7601,
+    7602,
+    7603
+   ]
+  },
+  "seeds.allocation": "matched: every arm trains once on each training seed; pairs are formed by training seed",
+  "evaluation.levels": "1-99",
+  "evaluation.episodes_per_level": 10,
+  "evaluation.seed_banks": {
+   "development": [
+    86001,
+    86002
+   ],
+   "final": [
+    96001,
+    96002
+   ]
+  },
+  "evaluation.phase_roles": {
+   "main": [
+    "development",
+    "final"
+   ]
+  },
+  "evaluation.lives": 1,
+  "evaluation.max_steps": 900,
+  "evaluation.frame_skip": 4,
+  "evaluation.cap_frames": 3600,
+  "evaluation.action_selection": "sampled",
+  "evaluation.completion_definition": "the game's level-complete event fired during the episode (evaluate.classify_outcome 'clear'); deaths or timeouts in the countdown after the last kill are not clears",
+  "evaluation.metric": "completed clears per 990 episodes (99 levels x 10 episodes)",
+  "evaluation.metric_version": "clear-v2-2026-10-19 (level_complete event)",
+  "evaluation.aggregation": "mean over training seeds and the bank's evaluation seeds; paired gain = arm minus reference for the same training seed, averaged over the bank's evaluation seeds",
+  "evaluation.checkpoint": "endpoint model.pt (eval_every 0: no periodic test, no checkpoint selection)",
+  "search.procedure": "fixed design pre-registered before entropy-1020 results (make_round4_1020.py); adaptive across rounds, fixed within this round",
+  "search.order": [
+   "reference_mlp256x2",
+   "mlp1024x2_lr0.0001",
+   "mlp512x2_lr0.0003",
+   "mlp1024x2_lr0.0003"
+  ],
+  "budget.hardware": "local Apple M4 Pro CPU, one thread per job",
+  "budget.per_run_wall_minutes": {
+   "main": 60.0
+  },
+  "budget.aggregate_core_hours": 15.0,
+  "budget.includes_evaluation": true,
+  "budget.max_concurrent_jobs": 6,
+  "budget.threads_per_job": 1,
+  "budget.per_evaluation_hard_seconds": 90.0,
+  "budget.save_grace_seconds": 15.0,
+  "budget.hard_cutoff": "2026-10-20T08:00:00-07:00",
+  "stopping.rule": "fixed 60-minute deadline-aware wall limit per job counted from launch (total_steps 1e9 never binds); no early or futility stopping; larger networks need not reach equal step counts",
+  "ranking.metric": "mean development clears over the three training seeds and two development seeds (non-reference arms only)",
+  "ranking.tiebreak": [
+   "mean levels cleared at least once on the development bank",
+   "smaller parameter count",
+   "arm id"
+  ],
+  "selection.rule": "the top-ranked non-reference arm is frozen, with its three endpoint checkpoint hashes and the reference's three, before the final bank is opened; no candidate switching or retuning on the final bank",
+  "acceptance.mean_paired_gain_min": 30.0,
+  "acceptance.each_paired_gain_min": 0.0,
+  "tracking.mlflow_uri": "http://127.0.0.1:5000",
+  "tracking.mlflow_experiment": "lowlr-1020",
+  "tracking.required": true
+ }
+}
