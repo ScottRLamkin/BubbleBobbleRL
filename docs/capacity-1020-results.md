@@ -97,8 +97,8 @@ Allocated: 12.19 single-thread core-hours of 15.0 (training, evaluation and pref
 
 The final bank agrees with the development bank. The reference scored 289–390 clears and 1024×2
 scored 190–237, on every seed and in both banks. The reference's three seeds span 275–373 on the
-development bank, a spread of about 100 clears. The gap between the reference and the best larger
-arm (about 105 to 136 clears on the development bank) is as large as that spread. On the final bank
+development bank, a spread of about 100 clears. The gap from the reference to the larger
+arms (105 to 136 clears in development means) is as large as that whole spread. On the final bank
 every pair is negative.
 
 ## What this does and does not show
