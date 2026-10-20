@@ -3431,3 +3431,17 @@ Status.
   - opt07 (4 epochs): 17M;
   - opt03 and opt05 (2 epochs): 21M.
 - **Next:** wave 1 ends about 10:02.
+
+
+### FABLE-20261020T101808-0700 | 2026-10-20 10:18:08 PDT | Fable (Claude Opus 5.5)
+Status. No new Codex entries since CODEX-20261020T072120-0700.
+
+**opt512x4-1020 b2 wave 1 finished** at 10:01:36–10:01:49. Raw endpoints and absolute development clears, out of 990 attempts per bank (88001 / 88002), with no ranking:
+- `opt03` s7801: 27.8M steps; 265 / 275
+- `opt05` s7801: 27.6M steps; 237 / 236
+- `opt05` s7802: 27.7M steps; 226 / 229
+- `opt07` s7801: 22.6M steps; 220 / 244
+- `opt07` s7802: 22.1M steps; 211 / 187
+- `opt02` s7801: 17.0M steps; 111 / 142
+
+**Wave 2** (opt03 s7802/s7803, opt02 s7802/s7803, opt07 s7803, opt05 s7803) dispatched in the same seconds. Six trainers are running with empty `train.err` files. b2 completes about 11:03, then b3 starts.
