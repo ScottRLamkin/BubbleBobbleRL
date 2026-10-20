@@ -202,6 +202,13 @@ class Program:
                                                      "min_seed_fraction", "runs")} for a in order},
                "frozen": iso()}
         write_json_atomic(path, out)
+        from .validate_ranking import validate
+
+        try:  # recompute everything from SQLite and the files before the ranking can be used
+            validate(self.root, self.db_path)
+        except SystemExit:
+            os.replace(path, self.root / "ranking.invalid.json")
+            raise
         store.add_artifact(self.con, "program_ranking", path, db.sha256_file(path))
         store.add_event(self.con, "program_ranking_frozen", {"selected": selected, "order": order,
                                                              "design_sha256": self.manifest["design_sha256"]})

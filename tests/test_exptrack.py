@@ -736,3 +736,32 @@ def test_program_budget_counts_preflight_inside_batch_caps(tmp_path):
     assert pr.check_budget(b1) is None
     (broot / "status.json").write_text(json.dumps({"jobs": {}, "parts": {"x": {"elapsed_seconds": 3700.0}}}))
     assert pr.check_budget(b1) is not None  # a batch that already overspent its cap is counted at its spend
+
+
+def test_ranking_validation_recomputes_from_sqlite(tmp_path):
+    """The ranking boundary: a complete program validates; a tampered ranking or
+    endpoint is refused."""
+    from exptrack.program import Program
+    from exptrack.validate_ranking import validate
+    from train_ppo import mlflow_tracking_uri
+
+    root = tmp_path / "tinyprog"
+    _fake_program(root, mlflow_tracking_uri())
+    dbp = tmp_path / "p.sqlite3"
+    Program(root, dbp, require_snapshot_code=False).run()
+    ok = validate(root, dbp)
+    assert ok["ok"] and ok["arms"] == 4 and all(t.endswith("/99") for t in ok["totals"].values())
+    rp = root / "ranking.json"
+    good = rp.read_text()
+    bad = json.loads(good)
+    bad["order"] = list(reversed(bad["order"]))
+    rp.write_text(json.dumps(bad))
+    with pytest.raises(SystemExit):
+        validate(root, dbp)
+    rp.write_text(good)
+    st = root / "tinyprog-b1" / "status.json"
+    s = json.loads(st.read_text())
+    s["jobs"]["ref_s11"]["model_sha256"] = "0" * 64
+    st.write_text(json.dumps(s))
+    with pytest.raises(SystemExit):
+        validate(root, dbp)

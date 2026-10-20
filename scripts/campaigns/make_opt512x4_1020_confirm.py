@@ -87,6 +87,9 @@ def build(ranking: dict, ranking_sha256: str) -> dict:
 
 
 def main() -> None:
+    from exptrack.validate_ranking import validate
+
+    print(json.dumps(validate(REPO / "runs" / "opt512x4-1020-r2", REPO / "experiments.sqlite3")))
     rpath = REPO / "runs" / "opt512x4-1020-r2" / "ranking.json"
     manifest = build(json.loads(rpath.read_text()), sha256_file(rpath))
     out = REPO / "scripts" / "campaigns" / "opt512x4_1020_confirm.json"
